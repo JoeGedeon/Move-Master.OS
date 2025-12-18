@@ -2,114 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Move Masters OS</title>
+    <title>MoveMaster OS - Full Enterprise Dashboard</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; padding-top: 50px; margin: 0; }
-        .card { background: white; color: #1e293b; padding: 2rem; border-radius: 1.5rem; text-align: center; border-top: 8px solid #f97316; width: 250px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .status-badge { background: #fef3c7; color: #b45309; padding: 0.5rem 1rem; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
-        h1 { font-size: 1.5rem; margin: 10px 0; color: #0f172a; }
+        :root { --sidebar-bg: #1a1f2b; --primary: #f97316; --bg-light: #f8fafc; --text-muted: #94a3b8; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-light); overflow: hidden; }
+        
+        /* FULL HIGH-FIDELITY SIDEBAR */
+        .sidebar { width: 260px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+        .logo-section { padding: 0 20px 30px; display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--primary); font-size: 1.2rem; }
+        .menu-label { padding: 0 25px; font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 1px; }
+        .nav-item { padding: 12px 25px; color: #cbd5e1; text-decoration: none; display: flex; align-items: center; gap: 15px; font-size: 0.9rem; transition: 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { border-left: 4px solid var(--primary); background: rgba(249, 115, 22, 0.1); color: var(--primary); }
+
+        /* USER PROFILE SECTION */
+        .user-profile { margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 35px; height: 35px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+
+        /* DASHBOARD CONTENT */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .stat-val { font-size: 1.8rem; font-weight: 800; margin-top: 5px; }
+        .ledger-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; background: #f8fafc; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; cursor: pointer; }
     </style>
 </head>
 <body>
-        <div style="display: flex; min-height: 100vh; background-color: #f8fafc;">
-        <div style="width: 260px; background-color: #0f172a; color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-            <h2 style="color: #f97316; font-size: 1.2rem; margin-bottom: 30px;">🚚 MoveMaster</h2>
-            <div style="padding: 12px; background: #1e293b; border-radius: 8px; cursor: pointer; font-weight: bold;">📊 Dashboard</div>
-            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">👥 CRM Leads</div>
-            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">📅 Schedule</div>
-            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">📋 Invoices</div>
-            <div style="margin-top: auto; padding: 12px; border-top: 1px solid #334155; color: #94a3b8; font-size: 0.9rem;">👤 Joe Gedeon (Admin)</div>
-        </div>
 
-        <div style="flex: 1; padding: 40px; overflow-y: auto;">
-            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                <div>
-                    <h1 style="color: #0f172a; margin: 0; font-size: 1.8rem;">Dashboard Overview</h1>
-                    <p style="color: #64748b; margin: 5px 0 0 0;">Welcome back, MoveMaster OS is ready.</p>
-                </div>
-                <button style="background: #f97316; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(249, 115, 22, 0.2);">+ New Estimate</button>
-            </header>
+    <div class="sidebar">
+        <div class="logo-section">🚚 MOVE MASTERS</div>
+        
+        <div class="menu-label">Main Menu</div>
+        <a href="index.html" class="nav-item active">📊 Dashboard</a>
+        <a href="#" class="nav-item">👥 Leads Pipeline</a>
+        <a href="#" class="nav-item">➕ New Lead</a>
+        <a href="calendar.html" class="nav-item">🗓️ Schedule / Calendar</a>
+        <a href="completion.html" class="nav-item">🧮 Estimates</a>
+        <a href="#" class="nav-item">📦 Active Jobs</a>
+        <a href="#" class="nav-item">🚛 Trucks & Fleet</a>
+        <a href="#" class="nav-item">📂 Inventory</a>
 
-            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
-                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #f97316; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">System Status</p>
-                    <h2 style="margin: 5px 0 0 0; color: #0f172a;">Online</h2>
-                </div>
-                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">Est. Revenue</p>
-                    <h2 style="margin: 5px 0 0 0; color: #10b981;">$12,450</h2>
-                </div>
-                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">Active Jobs</p>
-                    <h2 style="margin: 5px 0 0 0; color: #3b82f6;">8</h2>
-                </div>
-            </div>
-
-            <div style="background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; color: white;">
-                <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: #f97316;">+ Quick Add New Lead</h3>
-                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <input type="text" id="custName" placeholder="Customer Name" style="flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 6px; color: white;">
-                    <select id="moveType" style="flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 6px; color: white;">
-                        <option>Small Apartment</option>
-                        <option>Large House</option>
-                        <option>Office Move</option>
-                    </select>
-                    <button id="addLeadBtn" style="background: #f97316; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">Add Lead</button>
-                </div>
-            </div>
-
-            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 20px 0; color: #0f172a;">Recent Traffic</h3>
-                <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 0.85rem;">
-                            <th style="padding: 12px;">CUSTOMER</th>
-                            <th style="padding: 12px;">MOVE TYPE</th>
-                            <th style="padding: 12px;">STATUS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leadTableBody">
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 12px; font-weight: bold;">Joe Gedeon</td>
-                            <td style="padding: 12px;">Large House</td>
-                            <td><span style="color: #10b981; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">BOOKED</span></td>
-                        </tr>
-                    </tbody>
-                </table>
+        <div class="user-profile">
+            <div class="avatar">JD</div>
+            <div>
+                <div style="font-size: 0.8rem; font-weight: bold;">John Doe</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Administrator</div>
             </div>
         </div>
     </div>
 
+    <div class="main-content">
+        <h1>Command Center</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card"><div>Pending Valuation</div><div id="fin-pending" class="stat-val">$0</div></div>
+            <div class="stat-card"><div>Collected Revenue</div><div id="fin-collected" class="stat-val">$0</div></div>
+            <div class="stat-card"><div>Total Jobs</div><div id="job-count" class="stat-val">0</div></div>
+        </div>
+
+        <div style="background: white; padding: 25px; border-radius: 12px; margin-bottom: 30px;">
+            <h3 style="margin-top:0;">Quick Job Registry</h3>
+            <div style="display:flex; gap:15px;">
+                <input type="text" id="eN" placeholder="Customer Name" style="padding:12px; border:1px solid #ddd; border-radius:8px; flex:2;">
+                <input type="date" id="eD" style="padding:12px; border:1px solid #ddd; border-radius:8px; flex:1;">
+                <button onclick="saveLead()" style="background:var(--primary); color:white; border:none; padding:12px 25px; border-radius:8px; font-weight:bold; cursor:pointer;">Register Job</button>
+            </div>
+        </div>
+
+        <div class="ledger-container">
+            <h3>Operational Ledger</h3>
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Job ID</th><th>Customer</th><th>Valuation</th><th>Status</th></tr>
+                </thead>
+                <tbody id="tb-dash"></tbody>
+            </table>
+        </div>
+    </div>
+
     <script>
-        const addBtn = document.getElementById('addLeadBtn');
-        const tableBody = document.getElementById('leadTableBody');
-        const nameInput = document.getElementById('custName');
-        const typeSelect = document.getElementById('moveType');
+        let db = JSON.parse(localStorage.getItem('mm_enterprise_db')) || [];
 
-        addBtn.addEventListener('click', () => {
-            const name = nameInput.value;
-            const moveType = typeSelect.value;
+        function render() {
+            const tb = document.getElementById('tb-dash');
+            tb.innerHTML = '';
+            let p = 0, c = 0;
 
-            if (name.trim() === "") {
-                alert("Please enter a name!");
-                return;
-            }
+            db.forEach((l, i) => {
+                let val = (parseFloat(l.av) || 403) * 3;
+                if(l.s === 'PENDING') p += val; else c += val;
 
-            const newRow = document.createElement('tr');
-            newRow.style.borderBottom = "1px solid #f1f5f9";
-            newRow.innerHTML = `
-                <td style="padding: 12px; font-weight: bold;">${name}</td>
-                <td style="padding: 12px;">${moveType}</td>
-                <td><span style="color: #f59e0b; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">PENDING</span></td>
-            `;
+                tb.innerHTML += `<tr onclick="window.location.href='completion.html?id=${i}'">
+                    <td>${l.date}</td>
+                    <td><b style="color:var(--primary)">${l.id}</b></td>
+                    <td>${l.n}</td>
+                    <td>$${val.toFixed(2)}</td>
+                    <td><span style="background:#fff3e0; color:#e65100; padding:4px 8px; border-radius:12px; font-size:0.7rem;">${l.s}</span></td>
+                </tr>`;
+            });
 
-            tableBody.prepend(newRow);
-            nameInput.value = "";
-        });
+            document.getElementById('fin-pending').innerText = '$' + p.toLocaleString();
+            document.getElementById('fin-collected').innerText = '$' + c.toLocaleString();
+            document.getElementById('job-count').innerText = db.length;
+        }
+
+        function saveLead() {
+            const name = document.getElementById('eN').value;
+            const date = document.getElementById('eD').value;
+            if(!name || !date) return alert("Fill Name/Date");
+            const newID = 'MM-' + Math.floor(10000 + Math.random() * 90000);
+            db.push({ id: newID, n: name, date: date, s: 'PENDING', ev: 403, av: 0 });
+            localStorage.setItem('mm_enterprise_db', JSON.stringify(db));
+            render();
+            document.getElementById('eN').value = '';
+        }
+
+        window.onload = render;
     </script>
-
-   
-
 </body>
 </html>
