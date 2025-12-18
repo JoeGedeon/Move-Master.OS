@@ -12,106 +12,104 @@
     </style>
 </head>
 <body>
-    <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
-        
-        <div class="card">
-            <div class="status-badge">System Online</div>
-            <h1>Move Masters</h1>
-            <p style="font-size: 0.9rem;">Logistics platform ready.</p>
+        <div style="display: flex; min-height: 100vh; background-color: #f8fafc;">
+        <div style="width: 260px; background-color: #0f172a; color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <h2 style="color: #f97316; font-size: 1.2rem; margin-bottom: 30px;">🚚 MoveMaster</h2>
+            <div style="padding: 12px; background: #1e293b; border-radius: 8px; cursor: pointer; font-weight: bold;">📊 Dashboard</div>
+            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">👥 CRM Leads</div>
+            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">📅 Schedule</div>
+            <div style="padding: 12px; border-radius: 8px; cursor: pointer; color: #94a3b8;">📋 Invoices</div>
+            <div style="margin-top: auto; padding: 12px; border-top: 1px solid #334155; color: #94a3b8; font-size: 0.9rem;">👤 Joe Gedeon (Admin)</div>
         </div>
 
-        <div class="card" style="border-top-color: #10b981;">
-            <p style="text-transform: uppercase; font-size: 0.7rem; font-weight: bold; color: #64748b;">Total Revenue</p>
-            <h2 style="color: #10b981; margin: 0; font-size: 2.2rem;">$12,450</h2>
-        </div>
+        <div style="flex: 1; padding: 40px; overflow-y: auto;">
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <div>
+                    <h1 style="color: #0f172a; margin: 0; font-size: 1.8rem;">Dashboard Overview</h1>
+                    <p style="color: #64748b; margin: 5px 0 0 0;">Welcome back, MoveMaster OS is ready.</p>
+                </div>
+                <button style="background: #f97316; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(249, 115, 22, 0.2);">+ New Estimate</button>
+            </header>
 
-        <div class="card" style="border-top-color: #3b82f6;">
-            <p style="text-transform: uppercase; font-size: 0.7rem; font-weight: bold; color: #64748b;">Active Jobs</p>
-            <h2 style="color: #3b82f6; margin: 0; font-size: 2.2rem;">8</h2>
-        </div>
-
-            <div style="width: 80%; max-width: 800px; margin-top: 40px; background: white; padding: 20px; border-radius: 1rem; color: #1e293b;">
-        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">Recent Leads</h3>
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-            <thead>
-                <tr style="color: #64748b; border-bottom: 1px solid #f1f5f9;">
-                    <th style="padding: 10px 5px;">Customer</th>
-                    <th style="padding: 10px 5px;">Move Type</th>
-                    <th style="padding: 10px 5px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 10px 5px; font-weight: bold;">Sarah Connor</td>
-                    <td style="padding: 10px 5px;">3-Bedroom House</td>
-                    <td style="padding: 10px 5px;"><span style="color: #f59e0b; background: #fffbeb; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">PENDING</span></td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px 5px; font-weight: bold;">Kyle Reese</td>
-                    <td style="padding: 10px 5px;">Studio Apartment</td>
-                    <td style="padding: 10px 5px;"><span style="color: #10b981; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">BOOKED</span></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-        <div style="width: 80%; max-width: 800px; margin-top: 30px; background: #1e293b; padding: 20px; border-radius: 1rem; color: white; border: 1px solid #334155;">
-        <h3 style="margin-top: 0; font-size: 1rem; color: #f97316;">+ Quick Add New Lead</h3>
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
-            <div style="flex: 1; min-width: 200px;">
-                <label style="display: block; font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">Customer Name</label>
-                <input type="text" placeholder="e.g. John Doe" style="width: 100%; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 8px; color: white;">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
+                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #f97316; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">System Status</p>
+                    <h2 style="margin: 5px 0 0 0; color: #0f172a;">Online</h2>
+                </div>
+                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">Est. Revenue</p>
+                    <h2 style="margin: 5px 0 0 0; color: #10b981;">$12,450</h2>
+                </div>
+                <div style="flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 12px; border-top: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="text-transform: uppercase; font-size: 0.7rem; color: #64748b; font-weight: bold;">Active Jobs</p>
+                    <h2 style="margin: 5px 0 0 0; color: #3b82f6;">8</h2>
+                </div>
             </div>
-            <div style="flex: 1; min-width: 200px;">
-                <label style="display: block; font-size: 0.7rem; color: #94a3b8; margin-bottom: 5px;">Move Type</label>
-                <select style="width: 100%; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 8px; color: white;">
-                    <option>Small Apartment</option>
-                    <option>Large House</option>
-                    <option>Office Move</option>
-                </select>
+
+            <div style="background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 30px; color: white;">
+                <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: #f97316;">+ Quick Add New Lead</h3>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <input type="text" id="custName" placeholder="Customer Name" style="flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 6px; color: white;">
+                    <select id="moveType" style="flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 6px; color: white;">
+                        <option>Small Apartment</option>
+                        <option>Large House</option>
+                        <option>Office Move</option>
+                    </select>
+                    <button id="addLeadBtn" style="background: #f97316; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">Add Lead</button>
+                </div>
             </div>
-            <button style="background: #f97316; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Add Lead</button>
+
+            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 20px 0; color: #0f172a;">Recent Traffic</h3>
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 0.85rem;">
+                            <th style="padding: 12px;">CUSTOMER</th>
+                            <th style="padding: 12px;">MOVE TYPE</th>
+                            <th style="padding: 12px;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadTableBody">
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 12px; font-weight: bold;">Joe Gedeon</td>
+                            <td style="padding: 12px;">Large House</td>
+                            <td><span style="color: #10b981; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">BOOKED</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
+    <script>
+        const addBtn = document.getElementById('addLeadBtn');
+        const tableBody = document.getElementById('leadTableBody');
+        const nameInput = document.getElementById('custName');
+        const typeSelect = document.getElementById('moveType');
 
-
-    </div>
-
-        <script>
-        // Find the button and the table in the code
-        const addBtn = document.querySelector('button');
-        const tableBody = document.querySelector('tbody');
-        const nameInput = document.querySelector('input[type="text"]');
-        const typeSelect = document.querySelector('select');
-
-        // This runs when you click the "Add Lead" button
         addBtn.addEventListener('click', () => {
             const name = nameInput.value;
             const moveType = typeSelect.value;
 
             if (name.trim() === "") {
-                alert("Please enter a customer name!");
+                alert("Please enter a name!");
                 return;
             }
 
-            // Create a new row for the table
             const newRow = document.createElement('tr');
             newRow.style.borderBottom = "1px solid #f1f5f9";
-            
             newRow.innerHTML = `
-                <td style="padding: 10px 5px; font-weight: bold;">${name}</td>
-                <td style="padding: 10px 5px;">${moveType}</td>
-                <td style="padding: 10px 5px;"><span style="color: #f59e0b; background: #fffbeb; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">PENDING</span></td>
+                <td style="padding: 12px; font-weight: bold;">${name}</td>
+                <td style="padding: 12px;">${moveType}</td>
+                <td><span style="color: #f59e0b; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">PENDING</span></td>
             `;
 
-            // Add the row to the top of the list
             tableBody.prepend(newRow);
-
-            // Clear the input box for the next lead
             nameInput.value = "";
         });
     </script>
+
+   
 
 </body>
 </html>
