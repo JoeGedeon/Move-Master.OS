@@ -1,48 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoveMaster OS - Command Center</title>
-    <style>
-        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; }
-        .sidebar { width: 250px; background: #1a1a2e; color: white; height: 100vh; padding: 20px; }
-        .main { flex: 1; padding: 40px; }
-        .card-container { display: flex; gap: 20px; flex-wrap: wrap; }
-        .metric-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #e67e22; min-width: 200px; }
-        .nav-item { display: block; color: #bdc3c7; text-decoration: none; padding: 10px 0; }
-        .nav-item:hover { color: white; }
-    </style>
+<title>Reset</title>
 </head>
 <body>
-    <nav class="sidebar">
-        <h2>MOVEMASTERS</h2>
-        <a href="index.html" class="nav-item">Intelligence Console</a>
-        <a href="fleet.html" class="nav-item">Trucks & Fleet</a>
-        <a href="completion.html" class="nav-item">Job Completion</a>
-    </nav>
-    <div class="main">
-        <h1>Command Center</h1>
-        <div class="card-container">
-            <div class="metric-card">
-                <h3>Total Jobs</h3>
-                <h2 id="jobCount">0</h2>
-            </div>
-            <div class="metric-card" style="border-left-color: #3498db;">
-                <h3>Active Trucks</h3>
-                <h2 id="truckCount">0</h2>
-            </div>
-        </div>
-    </div>
-    <script>
-        function updateDashboard() {
-            const fleet = JSON.parse(localStorage.getItem('mm_fleet') || '[]');
-            const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db') || '[]');
-            
-            document.getElementById('truckCount').innerText = fleet.length;
-            document.getElementById('jobCount').innerText = jobs.length;
-        }
-        window.onload = updateDashboard;
-    </script>
+<h1>Dashboard Fix in Progress</h1>
+<a href="fleet.html">Go to Fleet</a>
 </body>
 </html>
