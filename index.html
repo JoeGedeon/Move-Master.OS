@@ -77,5 +77,41 @@
 
 
     </div>
+
+        <script>
+        // Find the button and the table in the code
+        const addBtn = document.querySelector('button');
+        const tableBody = document.querySelector('tbody');
+        const nameInput = document.querySelector('input[type="text"]');
+        const typeSelect = document.querySelector('select');
+
+        // This runs when you click the "Add Lead" button
+        addBtn.addEventListener('click', () => {
+            const name = nameInput.value;
+            const moveType = typeSelect.value;
+
+            if (name.trim() === "") {
+                alert("Please enter a customer name!");
+                return;
+            }
+
+            // Create a new row for the table
+            const newRow = document.createElement('tr');
+            newRow.style.borderBottom = "1px solid #f1f5f9";
+            
+            newRow.innerHTML = `
+                <td style="padding: 10px 5px; font-weight: bold;">${name}</td>
+                <td style="padding: 10px 5px;">${moveType}</td>
+                <td style="padding: 10px 5px;"><span style="color: #f59e0b; background: #fffbeb; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">PENDING</span></td>
+            `;
+
+            // Add the row to the top of the list
+            tableBody.prepend(newRow);
+
+            // Clear the input box for the next lead
+            nameInput.value = "";
+        });
+    </script>
+
 </body>
 </html>
