@@ -1,10 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=dashboard.html">
-    <title>Redirecting</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveMaster OS - Command Center</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; }
+        .sidebar { width: 220px; background: #1a1a2e; color: white; height: 100vh; padding: 20px; position: fixed; }
+        .main { margin-left: 260px; padding: 40px; flex: 1; }
+        .card-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .metric-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #e67e22; min-width: 180px; }
+        .nav-item { display: block; color: #bdc3c7; text-decoration: none; padding: 12px 0; border-bottom: 1px solid #2c3e50; }
+        .nav-item:hover { color: white; background: #2c3e50; }
+    </style>
 </head>
 <body>
-    <p>Loading MoveMaster Dashboard... <a href="dashboard.html">Click here</a></p>
+    <nav class="sidebar">
+        <h2 style="color: #e67e22;">MOVEMASTERS</h2>
+        <a href="index.html" class="nav-item">Intelligence Console</a>
+        <a href="fleet.html" class="nav-item">Trucks & Fleet</a>
+        <a href="completion.html" class="nav-item">Job Completion</a>
+    </nav>
+    <div class="main">
+        <h1>Intelligence Console</h1>
+        <div class="card-container">
+            <div class="metric-card">
+                <h3>Total Jobs</h3>
+                <h2 id="jobCount">0</h2>
+            </div>
+            <div class="metric-card" style="border-left-color: #3498db;">
+                <h3>Active Trucks</h3>
+                <h2 id="truckCount">0</h2>
+            </div>
+        </div>
+    </div>
+    <script>
+        function updateDashboard() {
+            try {
+                const fleet = JSON.parse(localStorage.getItem('mm_fleet') || '[]');
+                const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db') || '[]');
+                document.getElementById('truckCount').innerText = fleet.length;
+                document.getElementById('jobCount').innerText = jobs.length;
+            } catch (e) { console.error("Update Error:", e); }
+        }
+        window.onload = updateDashboard;
+    </script>
 </body>
 </html>
