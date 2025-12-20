@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MoveMaster OS - Estimates</title>
+    <style>
+        :root { --sidebar-bg: #1a1a2e; --accent: #e67e22; --text-muted: #bdc3c7; }
+        body { font-family: sans-serif; background: #e0e5ec; margin: 0; display: flex; }
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: white; height: 100vh; padding: 20px; position: fixed; overflow-y: auto; }
+        .sidebar h2 { color: var(--accent); font-size: 1.2rem; margin-bottom: 25px; }
+        .nav-item { display: block; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-radius: 5px; margin-bottom: 5px; }
+        .nav-item.active { border-left: 4px solid var(--accent); background: #2c3e50; color: white; }
+        .main { margin-left: 280px; padding: 40px; flex: 1; width: calc(100% - 280px); }
+        .estimate-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); max-width: 600px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .total-display { background: #1a1a2e; color: white; padding: 20px; border-radius: 8px; text-align: center; font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <h2>🚚 MOVE MASTERS</h2>
+        <a href="index.html" class="nav-item">📊 Dashboard</a>
+        <a href="leads.html" class="nav-item">👥 Leads Pipeline</a>
+        <a href="calendar.html" class="nav-item">📅 Schedule / Calendar</a>
+        <a href="estimates.html" class="nav-item active">📋 Estimates</a>
+        <a href="fleet.html" class="nav-item">🚛 Trucks & Fleet</a>
+        <a href="completion.html" class="nav-item">✅ Job Completion</a>
+    </nav>
+
+    <div class="main">
+        <h1>Move Estimate Generator</h1>
+        <div class="estimate-card">
+            <h3>Quick Quote</h3>
+            <input type="text" id="estCustomer" placeholder="Customer Name">
+            <input type="number" id="laborHours" placeholder="Estimated Labor Hours" oninput="calculate()">
+            <input type="number" id="truckFee" placeholder="Flat Truck Fee ($)" oninput="calculate()">
+            <div class="total-display">Estimate: $<span id="estTotal">0.00</span></div>
+            <button onclick="saveEstimate()" style="background:#2ecc71; color:white;">💾 Save Estimate</button>
+            <button onclick="window.print()" style="margin-top:10px; background:#3498db; color:white;">🖨️ Print Quote</button>
+        </div>
+
+        <div id="estimateHistory" style="margin-top:30px;">
+            <h3>Saved Estimates</h3>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            const hours = parseFloat(document.getElementById('laborHours').value) || 0;
+            const truck = parseFloat(document.getElementById('truckFee').value) || 0;
+            const total = (hours * 150) + truck;
+            document.getElementById('estTotal').innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2});
+        }
+
+        function saveEstimate() {
+            const name = document.getElementById('estCustomer').value;
+            const total = document.getElementById('estTotal').innerText;
+            if(!name) { alert("Please enter a customer name"); return; }
+
+            const history = JSON.parse(localStorage.getItem('mm_estimates_history') || '[]');
+            history.push({ name, total, date: new Date().toLocaleDateString() });
+            localStorage.setItem('mm_estimates_history', JSON.stringify(history));
+            
+            alert("Estimate saved!");
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            const history = JSON.parse(localStorage.getItem('mm_estimates_history') || '[]');
+            
+            if (history.length === 0) {
+                container.innerHTML = "<p style='color:#888;'>No saved quotes yet.</p>";
+                return;
+            }
+
+            container.innerHTML = history.map(h => `
+                <div style="background:white; padding:15px; border-radius:8px; margin-bottom:10px; border-left: 5px solid #2ecc71; display:flex; justify-content:space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <span><strong>${h.name}</strong> - ${h.date}</span>
+                    <span style="font-weight:bold;">$${h.total}</span>
+                </div>
+            `).join('');
+        }
+        
+        window.onload = renderHistory;
+    </script>
+</body>
+</html>

@@ -2,28 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoveMaster OS - Command Center</title>
+    <title>MoveMaster OS - Intelligence Console</title>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; }
-        .sidebar { width: 220px; background: #1a1a2e; color: white; height: 100vh; padding: 20px; position: fixed; }
-        .main { margin-left: 260px; padding: 40px; flex: 1; }
-        .card-container { display: flex; gap: 20px; flex-wrap: wrap; }
-        .metric-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #e67e22; min-width: 180px; }
-        .nav-item { display: block; color: #bdc3c7; text-decoration: none; padding: 12px 0; border-bottom: 1px solid #2c3e50; }
+        :root { --sidebar-bg: #1a1a2e; --accent: #e67e22; --text-muted: #bdc3c7; }
+        body { font-family: sans-serif; background: #e0e5ec; margin: 0; display: flex; }
+        
+        /* Sidebar */
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: white; height: 100vh; padding: 20px; position: fixed; overflow-y: auto; z-index: 1000; }
+        .sidebar h2 { color: var(--accent); font-size: 1.2rem; margin-bottom: 25px; }
+        .nav-item { display: block; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-radius: 5px; margin-bottom: 5px; }
         .nav-item:hover { color: white; background: #2c3e50; }
+        .nav-item.active { border-left: 4px solid var(--accent); background: #2c3e50; color: white; }
+
+        /* Main */
+        .main { margin-left: 280px; padding: 40px; flex: 1; width: calc(100% - 280px); min-height: 100vh; }
+        .metric-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid var(--accent); min-width: 220px; }
     </style>
 </head>
 <body>
     <nav class="sidebar">
-        <h2 style="color: #e67e22;">MOVEMASTERS</h2>
-        <a href="index.html" class="nav-item">Intelligence Console</a>
-        <a href="fleet.html" class="nav-item">Trucks & Fleet</a>
-        <a href="completion.html" class="nav-item">Job Completion</a>
+        <h2>🚚 MOVE MASTERS</h2>
+        <a href="index.html" class="nav-item active">📊 Dashboard</a>
+        <a href="leads.html" class="nav-item">👥 Leads Pipeline</a>
+        <a href="calendar.html" class="nav-item">📅 Schedule / Calendar</a>
+        <a href="estimates.html" class="nav-item">📋 Estimates</a>
+        <a href="fleet.html" class="nav-item">🚛 Trucks & Fleet</a>
+        <a href="completion.html" class="nav-item">✅ Job Completion</a>
     </nav>
+
     <div class="main">
         <h1>Intelligence Console</h1>
-        <div class="card-container">
+        <div style="display:flex; gap:20px; flex-wrap: wrap;">
             <div class="metric-card">
                 <h3>Total Jobs</h3>
                 <h2 id="jobCount">0</h2>
@@ -33,16 +42,33 @@
                 <h2 id="truckCount">0</h2>
             </div>
         </div>
+        <button onclick="clearData()" style="margin-top: 50px; background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; opacity: 0.5;">Clear App Cache (Reset)</button>
     </div>
+
     <script>
         function updateDashboard() {
             try {
-                const fleet = JSON.parse(localStorage.getItem('mm_fleet') || '[]');
-                const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db') || '[]');
-                document.getElementById('truckCount').innerText = fleet.length;
-                document.getElementById('jobCount').innerText = jobs.length;
-            } catch (e) { console.error("Update Error:", e); }
+                // Safeguard against null or corrupted data
+                const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db')) || [];
+                const fleet = JSON.parse(localStorage.getItem('mm_fleet')) || [];
+                
+                document.getElementById('jobCount').innerText = Array.isArray(jobs) ? jobs.length : 0;
+                document.getElementById('truckCount').innerText = Array.isArray(fleet) ? fleet.length : 0;
+            } catch (error) {
+                console.error("Dashboard Load Error:", error);
+                // Fallback to zero if data is corrupted
+                document.getElementById('jobCount').innerText = "0";
+                document.getElementById('truckCount').innerText = "0";
+            }
         }
+
+        function clearData() {
+            if(confirm("This will delete all test jobs and leads. Proceed?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
         window.onload = updateDashboard;
     </script>
 </body>

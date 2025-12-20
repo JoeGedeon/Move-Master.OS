@@ -2,77 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MoveMaster OS - Full Calendar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoveMaster OS - Calendar</title>
     <style>
-        :root { --sidebar-bg: #1a1f2b; --primary: #f97316; --bg-light: #f8fafc; --text-muted: #94a3b8; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-light); overflow: hidden; }
-        .sidebar { width: 260px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
-        .logo-section { padding: 0 20px 30px; display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--primary); font-size: 1.2rem; }
-        .menu-label { padding: 0 25px; font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 1px; }
-        .nav-item { padding: 12px 25px; color: #cbd5e1; text-decoration: none; display: flex; align-items: center; gap: 15px; font-size: 0.9rem; }
-        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { border-left: 4px solid var(--primary); background: rgba(249, 115, 22, 0.1); color: var(--primary); }
-        .user-profile { margin-top: auto; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
-        .avatar { width: 35px; height: 35px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .main { flex: 1; padding: 30px; overflow-y: auto; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #cbd5e1; border-radius: 12px; overflow: hidden; }
-        .cal-day { background: white; min-height: 120px; padding: 10px; cursor: pointer; position: relative; }
-        .job-pill { font-size: 10px; background: #f59e0b; color: white; padding: 4px; border-radius: 4px; margin-top: 4px; overflow: hidden; }
-        #actionMenu { display: none; position: fixed; background: white; border: 1px solid #ccc; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border-radius: 8px; z-index: 2000; width: 200px; }
-        .menu-opt { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        /* (The CSS is identical to index.html above to ensure consistency) */
+        :root { --sidebar-bg: #1a1a2e; --accent: #e67e22; --text-muted: #bdc3c7; }
+        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; }
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: white; height: 100vh; padding: 20px; position: fixed; overflow-y: auto; z-index: 1000; }
+        .sidebar h2 { color: var(--accent); font-size: 1.2rem; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
+        .search-box { background: #2c3e50; border: none; padding: 10px; border-radius: 5px; color: white; width: 85%; margin-bottom: 20px; }
+        .nav-item { display: block; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-radius: 5px; margin-bottom: 5px; }
+        .nav-item:hover { color: white; background: #2c3e50; }
+        .nav-item.active { border-left: 4px solid var(--accent); background: #2c3e50; color: white; }
+        .main { margin-left: 280px; padding: 40px; flex: 1; width: calc(100% - 280px); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; background: white; padding: 20px; border-radius: 10px; }
+        .day { border: 1px solid #ddd; min-height: 80px; padding: 10px; border-radius: 5px; cursor: pointer; }
+        .job-tag { background: #3498db; color: white; padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-top: 2px; display: block; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo-section">🚚 MOVE MASTERS</div>
-        <div class="menu-label">Main Menu</div>
+    <nav class="sidebar">
+        <h2>🚚 MOVE MASTERS</h2>
+        <input type="text" class="search-box" placeholder="🔍 Search customers...">
         <a href="index.html" class="nav-item">📊 Dashboard</a>
-        <a href="#" class="nav-item">👥 Leads Pipeline</a>
-        <a href="#" class="nav-item">➕ New Lead</a>
-        <a href="calendar.html" class="nav-item active">🗓️ Schedule / Calendar</a>
-        <a href="completion.html" class="nav-item">🧮 Estimates</a>
-        <a href="#" class="nav-item">📦 Active Jobs</a>
-        <a href="#" class="nav-item">🚛 Trucks & Fleet</a>
-        <a href="#" class="nav-item">📂 Inventory</a>
-        <div class="user-profile">
-            <div class="avatar">JD</div>
-            <div><div style="font-size:0.8rem; font-weight:bold;">John Doe</div><div style="font-size:0.7rem; color:var(--text-muted);">Administrator</div></div>
-        </div>
-    </div>
+        <a href="leads.html" class="nav-item">👥 Leads Pipeline</a>
+        <a href="calendar.html" class="nav-item active">📅 Schedule / Calendar</a>
+        <a href="fleet.html" class="nav-item">🚛 Trucks & Fleet</a>
+        <a href="completion.html" class="nav-item">✅ Job Completion</a>
+    </nav>
     <div class="main">
         <h1>Operational Calendar</h1>
-        <div class="cal-grid" id="calGrid"></div>
-    </div>
-    <div id="actionMenu">
-        <div id="existingJobs"></div>
-        <div class="menu-opt" onclick="window.location.href='completion.html?newDate='+selectedDate" style="color:var(--primary); font-weight:bold;">➕ Add New Job</div>
-        <div class="menu-opt" onclick="closeMenu()">Cancel</div>
+        <div class="calendar-grid" id="calendarGrid"></div>
     </div>
     <script>
-        let db = JSON.parse(localStorage.getItem('mm_enterprise_db')) || [];
-        let selectedDate = "";
-        function render() {
-            const grid = document.getElementById('calGrid'); grid.innerHTML = '';
-            for(let d=1; d<=31; d++) {
-                const ds = `2025-12-${d.toString().padStart(2,'0')}`;
-                const dayJobs = db.filter(l => l.date === ds);
-                let dayHTML = `<div class="cal-day" onclick="openMenu(event, '${ds}')"><b>${d}</b>`;
-                dayJobs.forEach(j => dayHTML += `<div class="job-pill">${j.n}</div>`);
-                grid.innerHTML += dayHTML + `</div>`;
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db') || '[]');
+            for (let i = 1; i <= 31; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day';
+                dayDiv.innerHTML = `<strong>${i}</strong>`;
+                jobs.filter(j => j.scheduledDay == i).forEach(job => {
+                    dayDiv.innerHTML += `<span class="job-tag">${job.customerName}</span>`;
+                });
+                grid.appendChild(dayDiv);
             }
         }
-        function openMenu(e, date) {
-            e.stopPropagation(); selectedDate = date;
-            const menu = document.getElementById('actionMenu');
-            const jobDiv = document.getElementById('existingJobs'); jobDiv.innerHTML = '';
-            db.filter(l => l.date === date).forEach(j => {
-                jobDiv.innerHTML += `<div class="menu-opt" onclick="window.location.href='completion.html?id=${db.indexOf(j)}'">📂 Open: ${j.n}</div>`;
-            });
-            menu.style.display = 'block'; menu.style.left = e.pageX + 'px'; menu.style.top = e.pageY + 'px';
-        }
-        function closeMenu() { document.getElementById('actionMenu').style.display = 'none'; }
-        window.onclick = closeMenu;
-        window.onload = render;
+        window.onload = renderCalendar;
     </script>
 </body>
 </html>

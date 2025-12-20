@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MoveMaster OS - Leads Pipeline</title>
+    <style>
+        :root { --sidebar-bg: #1a1a2e; --accent: #e67e22; --text-muted: #bdc3c7; }
+        body { font-family: sans-serif; background: #e0e5ec; margin: 0; display: flex; }
+        
+        /* Sidebar Navigation */
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: white; height: 100vh; padding: 20px; position: fixed; overflow-y: auto; z-index: 1000; }
+        .sidebar h2 { color: var(--accent); font-size: 1.2rem; margin-bottom: 25px; }
+        .nav-item { display: block; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-radius: 5px; margin-bottom: 5px; }
+        .nav-item:hover { color: white; background: #2c3e50; }
+        .nav-item.active { border-left: 4px solid var(--accent); background: #2c3e50; color: white; }
+
+        /* Content Area */
+        .main { margin-left: 280px; padding: 40px; flex: 1; width: calc(100% - 280px); min-height: 100vh; }
+        .lead-form { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin-bottom: 30px; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        .lead-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .lead-card { background: white; padding: 20px; border-radius: 12px; border-top: 5px solid #9b59b6; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <h2>🚚 MOVE MASTERS</h2>
+        <a href="index.html" class="nav-item">📊 Dashboard</a>
+        <a href="leads.html" class="nav-item active">👥 Leads Pipeline</a>
+        <a href="calendar.html" class="nav-item">📅 Schedule / Calendar</a>
+        <a href="estimates.html" class="nav-item">📋 Estimates</a>
+        <a href="fleet.html" class="nav-item">🚛 Trucks & Fleet</a>
+        <a href="completion.html" class="nav-item">✅ Job Completion</a>
+    </nav>
+
+    <div class="main">
+        <h1>Leads Pipeline</h1>
+        <div class="lead-form">
+            <h3>New Inquiry</h3>
+            <input type="text" id="lName" placeholder="Customer Name">
+            <input type="text" id="lPhone" placeholder="Phone Number">
+            <button onclick="saveLead()">Capture Lead</button>
+        </div>
+        <div class="lead-list" id="leadDisplay"></div>
+    </div>
+
+    <script>
+        function saveLead() {
+            const name = document.getElementById('lName').value;
+            const phone = document.getElementById('lPhone').value;
+            if(!name) return;
+
+            try {
+                const leads = JSON.parse(localStorage.getItem('mm_leads_db') || '[]');
+                leads.push({ name, phone, id: Date.now() });
+                localStorage.setItem('mm_leads_db', JSON.stringify(leads));
+                
+                document.getElementById('lName').value = '';
+                document.getElementById('lPhone').value = '';
+                renderLeads();
+            } catch (e) {
+                console.error("Error saving lead:", e);
+            }
+        }
+
+        function renderLeads() {
+            const display = document.getElementById('leadDisplay');
+            try {
+                const leads = JSON.parse(localStorage.getItem('mm_leads_db') || '[]');
+                if(leads.length === 0) {
+                    display.innerHTML = "<p style='color:#666;'>No active leads.</p>";
+                    return;
+                }
+                display.innerHTML = leads.map(l => `
+                    <div class="lead-card">
+                        <strong>${l.name}</strong><br>
+                        <small>📞 ${l.phone || 'No phone'}</small>
+                    </div>
+                `).join('');
+            } catch (e) {
+                display.innerHTML = "<p>Error loading leads.</p>";
+            }
+        }
+        window.onload = renderLeads;
+    </script>
+</body>
+</html>
