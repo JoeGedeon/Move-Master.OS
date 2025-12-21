@@ -1,75 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>MoveMaster OS - Intelligence Console</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MoveCalc PRO | Activated</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --sidebar-bg: #1a1a2e; --accent: #e67e22; --text-muted: #bdc3c7; }
-        body { font-family: sans-serif; background: #e0e5ec; margin: 0; display: flex; }
-        
-        /* Sidebar */
-        .sidebar { width: 240px; background: var(--sidebar-bg); color: white; height: 100vh; padding: 20px; position: fixed; overflow-y: auto; z-index: 1000; }
-        .sidebar h2 { color: var(--accent); font-size: 1.2rem; margin-bottom: 25px; }
-        .nav-item { display: block; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-radius: 5px; margin-bottom: 5px; }
-        .nav-item:hover { color: white; background: #2c3e50; }
-        .nav-item.active { border-left: 4px solid var(--accent); background: #2c3e50; color: white; }
-
-        /* Main */
-        .main { margin-left: 280px; padding: 40px; flex: 1; width: calc(100% - 280px); min-height: 100vh; }
-        .metric-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid var(--accent); min-width: 220px; }
+      body { background-color: #050505; margin: 0; overflow: hidden; }
+      #root { height: 100vh; }
     </style>
-</head>
-<body>
-    <nav class="sidebar">
-        <h2>🚚 MOVE MASTERS</h2>
-        <a href="index.html" class="nav-item active">📊 Dashboard</a>
-        <a href="leads.html" class="nav-item">👥 Leads Pipeline</a>
-        <a href="calendar.html" class="nav-item">📅 Schedule / Calendar</a>
-        <a href="estimates.html" class="nav-item">📋 Estimates</a>
-        <a href="fleet.html" class="nav-item">🚛 Trucks & Fleet</a>
-        <a href="completion.html" class="nav-item">✅ Job Completion</a>
-    </nav>
-
-    <div class="main">
-        <h1>Intelligence Console</h1>
-        <div style="display:flex; gap:20px; flex-wrap: wrap;">
-            <div class="metric-card">
-                <h3>Total Jobs</h3>
-                <h2 id="jobCount">0</h2>
-            </div>
-            <div class="metric-card" style="border-left-color: #3498db;">
-                <h3>Active Trucks</h3>
-                <h2 id="truckCount">0</h2>
-            </div>
-        </div>
-        <button onclick="clearData()" style="margin-top: 50px; background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; opacity: 0.5;">Clear App Cache (Reset)</button>
-    </div>
-
-    <script>
-        function updateDashboard() {
-            try {
-                // Safeguard against null or corrupted data
-                const jobs = JSON.parse(localStorage.getItem('mm_enterprise_db')) || [];
-                const fleet = JSON.parse(localStorage.getItem('mm_fleet')) || [];
-                
-                document.getElementById('jobCount').innerText = Array.isArray(jobs) ? jobs.length : 0;
-                document.getElementById('truckCount').innerText = Array.isArray(fleet) ? fleet.length : 0;
-            } catch (error) {
-                console.error("Dashboard Load Error:", error);
-                // Fallback to zero if data is corrupted
-                document.getElementById('jobCount').innerText = "0";
-                document.getElementById('truckCount').innerText = "0";
-            }
-        }
-
-        function clearData() {
-            if(confirm("This will delete all test jobs and leads. Proceed?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        window.onload = updateDashboard;
-    </script>
-</body>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MoveCalc PRO | Activated</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { background-color: #050505; margin: 0; overflow: hidden; }
+      #root { height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- 
+      THIS IS THE MOST IMPORTANT LINE:
+      It must point to /src/main.jsx because that is where the file lives.
+    -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
+
+>
