@@ -1,49 +1,107 @@
 import React from 'react';
-import { Users, DollarSign, CheckCircle2, Clock, Plus, ChevronRight } from 'lucide-react';
+import { User, Phone, MapPin, Calendar, Package, DollarSign, ArrowLeft } from 'lucide-react';
 
-export default function LeadInbox({ onSelectLead }) {
-  const leads = [
-    { id: 'LD-8821', name: 'James Peterson', move: 'Beverly Hills → NYC', quote: '$4,060' },
-    { id: 'LD-8820', name: 'Sarah Miller', move: 'Chicago → Austin', quote: '$2,850' },
-  ];
-
-  const Stat = ({ label, val, icon: Icon }) => (
-    <div className="bg-[#111111] border border-white/5 p-6 rounded-2xl">
-      <div className="p-2 w-fit mb-4 rounded-lg bg-amber-500/10 text-amber-500"><Icon size={18} /></div>
-      <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">{label}</p>
-      <p className="text-2xl font-black text-white mt-1">{val}</p>
-    </div>
-  );
-
+export default function LeadDetail() {
   return (
-    <div className="h-full overflow-y-auto p-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black tracking-tight">Active Pipeline</h1>
-        <button className="bg-amber-500 text-black px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all">
-          <Plus size={16} /> New Lead
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Stat label="Total Leads" val="1,248" icon={Users} />
-        <Stat label="Revenue" val="$142,500" icon={DollarSign} />
-        <Stat label="Conversion" val="22.4%" icon={CheckCircle2} />
-        <Stat label="Active Jobs" val="18" icon={Clock} />
-      </div>
-      <div className="bg-[#111111] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-        <table className="w-full text-left">
-          <tbody className="divide-y divide-white/5">
-            {leads.map((l) => (
-              <tr key={l.id} onClick={() => onSelectLead(l)} className="group hover:bg-white/[0.02] cursor-pointer transition-all">
-                <td className="px-6 py-5 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-black text-xs border border-amber-500/10">{l.name[0]}</div>
-                  <div><p className="font-bold text-white group-hover:text-amber-500 transition-colors text-sm">{l.name}</p><p className="text-[10px] text-gray-500">ID: {l.id}</p></div>
-                </td>
-                <td className="px-6 py-5 text-sm text-gray-400">{l.move}</td>
-                <td className="px-6 py-5 text-right"><ChevronRight size={18} className="inline text-gray-600 group-hover:text-amber-500 transition-all" /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="p-8 bg-gray-900 min-h-screen text-white">
+      {/* Header with Back Button */}
+      <header className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button className="p-2 hover:bg-gray-800 rounded-lg text-gray-400">
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Lead #4521</h1>
+            <p className="text-gray-400 text-sm">Created on Dec 20, 2025</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-750">
+            Archive
+          </button>
+          <button className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <DollarSign size={18} /> Send Quote
+          </button>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Customer & Move Info */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Customer Info Card */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <User size={20} className="text-blue-500" /> Customer Information
+            </h2>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">Full Name</p>
+                <p className="text-lg">Johnathon Smith</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">Phone Number</p>
+                <p className="text-lg">(555) 123-4567</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-500 uppercase font-bold">Email Address</p>
+                <p className="text-lg">jsmith.example@email.com</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Move Logistics Card */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <MapPin size={20} className="text-red-500" /> Move Logistics
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-gray-750 rounded text-gray-400 text-xs font-bold w-16 text-center">FROM</div>
+                <p className="text-gray-200">123 Maple Avenue, Brooklyn, NY 11201</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-gray-750 rounded text-gray-400 text-xs font-bold w-16 text-center">TO</div>
+                <p className="text-gray-200">456 Palm Drive, Miami, FL 33101</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Inventory Summary */}
+        <div className="space-y-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <Package size={20} className="text-purple-500" /> Inventory Preview
+            </h2>
+            <ul className="space-y-3">
+              <li className="flex justify-between text-gray-300 border-b border-gray-700 pb-2">
+                <span>Beds (King/Queen)</span>
+                <span className="font-bold">2</span>
+              </li>
+              <li className="flex justify-between text-gray-300 border-b border-gray-700 pb-2">
+                <span>Large Sofa</span>
+                <span className="font-bold">1</span>
+              </li>
+              <li className="flex justify-between text-gray-300 border-b border-gray-700 pb-2">
+                <span>Dining Table</span>
+                <span className="font-bold">1</span>
+              </li>
+              <li className="flex justify-between text-gray-300">
+                <span>Boxes (Large)</span>
+                <span className="font-bold">~45</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Appointment Status */}
+          <div className="bg-blue-600/10 border border-blue-600/30 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Calendar className="text-blue-500" size={20} />
+              <span className="font-semibold text-blue-400">Scheduled Move Date</span>
+            </div>
+            <p className="text-2xl font-bold">Dec 28, 2025</p>
+          </div>
+        </div>
       </div>
     </div>
   );
