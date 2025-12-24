@@ -7,18 +7,31 @@ let auth, db, user, appId, calendar;
 let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [] };
 let activeId = null;
 
-// --- 1. THE BRAINS: UI CONTROL (IMMEDIATE BINDING) ---
+// --- 1. THE BRAINS: NAVIGATION (IMMEDIATE GLOBAL BINDING) ---
 window.tab = (id) => {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
-    if (target) target.classList.add('active');
+    const panels = document.querySelectorAll('.tab-panel');
+    panels.forEach(p => p.classList.remove('active'));
     
+    const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
+    if (target) {
+        target.classList.add('active');
+        // CRITICAL FIX: Ensure dashboard stats render if hidden previously
+        if(id === 'dashboard') renderDashboard();
+        if(id === 'driverlog') renderLogs();
+        if(id === 'trucks') renderTrucks();
+    }
+    
+    // UI active state
     document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === id);
     });
 
-    document.getElementById('tab-title').innerText = `FLEET_${id.toUpperCase()}`;
-    if (id === 'calendar' && calendar) setTimeout(() => calendar.updateSize(), 100);
+    const titleEl = document.getElementById('tab-title');
+    if (titleEl) titleEl.innerText = `TERMINAL_${id.toUpperCase()}`;
+    
+    if (id === 'calendar' && calendar) {
+        setTimeout(() => calendar.updateSize(), 50);
+    }
     lucide.createIcons();
 };
 
@@ -39,15 +52,9 @@ window.saveEvent = async () => {
         timestamp: Date.now()
     };
     if (!val.title) return;
-
-    // LOCAL FIRST (Instant UI)
     fleetData.jobs.push({ ...val, id: "local_" + Date.now() });
     syncCal(); renderAgenda(); window.closeModal();
-
-    // CLOUD SYNC (Background)
-    if (user && db) {
-        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
-    }
+    if (user && db) try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
 };
 
 window.saveDriverLog = async () => {
@@ -57,15 +64,10 @@ window.saveDriverLog = async () => {
         date: document.getElementById('l-date').value,
         timestamp: Date.now()
     };
-    if (!val.driver || !val.truckId) return alert("Missing Driver or Unit ID");
-
-    // LOCAL FIRST
+    if (!val.driver || !val.truckId) return alert("Fill Driver & Unit ID");
     fleetData.driverLogs.push({ ...val, id: "local_" + Date.now() });
     renderLogs(); window.closeModal();
-
-    if (user && db) {
-        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
-    }
+    if (user && db) try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
 };
 
 window.saveTruckUnit = async () => {
@@ -77,14 +79,9 @@ window.saveTruckUnit = async () => {
         timestamp: Date.now()
     };
     if (!val.truckId) return;
-
-    // LOCAL FIRST
     fleetData.trucks.push({ ...val, id: "local_" + Date.now() });
     renderTrucks(); window.closeModal();
-
-    if (user && db) {
-        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
-    }
+    if (user && db) try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
 };
 
 // --- 3. THE BRAINS: RENDERERS ---
@@ -94,8 +91,7 @@ function renderDashboard() {
     const stream = document.getElementById('ledger-stream');
     if (!stream) return;
     stream.innerHTML = '';
-
-    fleetData.receipts.sort((a,b) => b.date.localeCompare(a.date)).forEach(r => {
+    fleetData.receipts.forEach(r => {
         const isIn = r.category === 'Inflow';
         bal += isIn ? r.amount : -r.amount;
         const row = document.createElement('div');
@@ -112,7 +108,7 @@ function renderLogs() {
     rows.innerHTML = '';
     fleetData.driverLogs.forEach(l => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="p-6 text-xs text-slate-400 font-mono">${l.date}</td><td class="p-6 text-xs font-black uppercase">${l.driver}</td><td class="p-6 text-xs font-bold text-blue-500">${l.truckId}</td><td class="p-6 text-xs text-red-400">$0.00</td><td class="p-6 text-xs font-black">$0.00</td><td class="p-6"></td>`;
+        tr.innerHTML = `<td class="p-8 text-xs text-slate-400 font-mono">${l.date}</td><td class="p-8 text-xs font-black uppercase">${l.driver}</td><td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td><td class="p-8 text-xs text-red-400">$0.00</td><td class="p-8 text-xs font-black">$0.00</td><td class="p-8"></td>`;
         rows.appendChild(tr);
     });
 }
@@ -135,7 +131,7 @@ function renderAgenda() {
     const today = new Date().toISOString().split('T')[0];
     const list = fleetData.jobs.filter(j => j.date === today);
     if (!stream) return;
-    stream.innerHTML = list.length ? '' : '<p class="text-[10px] text-slate-700 italic text-center py-20 uppercase">Clear</p>';
+    stream.innerHTML = list.length ? '' : '<p class="text-[10px] text-slate-700 italic text-center py-20 uppercase tracking-widest">Clear Schedule</p>';
     list.forEach(j => {
         const div = document.createElement('div');
         div.className = "p-6 bg-white/[0.03] border border-white/5 rounded-3xl mb-4";
@@ -154,7 +150,6 @@ async function connectTerminal() {
         db = getFirestore(app);
         appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-final-v26';
 
-        // RULE 3: Auth First
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(auth, __initial_auth_token);
         } else {
@@ -165,7 +160,6 @@ async function connectTerminal() {
             if (u) {
                 user = u;
                 document.getElementById('user-id-tag').innerText = `ID_${user.uid.slice(0, 8)}`;
-                // Real-Time Sync Listeners
                 onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), s => { fleetData.jobs = s.docs.map(d => ({ id: d.id, ...d.data() })); syncCal(); renderAgenda(); });
                 onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs')), s => { fleetData.driverLogs = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLogs(); });
                 onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => { fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTrucks(); });
@@ -180,8 +174,8 @@ window.addEventListener('load', () => {
     connectTerminal();
     lucide.createIcons();
     setInterval(() => {
-        const clock = document.getElementById('live-clock');
-        if(clock) clock.innerText = new Date().toLocaleTimeString();
+        const el = document.getElementById('live-clock');
+        if(el) el.innerText = new Date().toLocaleTimeString();
     }, 1000);
 });
 
@@ -193,11 +187,6 @@ function initCalendar() {
         height: '100%',
         dateClick: (info) => {
             document.getElementById('ev-date').value = info.dateStr;
-            document.getElementById('event-modal').classList.remove('hidden');
-        },
-        eventClick: (info) => {
-            activeId = info.event.id;
-            document.getElementById('ev-title').value = info.event.title;
             document.getElementById('event-modal').classList.remove('hidden');
         }
     });
