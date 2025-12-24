@@ -1,213 +1,72 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+/* --- MASTER UI LOCK --- */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
-// --- SYSTEM STATE ---
-let auth, db, user, appId, dashCal, fullCal;
-let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
-let activeEditId = null;
-
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-auth = getAuth(app);
-db = getFirestore(app);
-appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v43-interactive';
-
-// --- 1. THE NAVIGATION ENGINE (FIXES LIGHTING & VISIBILITY) ---
-window.tab = (id) => {
-    // A. Hide all panels
-    const panels = document.querySelectorAll('.tab-panel');
-    panels.forEach(p => {
-        p.classList.remove('active');
-        p.style.display = 'none'; // Hard reset visibility
-    });
-    
-    // B. Show target panel
-    const target = document.getElementById(`${id}-tab`);
-    if (target) {
-        target.classList.add('active');
-        target.style.display = 'block';
-        
-        // C. Refresh Data
-        if(id === 'dashboard') renderDashboard();
-        if(id === 'trucks') renderTruckSpreadsheet();
-        if(id === 'driverlog') renderLogs();
-
-        // D. GOOGLE CALENDAR RE-RENDER (Fixes the collapse)
-        if(id === 'dashboard' && dashCal) { 
-            setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 100); 
-        }
-        if(id === 'calendar' && fullCal) { 
-            setTimeout(() => { fullCal.updateSize(); fullCal.render(); }, 100); 
-        }
-    }
-    
-    // E. Update Navigation Buttons "Lighting"
-    document.querySelectorAll('.nav-btn').forEach(b => {
-        const btnTab = b.getAttribute('data-tab');
-        if (btnTab === id) {
-            b.classList.add('active');
-        } else {
-            b.classList.remove('active');
-        }
-    });
-
-    const titleEl = document.getElementById('tab-title');
-    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_OPERATIONS_MASTER`;
-    lucide.createIcons();
-};
-
-window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
-
-// --- 2. GOOGLE-LIKE CALENDAR ENGINE ---
-
-function initCalendars() {
-    const calendarOptions = {
-        initialView: 'dayGridMonth',
-        editable: true,
-        selectable: true,
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        themeSystem: 'standard',
-        dateClick: (info) => {
-            const dateInput = document.getElementById('ev-date');
-            if(dateInput) dateInput.value = info.dateStr;
-            document.getElementById('event-modal').classList.remove('hidden');
-        },
-        eventClick: (info) => {
-            if(confirm(`Remove event: ${info.event.title}?`)) {
-                info.event.remove();
-                // Cloud delete logic would go here
-            }
-        },
-        events: fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }))
-    };
-
-    const dEl = document.getElementById('dash-calendar');
-    const fEl = document.getElementById('full-calendar-render');
-
-    if (dEl) { 
-        dashCal = new FullCalendar.Calendar(dEl, calendarOptions); 
-        dashCal.render(); 
-    }
-    if (fEl) { 
-        fullCal = new FullCalendar.Calendar(fEl, { ...calendarOptions, height: '100%' }); 
-        fullCal.render(); 
-    }
+:root {
+    --blue: #3b82f6;
+    --bg: #0b0f1a;
+    --card: #111827;
+    --border: rgba(255, 255, 255, 0.08);
 }
 
-function syncCalendarData() {
-    const events = fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }));
-    [dashCal, fullCal].forEach(c => {
-        if(c) {
-            c.removeAllEvents();
-            c.addEventSource(events);
-        }
-    });
+* { box-sizing: border-box; }
+
+body, html {
+    margin: 0; padding: 0;
+    height: 100vh; width: 100vw;
+    background: var(--bg);
+    color: white; font-family: 'Plus Jakarta Sans', sans-serif;
+    overflow: hidden; /* Lock the body */
 }
 
-// --- 3. DATA & TRUCK ENGINE ---
+#app-shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-function renderTruckSpreadsheet() {
-    const container = document.getElementById('trucks-spreadsheet-container');
-    const vitals = document.getElementById('fleet-vitals-bar');
-    if(!container) return;
-
-    // Build the "Descriptive View" (The Counter Bar)
-    const counts = {
-        total: fleetData.trucks.length,
-        ready: fleetData.trucks.filter(t => t.status === 'Operational').length,
-        transit: fleetData.trucks.filter(t => t.status === 'In Transit').length,
-        shop: fleetData.trucks.filter(t => t.status === 'Maintenance').length
-    };
-
-    if(vitals) {
-        vitals.innerHTML = `
-            <div class="vital-tile"><p class="vital-label">Fleet Size</p><h4 class="vital-value">${counts.total}</h4></div>
-            <div class="vital-tile border-green-500/20"><p class="vital-label text-green-500">Ready</p><h4 class="vital-value">${counts.ready}</h4></div>
-            <div class="vital-tile border-blue-500/20"><p class="vital-label text-blue-500">In Transit</p><h4 class="vital-value">${counts.transit}</h4></div>
-            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">In Shop</p><h4 class="vital-value">${counts.shop}</h4></div>
-        `;
-    }
-
-    container.innerHTML = `
-        <table class="fleet-table">
-            <thead><tr><th>Unit ID</th><th>Make</th><th>Mileage</th><th>Status</th></tr></thead>
-            <tbody>
-                ${fleetData.trucks.map(t => `
-                    <tr onclick="window.tab('trucks')">
-                        <td class="font-black text-white italic uppercase">${t.truckId}</td>
-                        <td>${t.make}</td>
-                        <td class="font-mono">${Number(t.miles).toLocaleString()}</td>
-                        <td><span class="text-[9px] font-black uppercase text-blue-500">${t.status}</span></td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+/* --- SIDEBAR SCROLL --- */
+#sidebar {
+    width: 260px; background: var(--card); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; height: 100vh; flex-shrink: 0;
 }
-
-function renderDashboard() {
-    let bal = 0;
-    fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
-    
-    const revEl = document.getElementById('total-display');
-    if(revEl) {
-        revEl.innerText = `$${bal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-        revEl.closest('.balance-card').onclick = () => window.tab('clients');
-    }
-
-    const tCountEl = document.getElementById('truck-count-display');
-    if(tCountEl) {
-        tCountEl.innerText = fleetData.trucks.length;
-        tCountEl.closest('.stat-card').onclick = () => window.tab('trucks');
-    }
+.sidebar-nav {
+    flex: 1; overflow-y: auto; padding: 12px 0;
 }
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
 
-// --- 4. SYSTEM BOOT ---
+.nav-btn {
+    display: flex; align-items: center; gap: 14px; width: 90%; margin: 4px auto;
+    padding: 14px 20px; border-radius: 12px; color: #64748b; font-size: 11px;
+    font-weight: 800; text-transform: uppercase; background: transparent; border: none; cursor: pointer;
+}
+.nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2); }
 
-window.addEventListener('DOMContentLoaded', async () => {
-    // Auth First (Rule 3)
-    const initAuth = async () => {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-            await signInAnonymously(auth);
-        }
-    };
-    await initAuth();
+/* --- CONTENT SCROLL --- */
+#viewport { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+#panels-container { flex: 1; position: relative; overflow: hidden; }
 
-    onAuthStateChanged(auth, u => {
-        if(u) {
-            user = u;
-            document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0, 6)}`;
-            
-            // Start Listeners
-            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => {
-                fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderTruckSpreadsheet(); renderDashboard();
-            });
-            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), s => {
-                fleetData.jobs = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                syncCalendarData();
-            });
-        }
-    });
+.tab-panel {
+    display: none; position: absolute; inset: 0; height: 100%; width: 100%;
+    overflow-y: auto; padding-bottom: 100px;
+}
+.tab-panel.active { display: block; }
 
-    initCalendars();
-    lucide.createIcons();
-    setInterval(() => {
-        const el = document.getElementById('live-clock');
-        if(el) el.innerText = new Date().toLocaleTimeString();
-    }, 1000);
-});
+/* --- DASHBOARD TILES --- */
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 40px; }
+.stat-tile { background: var(--card); border: 1px solid var(--border); border-radius: 32px; padding: 32px; cursor: pointer; transition: 0.2s; }
+.stat-tile.primary { background: linear-gradient(135deg, #3b82f6, #1e3a8a); }
+.stat-tile:hover { transform: translateY(-4px); border-color: var(--blue); }
+.tile-label { font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.6; }
 
-// Global Function Exports
-window.openEventModal = () => document.getElementById('event-modal').classList.remove('hidden');
-window.openTruckModal = () => document.getElementById('truck-modal').classList.remove('hidden');
-window.saveTruckUnit = async () => { /* Add logic */ };
-window.saveEvent = async () => { /* Add logic */ };
+/* --- CALENDAR SIZE FIX --- */
+.calendar-wrapper { padding: 0 40px; margin-bottom: 40px; }
+#dash-calendar { min-height: 600px; background: var(--card); border: 1px solid var(--border); border-radius: 32px; padding: 20px; }
+
+/* SPREADSHEETS */
+.spreadsheet-box { background: var(--card); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; }
+.vitals-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.vital-card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 20px; text-align: center; }
+
+/* MODALS */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: var(--card); border: 1px solid var(--border); padding: 40px; border-radius: 32px; width: 400px; }
+.modal-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+.hidden { display: none; }
 
