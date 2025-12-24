@@ -1,4 +1,4 @@
-/* --- SCROLL-FIXED ENTERPRISE THEME --- */
+/* --- MISSION CONTROL MASTER THEME --- */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -20,18 +20,18 @@ body, html {
 
 #app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 
-/* --- SIDEBAR SCROLLING --- */
+/* --- SIDEBAR SCROLLING: LOCKED --- */
 #sidebar {
     width: 260px !important;
     background: var(--card);
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column;
-    height: 100%; flex-shrink: 0;
+    height: 100vh; flex-shrink: 0;
 }
 
 .sidebar-nav {
     flex: 1;
-    overflow-y: auto !important; /* Forces toolbar scroll if many buttons */
+    overflow-y: auto !important; /* Forces toolbar scroll */
     padding: 12px 0;
 }
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
@@ -49,7 +49,7 @@ body, html {
 .nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
 .nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-/* --- VIEWPORT & DASHBOARD SCROLLING --- */
+/* --- DASHBOARD & PANEL SCROLLING --- */
 #viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
 
 .tab-panel {
@@ -59,19 +59,17 @@ body, html {
     padding-bottom: 120px;
 }
 .tab-panel.active { display: block; }
-
-/* Custom Dashboard Scrollbar */
 .tab-panel::-webkit-scrollbar { width: 6px; }
 .tab-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-/* --- FLEET COMMAND BAR (The Intelligence UI) --- */
-.fleet-intelligence-bar {
+/* --- TRUCK INTELLIGENCE BAR --- */
+.fleet-vitals-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 16px;
     margin-bottom: 32px;
 }
-.vital-card {
+.vital-tile {
     background: rgba(255,255,255,0.02);
     border: 1px solid var(--border);
     padding: 24px;
@@ -81,12 +79,13 @@ body, html {
 .vital-label { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
 .vital-value { font-size: 32px; font-weight: 800; color: white; margin-top: 4px; }
 
-/* --- TRUCK CARDS --- */
+/* --- TRUCK CARDS (EDITABLE TILES) --- */
 .truck-card { 
     background: var(--card); border: 1px solid var(--border); 
-    border-radius: 40px; padding: 40px; transition: 0.3s; 
+    border-radius: 40px; padding: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer; position: relative;
 }
-.truck-card:hover { border-color: var(--blue); transform: translateY(-4px); }
+.truck-card:hover { border-color: var(--blue); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
 
 /* --- DASHBOARD WIDGETS --- */
 .balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 48px; }
@@ -95,7 +94,9 @@ body, html {
 
 /* --- MODALS --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; }
+.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; box-shadow: 0 50px 100px rgba(0,0,0,0.8); }
+.form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
 
 .hidden { display: none !important; }
+.status-pill { font-size: 9px; font-weight: 900; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; }
 
