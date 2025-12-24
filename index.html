@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Command | Enterprise Terminal</title>
+    <title>Fleet Hub | Command Center</title>
     
-    <!-- UI Engines -->
+    <!-- Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
-    <!-- External Style Link -->
+    <!-- External Style -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-[#0b0f1a] text-white">
+<body>
 
-    <div class="main-layout">
+    <div id="app-root">
         
-        <!-- SIDEBAR: Hard-Locked 9-Module Toolbar -->
+        <!-- SIDEBAR: Locked 9-Button Command Toolbar -->
         <aside id="sidebar">
             <div class="sidebar-header">
                 <div class="logo-box">
                     <i data-lucide="shield-check"></i>
                 </div>
-                <span class="logo-text">FLEETPRO</span>
+                <span class="logo-text italic">FLEETPRO</span>
             </div>
             
             <nav class="sidebar-nav custom-scroll">
@@ -63,32 +63,30 @@
                 <div class="user-pill">
                     <div class="avatar">A</div>
                     <div class="user-info">
-                        <p class="role">Admin</p>
-                        <p id="user-id-tag" class="status">Terminal_Online</p>
+                        <p class="role uppercase">Admin Terminal</p>
+                        <p id="user-id-tag" class="status">ID: Standby...</p>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <!-- MAIN VIEWPORT -->
-        <main class="viewport">
+        <!-- MAIN WINDOW -->
+        <main id="viewport">
             <header class="top-header">
-                <div class="header-left">
-                    <h2 id="tab-title" class="title-text">FLEET CALENDAR</h2>
-                </div>
+                <h2 id="tab-title" class="title-text">FLEET CALENDAR</h2>
                 <div class="header-right">
                     <div id="live-clock" class="clock">00:00:00</div>
                     <div class="status-chip">
-                        <span class="pulse"></span> SATELLITE_LINKED
+                        <span class="pulse"></span> TERMINAL_ACTIVE
                     </div>
                 </div>
             </header>
 
-            <div class="content-container">
+            <div class="content-stage">
                 
-                <!-- 1. CALENDAR TAB -->
+                <!-- 1. CALENDAR -->
                 <section id="calendar-tab" class="tab-panel active">
-                    <div class="calendar-stage">
+                    <div class="calendar-card shadow-2xl">
                         <div id="calendar-render"></div>
                     </div>
                     <aside class="agenda-sidebar custom-scroll">
@@ -97,32 +95,32 @@
                     </aside>
                 </section>
 
-                <!-- 2. DASHBOARD TAB -->
+                <!-- 2. DASHBOARD -->
                 <section id="dashboard-tab" class="tab-panel custom-scroll">
-                    <div class="dashboard-grid">
-                        <div class="balance-card">
-                            <p class="card-label">Global Fleet Balance</p>
+                    <div class="stats-grid">
+                        <div class="balance-card shadow-2xl">
+                            <p class="card-label">Global Fleet Revenue</p>
                             <h2 id="total-display" class="balance-text">$0.00</h2>
                             <i data-lucide="trending-up" class="bg-icon"></i>
                         </div>
                         <div class="stat-card">
-                            <p class="card-label">Integrity_Index</p>
-                            <h3 class="stat-text">OPTIMIZED</h3>
+                            <p class="card-label text-slate-500">Fleet Integrity</p>
+                            <h3 class="stat-text text-green-500">OPTIMIZED</h3>
                         </div>
                     </div>
-                    <div class="ledger-box shadow-2xl">
-                        <div class="ledger-header">CENTRAL LEDGER STREAM</div>
-                        <div id="ledger-stream"></div>
+                    <div class="ledger-container shadow-2xl">
+                        <div class="ledger-head">CENTRAL LEDGER STREAM</div>
+                        <div id="ledger-stream" class="divide-y divide-white/5"></div>
                     </div>
                 </section>
 
-                <!-- 4. DRIVER LOGS -->
+                <!-- 4. DRIVER LOG -->
                 <section id="driverlog-tab" class="tab-panel custom-scroll">
                     <div class="panel-header">
-                        <h3 class="panel-title">DRIVER ACTIVITY LOGS</h3>
-                        <button onclick="window.openLogModal()" class="action-btn">NEW ENTRY</button>
+                        <h3 class="panel-title">DAILY ACTIVITY LOGS</h3>
+                        <button onclick="window.openLogModal()" class="action-btn">NEW LOG ENTRY</button>
                     </div>
-                    <div class="table-container shadow-2xl">
+                    <div class="table-card shadow-2xl overflow-hidden">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -134,22 +132,23 @@
                     </div>
                 </section>
 
-                <!-- Placeholder Panels -->
-                <section id="dispatch-tab" class="tab-panel"><div class="empty-state">Dispatch Module Online</div></section>
-                <section id="scan-tab" class="tab-panel"><div class="empty-state">AI Intake Scanner Ready</div></section>
-                <section id="inventory-tab" class="tab-panel"><div class="empty-state">Inventory Management Active</div></section>
-                <section id="trucks-tab" class="tab-panel"><div class="empty-state">Unit Database Standby</div></section>
-                <section id="estimator-tab" class="tab-panel"><div class="empty-state">Cost Estimator Online</div></section>
-                <section id="ai-tab" class="tab-panel"><div class="empty-state">AI Auditor Monitoring</div></section>
+                <!-- OTHERS -->
+                <section id="generic-tab" class="tab-panel"><div class="empty-state">Module Linked. Awaiting Data...</div></section>
+                <section id="dispatch-tab" class="tab-panel"></section>
+                <section id="scan-tab" class="tab-panel"></section>
+                <section id="inventory-tab" class="tab-panel"></section>
+                <section id="trucks-tab" class="tab-panel"></section>
+                <section id="estimator-tab" class="tab-panel"></section>
+                <section id="ai-tab" class="tab-panel"></section>
 
             </div>
         </main>
     </div>
 
-    <!-- MODAL: TASK -->
+    <!-- MODALS -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">UPDATE FLEET TASK</h3>
+            <h3 class="modal-title">Edit Schedule</h3>
             <div class="modal-body">
                 <input type="text" id="ev-title" class="form-input" placeholder="Work detail...">
                 <div class="input-grid">
@@ -162,16 +161,15 @@
             </div>
             <div class="modal-footer">
                 <button id="modal-del-btn" class="del-btn hidden" onclick="window.deleteEvent()">DELETE</button>
-                <button class="save-btn" onclick="window.saveEvent()">SYNC TO HUB</button>
+                <button class="save-btn flex-1" onclick="window.saveEvent()">UPDATE HUB</button>
             </div>
-            <button class="cancel-btn" onclick="window.closeModal()">CANCEL</button>
+            <button class="cancel-btn" onclick="window.closeModal()">DISCARD</button>
         </div>
     </div>
 
-    <!-- MODAL: DRIVER LOG -->
     <div id="log-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title text-blue-500">NEW DRIVER LOG</h3>
+            <h3 class="modal-title text-blue-500">Commit Driver Log</h3>
             <div class="modal-body">
                 <input type="text" id="l-driver" class="form-input" placeholder="Driver Name">
                 <div class="input-grid">
@@ -182,12 +180,11 @@
                     <option>On Duty (Driving)</option><option>On Duty (Not)</option><option>Off Duty</option>
                 </select>
             </div>
-            <button class="save-btn w-full mt-10" onclick="window.saveDriverLog()">COMMIT LOG</button>
+            <button class="save-btn w-full mt-8" onclick="window.saveDriverLog()">SAVE ENTRY</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
         </div>
     </div>
 
-    <!-- External Script Link -->
     <script src="script.js" type="module"></script>
 </body>
 </html>
