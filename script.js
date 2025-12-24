@@ -2,60 +2,58 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-// --- SYSTEM STATE ---
+// --- SYSTEM CONFIG ---
 let auth, db, user, appId, dashCal, fullCal;
-let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [] };
-const apiKey = ""; 
+let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
 
-// --- 1. THE BRAINS: NAVIGATION & SCROLL REFRESH ---
+// --- 1. THE BRAINS: NAVIGATION & FORCE RENDER ---
 window.tab = (id) => {
     const panels = document.querySelectorAll('.tab-panel');
     panels.forEach(p => p.classList.remove('active'));
     
-    const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
+    const target = document.getElementById(`${id}-tab`);
     if (target) {
         target.classList.add('active');
         
-        // FORCE CALENDAR RENDER (Prevents "Missing" Calendar)
-        if (dashCal) { setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); }
-        if (fullCal) { setTimeout(() => { fullCal.render(); fullCal.updateSize(); }, 50); }
+        // CRITICAL: FullCalendar fix for hidden tabs
+        if(id === 'dashboard' && dashCal) { setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); }
+        if(id === 'calendar' && fullCal) { setTimeout(() => { fullCal.render(); fullCal.updateSize(); }, 50); }
         
-        // Re-calculate data visuals
+        // Refresh visuals
         if(id === 'dashboard') renderDashboard();
+        if(id === 'clients') renderClients();
         if(id === 'driverlog') renderLogs();
-        if(id === 'trucks') renderTrucks();
     }
     
-    // UI active state for toolbar
     document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === id);
     });
 
-    const titleEl = document.getElementById('tab-title');
-    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_CONTROL`;
+    document.getElementById('tab-title').innerText = `${id.toUpperCase()}_OPERATIONS`;
     lucide.createIcons();
 };
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+window.openClientModal = () => document.getElementById('client-modal').classList.remove('hidden');
+window.openLogModal = () => document.getElementById('log-modal').classList.remove('hidden');
 
-// --- 2. SMART DATA COMMITS (INSTANT FEEDBACK) ---
+// --- 2. DATA COMMITS (INSTANT UI FEEDBACK) ---
 
-window.saveEvent = async () => {
+window.saveClient = async () => {
     const val = {
-        title: document.getElementById('ev-title').value,
-        truckId: document.getElementById('ev-truck').value.toUpperCase(),
-        date: document.getElementById('ev-date').value,
+        name: document.getElementById('c-name').value,
+        contact: document.getElementById('c-contact').value,
+        location: document.getElementById('c-location').value,
+        rate: parseFloat(document.getElementById('c-rate').value) || 0,
         timestamp: Date.now()
     };
-    if (!val.title) return;
+    if (!val.name) return;
 
-    // Instant local feedback
-    fleetData.jobs.push({ ...val, id: "local_" + Date.now() });
-    syncCals(); window.closeModal();
+    fleetData.clients.push({ ...val, id: "cl_" + Date.now() });
+    renderClients(); renderDashboard(); window.closeModal();
 
-    // Background Cloud Sync
     if (user && db) {
-        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
+        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'clients'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
     }
 };
 
@@ -66,7 +64,7 @@ window.saveDriverLog = async () => {
         date: document.getElementById('l-date').value,
         timestamp: Date.now()
     };
-    if (!val.driver) return alert("Enter Driver Name");
+    if (!val.driver) return;
 
     fleetData.driverLogs.push({ ...val, id: "local_" + Date.now() });
     renderLogs(); window.closeModal();
@@ -76,80 +74,73 @@ window.saveDriverLog = async () => {
     }
 };
 
-window.saveTruckUnit = async () => {
-    const val = {
-        truckId: document.getElementById('t-id').value.toUpperCase(),
-        make: document.getElementById('t-make').value,
-        miles: document.getElementById('t-miles').value,
-        status: "Active",
-        timestamp: Date.now()
-    };
-    if (!val.truckId) return;
-
-    fleetData.trucks.push({ ...val, id: "local_" + Date.now() });
-    renderTrucks(); window.closeModal();
-
-    if (user && db) {
-        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
-    }
-};
-
-// --- 3. THE BRAINS: RENDERERS (ACCOUNTABILITY CALCULATOR) ---
+// --- 3. RENDERERS ---
 
 function renderDashboard() {
-    let bal = 0; const stream = document.getElementById('ledger-stream');
-    if (!stream) return; stream.innerHTML = '';
+    let bal = 0;
+    const stream = document.getElementById('ledger-stream');
+    if (!stream) return;
+    stream.innerHTML = '';
 
+    // Transactions
     fleetData.receipts.sort((a,b) => b.date?.localeCompare(a.date)).forEach(r => {
         const isIn = r.category === 'Inflow';
         bal += isIn ? r.amount : -r.amount;
         const row = document.createElement('div');
-        row.className = "p-10 flex justify-between items-center border-b border-white/5";
+        row.className = "p-10 flex justify-between items-center";
         row.innerHTML = `<h4 class="font-black text-2xl ${isIn ? 'text-green-500' : 'text-white'}">$${r.amount.toFixed(2)}</h4><p class="text-[10px] uppercase text-slate-500 font-black">${r.vendor} • ${r.truckId}</p>`;
         stream.appendChild(row);
     });
-    
+
     document.getElementById('total-display').innerText = `$${bal.toLocaleString()}`;
-    document.getElementById('truck-count-display').innerText = fleetData.trucks.length;
+    
+    // Clients
+    const clientGrid = document.getElementById('client-grid');
+    if (clientGrid) {
+        clientGrid.innerHTML = fleetData.clients.slice(0, 3).map(c => `
+            <div class="client-card">
+                <h4 class="text-lg font-black">${c.name}</h4>
+                <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">${c.location} • $${c.rate}/load</p>
+            </div>
+        `).join('');
+    }
+    document.getElementById('client-count-display').innerText = fleetData.clients.length;
+}
+
+function renderClients() {
+    const fullGrid = document.getElementById('full-client-grid');
+    if (!fullGrid) return;
+    fullGrid.innerHTML = fleetData.clients.map(c => `
+        <div class="client-card">
+            <h4 class="text-xl font-black">${c.name}</h4>
+            <p class="text-sm font-bold text-blue-500 mt-2">${c.location}</p>
+            <p class="text-[10px] text-slate-500 font-black uppercase mt-4">${c.contact}</p>
+        </div>
+    `).join('');
 }
 
 function renderLogs() {
     const rows = document.getElementById('log-rows');
-    if (!rows) return; rows.innerHTML = '';
-    
-    fleetData.driverLogs.forEach(l => {
-        // Intelligence: Find matching expenses for this specific day/truck
-        const dayExp = fleetData.receipts
-            .filter(r => r.truckId === l.truckId && r.date === l.date && r.category !== 'Inflow')
-            .reduce((s, r) => s + r.amount, 0);
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="p-8 text-xs font-mono text-slate-400">${l.date}</td><td class="p-8 text-xs font-black uppercase">${l.driver}</td><td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td><td class="p-8 text-xs text-red-400">$${dayExp.toFixed(2)}</td><td class="p-8 text-xs font-black">$0.00</td><td class="p-8"></td>`;
-        rows.appendChild(tr);
-    });
+    if (!rows) return;
+    rows.innerHTML = fleetData.driverLogs.map(l => `
+        <tr>
+            <td class="p-8 text-xs font-mono text-slate-400">${l.date}</td>
+            <td class="p-8 text-xs font-black uppercase">${l.driver}</td>
+            <td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td>
+            <td class="p-8 text-xs">$0.00</td>
+            <td class="p-8 text-xs font-black">$0.00</td>
+            <td class="p-8"></td>
+        </tr>
+    `).join('');
 }
 
-function renderTrucks() {
-    const grid = document.getElementById('trucks-grid');
-    if (!grid) return; grid.innerHTML = '';
-    fleetData.trucks.forEach(t => {
-        const card = document.createElement('div');
-        card.className = "truck-card";
-        card.innerHTML = `<h4 class="text-2xl font-black italic">${t.truckId}</h4><p class="text-[10px] text-slate-500 uppercase">${t.make} • ${t.status}</p>`;
-        grid.appendChild(card);
-    });
-}
-
-// --- 4. CALENDARS & INITIALIZATION ---
+// --- 4. INITIALIZATION ---
 
 function initCals() {
     const cfg = { 
         initialView: 'dayGridMonth', 
         height: '100%', 
-        dateClick: (i) => { 
-            document.getElementById('ev-date').value = i.dateStr; 
-            document.getElementById('event-modal').classList.remove('hidden'); 
-        } 
+        dateClick: (i) => { document.getElementById('ev-date').value = i.dateStr; document.getElementById('event-modal').classList.remove('hidden'); } 
     };
     const dEl = document.getElementById('dash-calendar');
     const fEl = document.getElementById('full-calendar-render');
@@ -157,14 +148,25 @@ function initCals() {
     if (fEl) { fullCal = new FullCalendar.Calendar(fEl, cfg); fullCal.render(); }
 }
 
-function syncCals() { [dashCal, fullCal].forEach(c => { if(c){ c.removeAllEvents(); fleetData.jobs.forEach(j => c.addEvent({ id: j.id, title: j.title, start: j.date, color: '#3b82f6' })); } }); }
-
 window.addEventListener('load', () => {
     initCals();
     lucide.createIcons();
-    setInterval(() => {
-        const clock = document.getElementById('live-clock');
-        if(clock) clock.innerText = new Date().toLocaleTimeString();
-    }, 1000);
+    setInterval(() => { document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+    
+    // Cloud Sync Fallback
+    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+    if (configStr) {
+        const app = initializeApp(JSON.parse(configStr));
+        auth = getAuth(app); db = getFirestore(app);
+        appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-crm-v1';
+        onAuthStateChanged(auth, (u) => {
+            if (u) {
+                user = u;
+                document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0, 6)}`;
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'clients')), s => { fleetData.clients = s.docs.map(d => ({ id: d.id, ...d.data() })); renderDashboard(); });
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs')), s => { fleetData.driverLogs = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLogs(); });
+            }
+        });
+    }
 });
 
