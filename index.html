@@ -3,27 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Command Terminal | Enterprise</title>
+    <title>Fleet Command Terminal | Enterprise Edition</title>
     
-    <!-- External Frameworks -->
+    <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
+    <!-- External Files -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+    <!-- MAIN APP WRAPPER -->
     <div class="flex h-screen w-full overflow-hidden">
         
-        <!-- SIDEBAR: The 9-Button Command Toolbar -->
+        <!-- SIDEBAR: The 9-Button Command Strip -->
         <aside id="sidebar">
             <div class="p-8">
                 <div class="flex items-center gap-3">
                     <div class="bg-blue-600 p-2 rounded-xl shadow-[0_0_15px_#3b82f6]">
                         <i data-lucide="shield-check" size="24"></i>
                     </div>
-                    <span class="hidden lg:block text-xl font-black tracking-tighter uppercase italic">FLEETPRO</span>
+                    <span class="hidden lg:block text-xl font-black italic tracking-tighter uppercase">FLEETPRO</span>
                 </div>
             </div>
             
@@ -34,7 +36,7 @@
                 <button onclick="window.tab('dashboard')" class="nav-btn" data-tab="dashboard">
                     <i data-lucide="layout-grid"></i> <span>2. Dashboard</span>
                 </button>
-                <button onclick="window.tab('jobs')" class="nav-btn" data-tab="jobs">
+                <button onclick="window.tab('dispatch')" class="nav-btn" data-tab="dispatch">
                     <i data-lucide="briefcase"></i> <span>3. Dispatch</span>
                 </button>
                 <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog">
@@ -49,7 +51,7 @@
                 <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks">
                     <i data-lucide="truck"></i> <span>7. Truck Units</span>
                 </button>
-                <button onclick="window.tab('calc')" class="nav-btn" data-tab="calc">
+                <button onclick="window.tab('estimator')" class="nav-btn" data-tab="estimator">
                     <i data-lucide="calculator"></i> <span>8. Estimator</span>
                 </button>
                 <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai">
@@ -57,14 +59,14 @@
                 </button>
             </nav>
 
-            <div class="p-6 border-t border-white/5 mt-auto bg-[#0b0f1a]/50">
+            <div class="p-6 border-t border-white/5 mt-auto bg-[#0b0f1a]/30">
                 <button onclick="window.exportFullReport()" class="w-full mb-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-center gap-2">
                     <i data-lucide="file-down" size="14"></i> Master Dump
                 </button>
                 <div class="flex items-center gap-3 px-2">
                     <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase italic">A</div>
                     <div class="hidden lg:block">
-                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500">Terminal_Online</p>
+                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500">Terminal_Active</p>
                     </div>
                 </div>
             </div>
@@ -79,16 +81,16 @@
                 <div class="flex items-center gap-4">
                     <div id="live-clock" class="text-[11px] font-mono text-slate-500 mr-4">00:00:00</div>
                     <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
-                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Live Terminal
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Satellite_Linked
                     </div>
                 </div>
             </header>
 
             <div class="flex-1 relative overflow-hidden">
                 
-                <!-- 1. CALENDAR VIEW (HOME) -->
+                <!-- 1. CALENDAR VIEW (FRONT WINDOW) -->
                 <section id="calendar-tab" class="tab-panel active">
-                    <div id="calendar-stage">
+                    <div id="calendar-wrapper">
                         <div id="calendar-render"></div>
                     </div>
                     <aside id="agenda-sidebar" class="custom-scroll">
@@ -105,9 +107,9 @@
                             <h2 id="total-display" class="text-6xl font-black tracking-tighter mb-4">$0.00</h2>
                             <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
                         </div>
-                        <div class="bg-[#111827] rounded-[3.5rem] p-10 flex flex-col justify-center text-center border border-white/5">
-                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Total Records</p>
-                            <h3 id="stat-log-count" class="text-5xl font-black text-white">0</h3>
+                        <div class="bg-[#111827] rounded-[3.5rem] p-10 flex flex-col justify-center text-center border border-white/5 shadow-xl">
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Integrity_Index</p>
+                            <h3 class="text-4xl font-black text-green-500">OPTIMIZED</h3>
                         </div>
                     </div>
                     <div id="ledger-stream" class="bg-[#111827] rounded-[3rem] border border-white/5 divide-y divide-white/5 overflow-hidden shadow-2xl"></div>
@@ -116,84 +118,67 @@
                 <!-- 4. DRIVER'S LOG -->
                 <section id="driverlog-tab" class="tab-panel custom-scroll">
                     <div class="flex justify-between items-center mb-10">
-                        <h3 class="text-2xl font-black tracking-tight uppercase">Daily Driver Activity</h3>
-                        <button onclick="window.openLogModal()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20">New Entry</button>
+                        <h3 class="text-2xl font-black tracking-tight">Driver Activity Stream</h3>
+                        <button onclick="window.openLogModal()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">New Entry</button>
                     </div>
                     <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-white/[0.02]">
+                        <table class="w-full text-left">
+                            <thead class="bg-white/[0.02] border-b border-white/5">
                                 <tr>
                                     <th class="p-6 text-[10px] font-black uppercase text-slate-500">Date</th>
                                     <th class="p-6 text-[10px] font-black uppercase text-slate-500">Driver</th>
                                     <th class="p-6 text-[10px] font-black uppercase text-slate-500">Unit</th>
                                     <th class="p-6 text-[10px] font-black uppercase text-slate-500">Status</th>
-                                    <th class="p-6 text-[10px] font-black uppercase text-slate-500">Miles</th>
                                     <th class="p-6"></th>
                                 </tr>
                             </thead>
-                            <tbody id="driver-log-rows" class="divide-y divide-white/5"></tbody>
+                            <tbody id="log-rows" class="divide-y divide-white/5"></tbody>
                         </table>
                     </div>
                 </section>
 
                 <!-- 5. AI SCANNER -->
-                <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center min-h-[70vh]">
-                    <div class="w-full max-w-lg aspect-[4/3] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative overflow-hidden">
-                        <div id="scan-ui-idle" class="text-center">
-                            <div class="w-24 h-24 bg-blue-600/10 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-10"><i data-lucide="scan-line" size="48"></i></div>
-                            <h4 class="text-2xl font-black uppercase italic tracking-tighter">AI Intake Lens</h4>
-                            <p class="text-slate-500 text-sm mt-4 text-center px-10 leading-relaxed font-medium">Scan driver receipts for AI categorization and ledger entry.</p>
+                <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center">
+                    <div id="scan-zone" class="w-full max-w-lg aspect-[4/3] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative">
+                        <div id="scan-idle" class="text-center">
+                            <i data-lucide="maximize" size="48" class="text-blue-500 mx-auto mb-10"></i>
+                            <h4 class="text-2xl font-black uppercase italic text-white">Intake Scanner</h4>
+                            <p class="text-slate-500 text-sm mt-4 px-10 leading-relaxed font-medium">Upload physical receipts for AI classification (Diesel, Hotel, Repair).</p>
                         </div>
-                        <div id="scan-ui-loading" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-20">
+                        <div id="scan-loading" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-20">
                             <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 animate-pulse">Running_Auditor_AI...</p>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Running_Auditor_AI</p>
                         </div>
                     </div>
                     <input type="file" id="receipt-upload" accept="image/*" capture="environment" class="hidden" onchange="window.handleSmartIntake(event)">
-                    <button onclick="document.getElementById('receipt-upload').click()" class="mt-12 w-full max-w-lg bg-blue-600 py-6 rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Launch AI Scanner</button>
+                    <button onclick="document.getElementById('receipt-upload').click()" class="mt-12 w-full max-w-lg bg-blue-600 py-6 rounded-[2.5rem] font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Launch Lens</button>
+                </section>
+
+                <!-- OTHERS -->
+                <section id="dispatch-tab" class="tab-panel">
+                    <div id="jobs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
                 </section>
                 
-                <!-- OTHERS (INVENTORY, TRUCKS, CALC, AI) -->
                 <section id="generic-tab" class="tab-panel flex items-center justify-center">
                     <div class="text-center opacity-30">
                         <div class="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6"><i data-lucide="layers"></i></div>
-                        <h4 class="text-xl font-black uppercase">Module Active</h4>
+                        <h4 class="text-xl font-black uppercase">Module Encrypted</h4>
                     </div>
                 </section>
+                
+                <section id="inventory-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black uppercase opacity-30">Inventory_V2_Standby</h4></section>
+                <section id="trucks-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black uppercase opacity-30">Units_Database_Active</h4></section>
+                <section id="estimator-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black uppercase opacity-30">Estimator_Terminal_Linked</h4></section>
+                <section id="ai-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black uppercase opacity-30">Auditor_AI_Active</h4></section>
 
             </div>
         </main>
     </div>
 
-    <!-- MODAL: DRIVER LOG -->
-    <div id="log-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[500] flex items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
-            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-500">Log Activity</h3>
-            <div class="space-y-5">
-                <input type="text" id="log-driver" class="form-input" placeholder="Driver Name">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="log-truck" class="form-input font-black uppercase" placeholder="Truck ID">
-                    <input type="date" id="log-date" class="form-input">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="log-odo-start" class="form-input" placeholder="Odo Start">
-                    <input type="number" id="log-odo-end" class="form-input" placeholder="Odo End">
-                </div>
-                <select id="log-status" class="form-input font-bold uppercase text-[10px]">
-                    <option>On Duty (Driving)</option>
-                    <option>On Duty (Not Driving)</option>
-                    <option>Off Duty</option>
-                </select>
-            </div>
-            <button onclick="window.saveDriverLog()" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Commit Entry</button>
-            <button onclick="window.closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase">Cancel</button>
-        </div>
-    </div>
-
-    <!-- MODAL: CALENDAR ENTRY -->
+    <!-- MODAL: CALENDAR TASK -->
     <div id="event-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[500] flex items-center justify-center p-6">
         <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
-            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Edit Fleet Task</h3>
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Assign Task</h3>
             <div class="space-y-5">
                 <input type="text" id="ev-title" class="form-input" placeholder="Work detail...">
                 <div class="grid grid-cols-2 gap-4">
@@ -206,8 +191,27 @@
             </div>
             <div class="flex gap-4 mt-10">
                 <button id="modal-del-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Delete</button>
-                <button onclick="window.saveEvent()" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update</button>
+                <button id="modal-save-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs shadow-xl">Update Hub</button>
             </div>
+            <button onclick="window.closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">Cancel Terminal</button>
+        </div>
+    </div>
+
+    <!-- MODAL: DRIVER LOG -->
+    <div id="log-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[500] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-500">Log Activity</h3>
+            <div class="space-y-5">
+                <input type="text" id="l-driver" class="form-input" placeholder="Driver Name">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="l-truck" class="form-input font-black uppercase" placeholder="Truck ID">
+                    <input type="date" id="l-date" class="form-input">
+                </div>
+                <select id="l-status" class="form-input font-bold uppercase text-[10px]">
+                    <option>On Duty (Driving)</option><option>On Duty (Not Driving)</option><option>Off Duty</option>
+                </select>
+            </div>
+            <button id="modal-log-save" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs shadow-xl">Commit Log</button>
             <button onclick="window.closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase">Cancel</button>
         </div>
     </div>
@@ -222,14 +226,12 @@
                     <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
                 </div>
                 <input type="text" id="v-vendor" class="form-input" placeholder="Merchant">
-                <div class="grid grid-cols-2 gap-4">
-                    <select id="v-cat" class="form-input uppercase text-[10px] font-black">
-                        <option>Diesel</option><option>Hotel</option><option>Repair</option><option>Toll</option>
-                    </select>
-                    <input type="date" id="v-date" class="form-input">
-                </div>
+                <select id="v-cat" class="form-input uppercase text-[10px] font-black">
+                    <option>Diesel</option><option>Hotel</option><option>Repair</option><option>Toll</option>
+                </select>
+                <input type="date" id="v-date" class="form-input">
             </div>
-            <button onclick="window.commitAuditLog()" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs shadow-xl">Confirm & Sync</button>
+            <button id="modal-audit-save" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs shadow-xl">Confirm & Sync</button>
         </div>
     </div>
 
