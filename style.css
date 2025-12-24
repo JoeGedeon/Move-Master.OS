@@ -94,10 +94,6 @@ body {
 .fc-toolbar-title { font-weight: 900; text-transform: uppercase; color: var(--blue); letter-spacing: 0.1em; }
 .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255, 255, 255, 0.03) !important; }
 
-/* --- TABLE HIGHLIGHTS --- */
-table th { letter-spacing: 0.2em; font-family: 'JetBrains Mono', monospace; }
-tr:hover td { background: rgba(255, 255, 255, 0.01); }
-
 /* --- FORM COMPONENTS --- */
 .form-input {
     width: 100%; background: #1e293b; border: 1px solid var(--border);
@@ -119,4 +115,5 @@ tr:hover td { background: rgba(255, 255, 255, 0.01); }
     #sidebar span { display: none !important; }
     #agenda-sidebar { display: none !important; }
 }
+
 
