@@ -2,32 +2,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-// --- GLOBAL STATE ---
+// --- SYSTEM STATE ---
 let auth, db, user, appId, dashCal, fullCal;
 let fleetData = { trucks: [], jobs: [], receipts: [], logs: [], clients: [] };
 
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 auth = getAuth(app); db = getFirestore(app);
-appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v9000-active';
+appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-modular-stable';
 
-// --- 1. THE SWITCHBOARD (Navigation & Room Logic) ---
+// --- 1. NAVIGATION HUB (THE COMMANDER) ---
 window.tab = (id) => {
-    // A. Visual Switch
+    // Hide all rooms
     document.querySelectorAll('.tab-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     
-    // B. Activate Target Room
+    // Activate target room
     const target = document.getElementById(`${id}-tab`);
     if (target) {
         target.classList.add('active');
         target.style.display = 'block';
         
-        // C. SPREADSHEET ENGINE: Physically builds the page content
+        // SPREADSHEET ENGINE: Populate the registry for this room
         if(id === 'dashboard') renderDashboard();
         if(['trucks', 'driverlog', 'clients', 'dispatch', 'inventory'].includes(id)) buildRoomRegistry(id);
 
-        // D. CALENDAR REFRESH: Forces the calendar to "Wake Up" so it's not a blank void
+        // CALENDAR REFRESH: Physically forces the calendar to draw after room is visible
         if(id === 'dashboard' && dashCal) { 
             setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 50); 
         }
@@ -39,13 +39,13 @@ window.tab = (id) => {
     const btn = document.querySelector(`[data-tab="${id}"]`);
     if(btn) btn.classList.add('active');
     
-    document.getElementById('tab-title').innerText = id.toUpperCase() + '_OPERATIONS';
+    document.getElementById('tab-title').innerText = id.toUpperCase() + '_TERMINAL';
     lucide.createIcons();
 };
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
 
-// --- 2. SPREADSHEET ENGINE (Injects a ledger into every room) ---
+// --- 2. SPREADSHEET ENGINE (Implementing registries for every page) ---
 function buildRoomRegistry(tabId) {
     const containerId = `${tabId}-registry`;
     const container = document.getElementById(containerId);
@@ -54,10 +54,10 @@ function buildRoomRegistry(tabId) {
     let headers = [];
     let rows = [];
 
-    // DEFINE SPREADSHEET HEADERS BY TAB
+    // DEFINE HEADERS BASED ON ROOM
     if (tabId === 'trucks') {
-        headers = ['Unit ID', 'Make/Model', 'Mileage', 'Status', 'Log'];
-        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString() + ' mi', t.status, 'OPEN']);
+        headers = ['Unit ID', 'Make/Model', 'Odometer', 'Status', 'Log'];
+        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString(), t.status, 'OPEN']);
     } else if (tabId === 'driverlog') {
         headers = ['Date', 'Driver Name', 'Unit', 'Route', 'Sync'];
         rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR', 'LIVE']);
@@ -66,17 +66,17 @@ function buildRoomRegistry(tabId) {
         rows = fleetData.clients.map(c => [c.name, c.contact, c.city, `$${c.rate}`, 'SETTLED']);
     }
 
-    // INJECT THE LEDGER
+    // INJECT THE LEDGER TABLE
     container.innerHTML = `
         <div class="flex justify-between items-center mb-10 px-2">
-            <h3 class="text-4xl font-black uppercase italic italic">${tabId} Data Registry</h3>
-            <button class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl">+ New Entry</button>
+            <h3 class="text-4xl font-black uppercase italic">${tabId} Data Registry</h3>
+            <button class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase">+ New Registry</button>
         </div>
-        <div class="spreadsheet-box shadow-2xl">
+        <div class="spreadsheet-box">
             <table class="fleet-table">
                 <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
                 <tbody>
-                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No Satellite Data Synced</td></tr>'}
+                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20">NO_SATELLITE_DATA_SYNCED</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -88,14 +88,8 @@ function initCalendars() {
     const cfg = {
         initialView: 'dayGridMonth',
         editable: true,
-        selectable: true,
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
         dateClick: (i) => { window.openEventModal(); },
-        eventClick: (i) => {
-            const newTitle = prompt("Edit Job Description:", i.event.title);
-            if (newTitle === "") i.event.remove();
-            else if (newTitle) i.event.setProp('title', newTitle);
-        },
         events: fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }))
     };
 
@@ -126,13 +120,9 @@ function renderDashboard() {
     }
 }
 
-// --- 5. INITIALIZATION ---
+// --- 5. SYSTEM INITIALIZATION ---
 window.addEventListener('load', async () => {
-    setInterval(() => { 
-        const clock = document.getElementById('live-clock');
-        if(clock) clock.innerText = new Date().toLocaleTimeString(); 
-    }, 1000);
-    
+    setInterval(() => { document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); }
 
     onAuthStateChanged(auth, u => {
@@ -154,6 +144,5 @@ window.addEventListener('load', async () => {
 });
 
 window.openEventModal = () => document.getElementById('event-modal').classList.remove('hidden');
-window.saveEvent = async () => { /* Logic */ window.closeModal(); };
-
+window.saveEvent = async () => { /* Add logic */ window.closeModal(); };
 
