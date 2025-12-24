@@ -5,7 +5,7 @@ import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, Ti
 // --- SYSTEM STATE ---
 let auth, db, user, appId, dashCal;
 let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
-let activeEditId = null;
+let activeEditId = null; // KEY FOR EDITING
 
 // --- 1. THE NAVIGATION SHORTCUT ENGINE ---
 window.tab = (id) => {
@@ -16,22 +16,23 @@ window.tab = (id) => {
     if (target) {
         target.classList.add('active');
         
-        // Logical Triggers: Refresh the data views
+        // RE-POPULATE DATA VISUALS
         if(id === 'dashboard') renderDashboard();
-        if(id === 'trucks') renderTrucksSpreadsheet();
-        if(id === 'driverlog') renderDriverLogs();
-        if(id === 'clients') renderCRM();
+        if(id === 'trucks') renderTruckSpreadsheet();
+        if(id === 'driverlog') renderDriverLogSpreadsheet();
+        if(id === 'clients') renderCRMSpreadsheet();
 
-        // Refresh Calendar for visibility
+        // Calendar Visibility Fix
         if(id === 'dashboard' && dashCal) { setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); }
     }
     
+    // Sidebar Active State
     document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === id);
     });
 
     const titleEl = document.getElementById('tab-title');
-    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_LOGISTICS_LEDGER`;
+    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_LOGISTICS_MASTER`;
     lucide.createIcons();
 };
 
@@ -40,13 +41,13 @@ window.closeModal = () => {
     activeEditId = null;
 };
 
-// --- 2. SPREADSHEET LOGIC: TRUCK UNIT MANAGEMENT ---
+// --- 2. SPREADSHEET LOGIC: TRUCK MANAGEMENT ---
 
-function renderTrucksSpreadsheet() {
-    const grid = document.getElementById('trucks-grid'); // Using your existing ID
+function renderTruckSpreadsheet() {
+    const grid = document.getElementById('trucks-grid');
     if (!grid) return;
 
-    // A. CALCULATE DESCRIPTIVE COUNTS
+    // A. CALCULATE ACCURATE VITALS
     const stats = {
         total: fleetData.trucks.length,
         ready: fleetData.trucks.filter(t => t.status === 'Operational' || t.status === 'Active').length,
@@ -54,56 +55,48 @@ function renderTrucksSpreadsheet() {
         shop: fleetData.trucks.filter(t => t.status === 'Maintenance' || t.status === 'In Shop').length
     };
 
-    // B. GENERATE MASTER VITAL BAR (The Counter)
-    const counterHtml = `
+    // B. INJECT COMMAND BAR
+    const commandBar = `
         <div class="fleet-vitals-bar col-span-full">
-            <div class="vital-tile"><p class="vital-label">Fleet Size</p><h4 class="vital-value">${stats.total}</h4></div>
-            <div class="vital-tile border-green-500/20"><p class="vital-label text-green-500">Ready Units</p><h4 class="vital-value">${stats.ready}</h4></div>
+            <div class="vital-tile"><p class="vital-label">Total Fleet</p><h4 class="vital-value">${stats.total}</h4></div>
+            <div class="vital-tile border-green-500/20"><p class="vital-label text-green-500">Active Units</p><h4 class="vital-value">${stats.ready}</h4></div>
             <div class="vital-tile border-blue-500/20"><p class="vital-label text-blue-500">In Transit</p><h4 class="vital-value">${stats.transit}</h4></div>
-            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">Maintenance</p><h4 class="vital-value">${stats.shop}</h4></div>
+            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">In Shop</p><h4 class="vital-value">${stats.shop}</h4></div>
         </div>
     `;
 
-    // C. GENERATE SPREADSHEET VIEW
-    const tableHtml = `
-        <div class="spreadsheet-container col-span-full">
-            <table class="fleet-table">
+    // C. BUILD SPREADSHEET TABLE
+    const table = `
+        <div class="ledger-container col-span-full">
+            <table class="ledger-table">
                 <thead>
-                    <tr>
-                        <th>Unit ID</th>
-                        <th>Model/Make</th>
-                        <th>Mileage</th>
-                        <th>Status</th>
-                        <th>Last Updated</th>
-                    </tr>
+                    <tr><th>Unit ID</th><th>Model</th><th>Mileage</th><th>Status</th><th>Action</th></tr>
                 </thead>
                 <tbody>
-                    ${fleetData.trucks.map(t => {
-                        let sClass = t.status?.toLowerCase().includes('transit') ? 'transit' : (t.status?.toLowerCase().includes('shop') || t.status?.toLowerCase().includes('mainte') ? 'maintenance' : 'operational');
-                        return `
-                        <tr onclick="window.initEditTruck('${t.id}')">
-                            <td class="font-black italic uppercase text-white">${t.truckId}</td>
-                            <td>${t.make || 'Generic'}</td>
-                            <td class="font-mono text-slate-400">${Number(t.miles).toLocaleString()} mi</td>
-                            <td><span class="st-pill ${sClass}">${t.status}</span></td>
-                            <td class="text-[10px] text-slate-600 font-mono">EDITING_READY</td>
-                        </tr>`;
-                    }).join('')}
+                    ${fleetData.trucks.map(t => `
+                        <tr onclick="window.startEditTruck('${t.id}')">
+                            <td class="font-black text-white italic uppercase">${t.truckId}</td>
+                            <td class="text-slate-400">${t.make || 'Generic'}</td>
+                            <td class="font-mono">${Number(t.miles).toLocaleString()} mi</td>
+                            <td><span class="st-pill ${t.status?.toLowerCase().includes('transit') ? 'transit' : (t.status?.toLowerCase().includes('shop') ? 'maintenance' : 'operational')}">${t.status}</span></td>
+                            <td class="text-blue-500 font-black text-[10px] uppercase italic">Click to Edit</td>
+                        </tr>
+                    `).join('')}
                 </tbody>
             </table>
         </div>
     `;
 
-    grid.innerHTML = counterHtml + tableHtml;
+    grid.innerHTML = commandBar + table;
     lucide.createIcons();
 }
 
-window.initEditTruck = (id) => {
+// Logic to switch from "Add" to "Update"
+window.startEditTruck = (id) => {
     const t = fleetData.trucks.find(x => x.id === id);
     if (!t) return;
     activeEditId = id;
-    
-    // Auto-fill modal for editing
+
     document.getElementById('t-id').value = t.truckId;
     document.getElementById('t-make').value = t.make || '';
     document.getElementById('t-miles').value = t.miles || '';
@@ -120,27 +113,35 @@ window.saveTruckUnit = async () => {
         status: document.getElementById('t-status').value,
         timestamp: Date.now()
     };
-    if(!val.truckId) return;
+    if (!val.truckId) return;
 
+    // Local UI Refresh
     if (activeEditId) {
         const idx = fleetData.trucks.findIndex(t => t.id === activeEditId);
         fleetData.trucks[idx] = { ...val, id: activeEditId };
-        if(user && db && !activeEditId.startsWith('local')) {
-            await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'trucks', activeEditId), { ...val, timestamp: Timestamp.now() });
-        }
     } else {
         fleetData.trucks.push({ ...val, id: "local_" + Date.now() });
-        if(user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() });
     }
 
-    renderTrucksSpreadsheet();
+    renderTruckSpreadsheet();
     window.closeModal();
+
+    // Cloud Persistence
+    if (user && db) {
+        try {
+            if (activeEditId && !activeEditId.startsWith('local')) {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'trucks', activeEditId), { ...val, timestamp: Timestamp.now() });
+            } else {
+                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() });
+            }
+        } catch(e) {}
+    }
 };
 
-// --- 3. DASHBOARD SHORTCUTS (The "Tile Logic") ---
+// --- 3. DASHBOARD INTERACTIVITY (THE COMMAND CENTER) ---
 
 function renderDashboard() {
-    // A. Revenue Shortcut
+    // Stat 1: Revenue (Click to CRM)
     let bal = 0;
     fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
     const revEl = document.getElementById('total-display');
@@ -149,7 +150,7 @@ function renderDashboard() {
         revEl.closest('.balance-card').onclick = () => window.tab('clients');
     }
 
-    // B. Fleet Status Shortcut (The Counter on Dash)
+    // Stat 2: Fleet Status (Click to Trucks)
     const countEl = document.getElementById('truck-count-display') || document.getElementById('truck-count');
     if (countEl) {
         countEl.innerText = fleetData.trucks.length;
@@ -174,25 +175,25 @@ window.addEventListener('load', () => {
     
     lucide.createIcons();
     setInterval(() => {
-        const cl = document.getElementById('live-clock');
-        if(cl) cl.innerText = new Date().toLocaleTimeString();
+        const el = document.getElementById('live-clock');
+        if(el) el.innerText = new Date().toLocaleTimeString();
     }, 1000);
 
-    initTerminalLink();
+    initTerminalSync();
 });
 
-async function initTerminalLink() {
+async function initTerminalSync() {
     const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
     if(!configStr) return;
     const app = initializeApp(JSON.parse(configStr));
     auth = getAuth(app); db = getFirestore(app);
-    appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v38-ledger';
-
+    appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v39-master';
+    
     onAuthStateChanged(auth, u => {
         if(u){ user = u;
             onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => {
                 fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderTrucksSpreadsheet(); renderDashboard();
+                renderTruckSpreadsheet(); renderDashboard();
             });
             onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), s => {
                 fleetData.receipts = s.docs.map(d => ({ id: d.id, ...d.data() }));
