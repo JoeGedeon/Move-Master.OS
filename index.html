@@ -4,78 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fleet Command Terminal</title>
-    
-    <!-- External Frameworks -->
+    <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-[#0b0f1a] text-white overflow-hidden">
 
     <div id="app-root" class="flex h-screen w-screen">
-        
         <!-- SIDEBAR -->
-        <aside id="sidebar" class="w-[260px] flex-shrink-0 bg-[#111827] border-r border-white/10 flex flex-col z-[100]">
+        <aside id="sidebar">
             <div class="p-8 flex items-center gap-3">
                 <div class="bg-blue-600 p-2 rounded-xl shadow-[0_0_15px_#3b82f6]"><i data-lucide="shield-check"></i></div>
-                <span class="text-xl font-black italic uppercase">FLEETPRO</span>
+                <span class="text-xl font-black italic tracking-tighter uppercase">FLEETPRO</span>
             </div>
-            
             <nav class="flex-1 overflow-y-auto custom-scroll py-2">
-                <button onclick="window.tab('calendar')" class="nav-btn active" data-tab="calendar">
-                    <i data-lucide="calendar"></i> <span>1. Calendar</span>
-                </button>
-                <button onclick="window.tab('dashboard')" class="nav-btn" data-tab="dashboard">
-                    <i data-lucide="layout-grid"></i> <span>2. Dashboard</span>
-                </button>
-                <button onclick="window.tab('dispatch')" class="nav-btn" data-tab="dispatch">
-                    <i data-lucide="briefcase"></i> <span>3. Dispatch</span>
-                </button>
-                <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog">
-                    <i data-lucide="clipboard-list"></i> <span>4. Driver's Log</span>
-                </button>
-                <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan">
-                    <i data-lucide="maximize"></i> <span>5. AI Scanner</span>
-                </button>
-                <button onclick="window.tab('inventory')" class="nav-btn" data-tab="inventory">
-                    <i data-lucide="package"></i> <span>6. Inventory</span>
-                </button>
-                <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks">
-                    <i data-lucide="truck"></i> <span>7. Truck Units</span>
-                </button>
-                <button onclick="window.tab('estimator')" class="nav-btn" data-tab="estimator">
-                    <i data-lucide="calculator"></i> <span>8. Estimator</span>
-                </button>
-                <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai">
-                    <i data-lucide="bot"></i> <span>9. AI Auditor</span>
-                </button>
+                <button onclick="window.tab('calendar')" class="nav-btn active" data-tab="calendar"><i data-lucide="calendar"></i> <span>1. Calendar</span></button>
+                <button onclick="window.tab('dashboard')" class="nav-btn" data-tab="dashboard"><i data-lucide="layout-grid"></i> <span>2. Dashboard</span></button>
+                <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog"><i data-lucide="clipboard-list"></i> <span>3. Driver's Log</span></button>
+                <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks"><i data-lucide="truck"></i> <span>4. Truck Units</span></button>
+                <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan"><i data-lucide="maximize"></i> <span>5. AI Scanner</span></button>
+                <button onclick="window.tab('inventory')" class="nav-btn" data-tab="inventory"><i data-lucide="package"></i> <span>6. Inventory</span></button>
+                <button onclick="window.tab('dispatch')" class="nav-btn" data-tab="dispatch"><i data-lucide="briefcase"></i> <span>7. Dispatch</span></button>
+                <button onclick="window.tab('estimator')" class="nav-btn" data-tab="estimator"><i data-lucide="calculator"></i> <span>8. Estimator</span></button>
+                <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai"><i data-lucide="bot"></i> <span>9. AI Auditor</span></button>
             </nav>
-
             <div class="p-6 border-t border-white/5 mt-auto">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase">A</div>
+                <div class="user-pill">
+                    <div class="avatar">A</div>
                     <div class="user-info">
-                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500">Live_Sync</p>
+                        <p id="user-id-tag" class="status">Terminal Ready</p>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <!-- VIEWPORT -->
-        <main id="viewport" class="flex-1 flex flex-col min-w-0">
+        <!-- MAIN VIEWPORT -->
+        <main id="viewport">
             <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-[#111827]/40 backdrop-blur-xl">
                 <h2 id="tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500">FLEET_CALENDAR</h2>
                 <div class="flex items-center gap-6">
                     <div id="live-clock" class="text-[11px] font-mono text-slate-500">00:00:00</div>
-                    <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[9px] font-black uppercase border border-green-500/20">
-                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse"></span> Terminal_Linked
-                    </div>
+                    <div class="status-chip"><span class="pulse"></span> SATELLITE_LINKED</div>
                 </div>
             </header>
 
-            <div class="flex-1 relative overflow-hidden">
+            <div class="content-stage">
                 <!-- 1. CALENDAR -->
                 <section id="calendar-tab" class="tab-panel active">
                     <div class="calendar-card"><div id="calendar-render"></div></div>
@@ -84,50 +59,32 @@
                         <div id="agenda-stream"></div>
                     </aside>
                 </section>
-
                 <!-- 2. DASHBOARD -->
                 <section id="dashboard-tab" class="tab-panel custom-scroll">
                     <div class="stats-grid">
-                        <div class="balance-card">
-                            <p class="card-label">Global Balance</p>
-                            <h2 id="total-display" class="balance-text">$0.00</h2>
-                            <i data-lucide="trending-up" class="bg-icon"></i>
-                        </div>
-                        <div class="stat-card">
-                            <p class="card-label">Unit Integrity</p>
-                            <h3 id="active-truck-count" class="stat-text">0</h3>
-                        </div>
+                        <div class="balance-card"><p class="card-label">Global Balance</p><h2 id="total-display" class="balance-text">$0.00</h2></div>
+                        <div class="stat-card"><p class="card-label">Integrity</p><h3 id="integrity-text" class="stat-text text-green-500">OPTIMIZED</h3></div>
                     </div>
-                    <div class="ledger-container">
-                        <div class="ledger-head">MASTER LEDGER</div>
-                        <div id="ledger-stream"></div>
-                    </div>
+                    <div class="ledger-container"><div class="ledger-head">MASTER LEDGER</div><div id="ledger-stream"></div></div>
                 </section>
-
-                <!-- 4. DRIVER LOG -->
+                <!-- 3. DRIVER LOG -->
                 <section id="driverlog-tab" class="tab-panel custom-scroll">
-                    <div class="panel-header">
-                        <h3 class="panel-title">ACCOUNTABILITY LOG</h3>
-                        <button onclick="window.openLogModal()" class="action-btn">NEW LOG ENTRY</button>
-                    </div>
-                    <div class="table-card"><table class="data-table"><thead><tr><th>Date</th><th>Driver</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody id="log-rows"></tbody></table></div>
+                    <div class="panel-header"><h3 class="panel-title">DRIVER LOGS</h3><button onclick="window.openLogModal()" class="action-btn">NEW LOG ENTRY</button></div>
+                    <div class="table-card"><table class="data-table"><thead><tr><th>Date</th><th>Driver</th><th>Unit</th><th>Expenses</th><th>Balance</th><th></th></tr></thead><tbody id="log-rows"></tbody></table></div>
                 </section>
-
-                <!-- 7. TRUCK UNITS -->
+                <!-- 4. TRUCK UNITS -->
                 <section id="trucks-tab" class="tab-panel custom-scroll">
-                    <div class="panel-header">
-                        <h3 class="panel-title">UNIT REGISTRY</h3>
-                        <button onclick="window.openTruckModal()" class="action-btn">REGISTER TRUCK</button>
-                    </div>
+                    <div class="panel-header"><h3 class="panel-title">FLEET REGISTRY</h3><button onclick="window.openTruckModal()" class="action-btn">REGISTER TRUCK</button></div>
                     <div id="trucks-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
                 </section>
 
-                <section id="generic-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black opacity-20 uppercase">Module Standby</h4></section>
-                <section id="dispatch-tab" class="tab-panel"></section>
-                <section id="scan-tab" class="tab-panel"></section>
-                <section id="inventory-tab" class="tab-panel"></section>
-                <section id="estimator-tab" class="tab-panel"></section>
-                <section id="ai-tab" class="tab-panel"></section>
+                <!-- Fallback Sections -->
+                <section id="scan-tab" class="tab-panel"><div class="empty-state">Scanner Module Ready</div></section>
+                <section id="inventory-tab" class="tab-panel"><div class="empty-state">Inventory Standby</div></section>
+                <section id="dispatch-tab" class="tab-panel"><div class="empty-state">Dispatch Online</div></section>
+                <section id="estimator-tab" class="tab-panel"><div class="empty-state">Estimator Linked</div></section>
+                <section id="ai-tab" class="tab-panel"><div class="empty-state">AI Auditor Active</div></section>
+                <section id="generic-tab" class="tab-panel"><div class="empty-state">Terminal Node Secure</div></section>
             </div>
         </main>
     </div>
@@ -135,22 +92,22 @@
     <!-- MODALS -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Schedule Task</h3>
+            <h3 class="modal-title">Log Task</h3>
             <div class="modal-body">
-                <input type="text" id="ev-title" class="form-input" placeholder="Task details...">
+                <input type="text" id="ev-title" class="form-input" placeholder="What is the task?">
                 <div class="input-grid">
                     <input type="text" id="ev-truck" class="form-input font-black uppercase" placeholder="Truck ID">
                     <input type="date" id="ev-date" class="form-input">
                 </div>
             </div>
-            <button class="save-btn w-full mt-6" onclick="window.saveEvent()">UPDATE TERMINAL</button>
+            <button class="save-btn w-full mt-6" onclick="window.saveEvent()">UPDATE CALENDAR</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
         </div>
     </div>
 
     <div id="log-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Log Activity</h3>
+            <h3 class="modal-title text-blue-500">New Activity</h3>
             <div class="modal-body">
                 <input type="text" id="l-driver" class="form-input" placeholder="Driver Name">
                 <div class="input-grid">
@@ -158,23 +115,20 @@
                     <input type="date" id="l-date" class="form-input">
                 </div>
             </div>
-            <button class="save-btn w-full mt-6" onclick="window.saveDriverLog()">COMMIT LOG</button>
+            <button class="save-btn w-full mt-8" onclick="window.saveDriverLog()">SAVE LOG ENTRY</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
         </div>
     </div>
 
     <div id="truck-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Register Unit</h3>
+            <h3 class="modal-title">Add Vehicle</h3>
             <div class="modal-body">
-                <input type="text" id="t-id" class="form-input font-black uppercase" placeholder="Truck ID">
+                <input type="text" id="t-id" class="form-input font-black uppercase" placeholder="TRK-001">
                 <div class="input-grid">
                     <input type="text" id="t-make" class="form-input" placeholder="Make/Model">
-                    <input type="number" id="t-miles" class="form-input" placeholder="Odometer">
+                    <input type="number" id="t-miles" class="form-input" placeholder="Mileage">
                 </div>
-                <select id="t-status" class="form-input font-black text-[10px] uppercase">
-                    <option value="Active">Active</option><option value="In Shop">In Shop</option><option value="Down">Down</option>
-                </select>
             </div>
             <button class="save-btn w-full mt-6" onclick="window.saveTruckUnit()">SYNC REGISTRY</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
