@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Command Terminal | Enterprise Hub</title>
+    <title>Fleet Command Terminal | Enterprise Edition</title>
     
     <!-- Core UI Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
             display: flex; overflow: hidden;
         }
 
-        /* --- HARD-WIRED TOOLBAR (9 ITEMS) --- */
+        /* --- HARD-LOCKED SIDEBAR (9 ITEMS) --- */
         #sidebar {
             width: 260px !important;
             background: var(--card);
@@ -55,7 +55,7 @@
             font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             background: transparent;
             border: none;
             cursor: pointer;
@@ -99,6 +99,7 @@
             height: calc(100vh - 140px);
             border: 1px solid var(--border);
             box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            position: relative;
         }
 
         .fc { height: 100% !important; color: #fff; font-family: inherit; }
@@ -106,6 +107,7 @@
         .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255, 255, 255, 0.03) !important; }
         .fc-button-primary { background: #1e293b !important; border: 1px solid var(--border) !important; font-weight: 800 !important; font-size: 9px !important; text-transform: uppercase !important; border-radius: 12px !important; }
         .fc-event { background: var(--blue) !important; border: none !important; border-radius: 8px !important; padding: 6px 12px !important; font-weight: 800 !important; font-size: 10px !important; cursor: pointer; }
+        .fc-day-today { background: rgba(59, 130, 246, 0.05) !important; }
 
         /* --- AGENDA SIDE-PANEL --- */
         #agenda-sidebar {
@@ -133,6 +135,11 @@
             width: 100%; background: #1e293b; border: 1px solid var(--border);
             border-radius: 20px; padding: 18px; color: #fff; font-weight: 700; outline: none;
         }
+        
+        .status-badge {
+            font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;
+            padding: 4px 10px; border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -141,47 +148,47 @@
     <aside id="sidebar">
         <div class="p-8">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-xl shadow-lg"><i data-lucide="shield-check"></i></div>
+                <div class="bg-blue-600 p-2 rounded-xl shadow-[0_0_15px_#3b82f6]"><i data-lucide="shield-check" size="24"></i></div>
                 <span class="hidden lg:block text-xl font-black italic tracking-tighter uppercase">FLEETPRO</span>
             </div>
         </div>
         
         <nav class="flex-1 overflow-y-auto custom-scroll py-2">
-            <button onclick="tab('calendar')" class="nav-btn active" data-tab="calendar">
+            <button onclick="changeTab('calendar')" class="nav-btn active" data-tab="calendar">
                 <i data-lucide="calendar"></i> <span>1. Calendar</span>
             </button>
-            <button onclick="tab('dashboard')" class="nav-btn" data-tab="dashboard">
+            <button onclick="changeTab('dashboard')" class="nav-btn" data-tab="dashboard">
                 <i data-lucide="layout-grid"></i> <span>2. Dashboard</span>
             </button>
-            <button onclick="tab('jobs')" class="nav-btn" data-tab="jobs">
+            <button onclick="changeTab('jobs')" class="nav-btn" data-tab="jobs">
                 <i data-lucide="briefcase"></i> <span>3. Dispatch</span>
             </button>
-            <button onclick="tab('scan')" class="nav-btn" data-tab="scan">
+            <button onclick="changeTab('scan')" class="nav-btn" data-tab="scan">
                 <i data-lucide="maximize"></i> <span>4. AI Scanner</span>
             </button>
-            <button onclick="tab('inventory')" class="nav-btn" data-tab="inventory">
+            <button onclick="changeTab('inventory')" class="nav-btn" data-tab="inventory">
                 <i data-lucide="package"></i> <span>5. Inventory</span>
             </button>
-            <button onclick="tab('trucks')" class="nav-btn" data-tab="trucks">
+            <button onclick="changeTab('trucks')" class="nav-btn" data-tab="trucks">
                 <i data-lucide="truck"></i> <span>6. Truck Units</span>
             </button>
-            <button onclick="tab('calc')" class="nav-btn" data-tab="calc">
+            <button onclick="changeTab('calc')" class="nav-btn" data-tab="calc">
                 <i data-lucide="calculator"></i> <span>7. Estimator</span>
             </button>
-            <button onclick="tab('ai')" class="nav-btn" data-tab="ai">
+            <button onclick="changeTab('ai')" class="nav-btn" data-tab="ai">
                 <i data-lucide="bot"></i> <span>8. AI Auditor</span>
             </button>
-            <button onclick="exportFullData()" class="nav-btn text-slate-500 mt-6" data-tab="reports">
+            <button onclick="exportCSV()" class="nav-btn text-slate-500 mt-6" data-tab="reports">
                 <i data-lucide="file-down"></i> <span>9. Master Dump</span>
             </button>
         </nav>
 
-        <div class="p-6 border-t border-white/5 mt-auto">
-            <div id="user-display" class="bg-white/5 p-3 rounded-2xl flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase italic">A</div>
+        <div class="p-6 border-t border-white/5 bg-[#0b0f1a]/50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase italic shadow-lg">A</div>
                 <div class="hidden lg:block">
-                    <p class="text-[10px] font-black uppercase text-slate-400">Terminal_Admin</p>
-                    <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 mt-0.5">Linked_Active</p>
+                    <p class="text-[10px] font-black uppercase text-slate-500">Terminal_Admin</p>
+                    <p class="text-[9px] font-mono text-blue-500 mt-0.5 animate-pulse">Session_Active</p>
                 </div>
             </div>
         </div>
@@ -190,7 +197,9 @@
     <!-- MAIN TERMINAL AREA -->
     <main class="viewport">
         <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl">
-            <h2 id="active-tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500">Fleet Calendar</h2>
+            <h2 id="tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500 flex items-center gap-2">
+                <i data-lucide="chevron-right" size="14"></i> Fleet Hub
+            </h2>
             <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
                 <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Link Established
             </div>
@@ -228,9 +237,9 @@
                         <h3 id="truck-stat" class="text-5xl font-black text-white">0</h3>
                     </div>
                 </div>
-                <div id="logs-container" class="bg-[#111827] rounded-[3.5rem] border border-white/5 divide-y divide-white/5 shadow-2xl overflow-hidden mb-20">
+                <div class="bg-[#111827] rounded-[3.5rem] border border-white/5 divide-y divide-white/5 shadow-2xl overflow-hidden mb-20">
                     <div class="p-8 border-b border-white/5 bg-white/[0.02] flex justify-between">
-                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">Transaction History</span>
+                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">Financial Ledger</span>
                     </div>
                     <div id="ledger-stream"></div>
                 </div>
@@ -238,18 +247,18 @@
 
             <!-- 4. SCANNER -->
             <section id="scan-tab" class="tab-panel flex items-center justify-center min-h-[70vh]">
-                <div class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl">
-                     <i data-lucide="scan" size="48" class="text-blue-500 mb-6"></i>
-                     <h4 class="text-2xl font-black uppercase italic tracking-tighter text-center">AI Scanner Ready</h4>
-                     <p class="text-slate-500 text-sm mt-4 text-center px-10">Capture or upload driver receipts for terminal automation.</p>
+                <div class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative">
+                     <i data-lucide="scan" size="48" class="text-blue-500 mb-6 animate-pulse"></i>
+                     <h4 class="text-2xl font-black uppercase italic tracking-tighter text-center">AI Terminal Scanner</h4>
+                     <p class="text-slate-500 text-sm mt-4 text-center px-10">Capture driver receipts for automated bookkeeping.</p>
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- MODAL: GOOGLE CALENDAR ENTRY -->
+    <!-- MODAL: CALENDAR ENTRY (GOOGLE STYLE) -->
     <div id="event-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] flex items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl animate-in">
             <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Edit Schedule</h3>
             <div class="space-y-5">
                 <input type="text" id="ev-title" class="form-input" placeholder="Work detail...">
@@ -263,13 +272,13 @@
             </div>
             <div class="flex gap-4 mt-10">
                 <button id="modal-del-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Delete</button>
-                <button id="modal-save-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update Fleet</button>
+                <button id="modal-save-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20">Sync to Fleet</button>
             </div>
-            <button onclick="closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">Cancel Terminal</button>
+            <button onclick="closeEventModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">Close Terminal</button>
         </div>
     </div>
 
-    <!-- MAIN LOGIC (SAFE FROM GITHUB CRASHES) -->
+    <!-- MAIN LOGIC (SAFE FOR GITHUB) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
@@ -278,29 +287,29 @@
         let auth, db, user, appId, calendar;
         let fleetData = { receipts: [], jobs: [] };
         let activeEditId = null;
-        let firebaseOnline = false;
+        let isFirebaseOnline = false;
 
-        // --- STEP 1: UI INITIALIZATION (FORCED VISIBILITY) ---
-        window.tab = (id) => {
+        // --- STEP 1: UI NAVIGATION (ALWAYS WORKS) ---
+        window.changeTab = (id) => {
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById(id + '-tab').classList.add('active');
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
-            document.getElementById('active-tab-title').innerText = "Terminal_" + id.toUpperCase();
+            document.getElementById('tab-title').innerText = "Terminal_" + id.toUpperCase();
             if(id === 'calendar' && calendar) { setTimeout(() => calendar.updateSize(), 50); }
             lucide.createIcons();
         };
 
-        window.closeModal = () => document.getElementById('event-modal').classList.add('hidden');
+        window.closeEventModal = () => document.getElementById('event-modal').classList.add('hidden');
 
-        // --- STEP 2: SYSTEM LAUNCH ---
+        // --- STEP 2: SYSTEM STARTUP ---
         window.addEventListener('DOMContentLoaded', () => {
             initTerminalCalendar();
             lucide.createIcons();
-            startDatabase();
+            startTerminalSync();
         });
 
-        // --- STEP 3: DATABASE (CRASH-PROOF) ---
-        async function startDatabase() {
+        // --- STEP 3: DATABASE ENGINE (Bulletproof Check) ---
+        async function startTerminalSync() {
             try {
                 const configString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
                 if (!configString) throw "Offline Mode";
@@ -308,47 +317,44 @@
                 const app = initializeApp(JSON.parse(configString));
                 auth = getAuth(app);
                 db = getFirestore(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-hub-master-v13';
-                firebaseOnline = true;
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-hub-v13';
+                isFirebaseOnline = true;
 
                 onAuthStateChanged(auth, async (u) => {
                     if (!u) { await signInAnonymously(auth); } else {
                         user = u;
-                        document.getElementById('user-id-tag').innerText = user.uid.slice(0, 10) + "_SYNC";
-                        syncTerminal();
+                        syncDataStreams();
                     }
                 });
-            } catch (err) {
-                console.warn("GitHub Mode: Local Storage active.");
-            }
+            } catch (err) { console.warn("Database sync inactive."); }
         }
 
-        function syncTerminal() {
+        function syncDataStreams() {
             onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), (snap) => {
                 fleetData.receipts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderDashboard();
+                renderLedger();
             });
             onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), (snap) => {
                 fleetData.jobs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderCalendarData();
+                renderCalendarEvents();
                 renderAgenda();
             });
         }
 
-        // --- STEP 4: CALENDAR ENGINE ---
+        // --- STEP 4: CALENDAR ENGINE (GOOGLE STYLE) ---
         function initTerminalCalendar() {
             const el = document.getElementById('calendar-view');
             calendar = new FullCalendar.Calendar(el, {
                 initialView: 'dayGridMonth',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
                 height: '100%', editable: true, selectable: true,
-                dateClick: (info) => openEventModal(null, info.dateStr),
-                eventClick: (info) => openEventModal(info.event.id)
+                dateClick: (info) => openModal(null, info.dateStr),
+                eventClick: (info) => openModal(info.event.id)
             });
             calendar.render();
         }
 
-        function renderCalendarData() {
+        function renderCalendarEvents() {
             if(!calendar) return;
             calendar.removeAllEvents();
             fleetData.jobs.forEach(j => {
@@ -360,7 +366,7 @@
         }
 
         // --- STEP 5: RENDERERS ---
-        function renderDashboard() {
+        function renderLedger() {
             const stream = document.getElementById('ledger-stream');
             let balance = 0; stream.innerHTML = '';
             fleetData.receipts.forEach(r => {
@@ -389,7 +395,7 @@
         }
 
         // --- STEP 6: MODAL HANDLING ---
-        function openEventModal(id = null, date = null) {
+        function openModal(id = null, date = null) {
             activeEditId = id;
             const modal = document.getElementById('event-modal');
             const delBtn = document.getElementById('modal-del-btn');
@@ -410,20 +416,20 @@
         }
 
         document.getElementById('modal-save-btn').onclick = async () => {
-            if(!firebaseOnline) return alert("Database not linked in this environment.");
+            if(!isFirebaseOnline) return alert("Terminal not linked to database.");
             const val = { title: document.getElementById('ev-title').value, truckId: document.getElementById('ev-truck').value, date: document.getElementById('ev-date').value, status: document.getElementById('ev-status').value };
             if(!val.title) return;
             if(activeEditId) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', activeEditId), val);
             else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...val, timestamp: Timestamp.now() });
-            closeModal();
+            closeEventModal();
         };
 
         document.getElementById('modal-del-btn').onclick = async () => {
             if(activeEditId) await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', activeEditId));
-            closeModal();
+            closeEventModal();
         };
 
-        window.exportFullData = () => {
+        window.exportCSV = () => {
             const rows = fleetData.receipts.map(r => [r.date, r.truckId, r.amount].join(","));
             const blob = new Blob(["Date,Truck,Amount\n" + rows.join("\n")], {type: 'text/csv'});
             const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Fleet_Dump.csv"; a.click();
