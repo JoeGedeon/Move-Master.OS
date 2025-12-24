@@ -1,111 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FleetPro | Master Command</title>
-    
-    <!-- Dependencies -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-
-    <!-- Project Links -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>FleetPro Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="bg-[#0b0f1a] text-white overflow-hidden">
+<body>
 
-    <div id="app-shell">
-        <!-- SIDEBAR: Fixed Command Tower -->
-        <aside id="sidebar">
-            <div class="sidebar-brand">
-                <div class="logo-box"><i data-lucide="shield-check"></i></div>
-                <span class="logo-text">FLEETPRO</span>
-            </div>
-            
-            <!-- TOOLBAR: Independent Scroll Area -->
-            <nav id="sidebar-nav" class="sidebar-nav">
-                <button onclick="window.tab('dashboard')" class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-grid"></i> <span>1. Dashboard</span></button>
-                <button onclick="window.tab('calendar')" class="nav-btn" data-tab="calendar"><i data-lucide="calendar"></i> <span>2. Calendar</span></button>
-                <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog"><i data-lucide="clipboard-list"></i> <span>3. Driver Log</span></button>
-                <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks"><i data-lucide="truck"></i> <span>4. Truck Units</span></button>
-                <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan"><i data-lucide="maximize"></i> <span>5. AI Scanner</span></button>
-                <button onclick="window.tab('inventory')" class="nav-btn" data-tab="inventory"><i data-lucide="package"></i> <span>6. Inventory</span></button>
-                <button onclick="window.tab('dispatch')" class="nav-btn" data-tab="dispatch"><i data-lucide="briefcase"></i> <span>7. Dispatch</span></button>
-                <button onclick="window.tab('clients')" class="nav-btn" data-tab="clients"><i data-lucide="users"></i> <span>8. CRM / Clients</span></button>
-                <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai"><i data-lucide="bot"></i> <span>9. AI Auditor</span></button>
-            </nav>
+<div class="app">
 
-            <div class="sidebar-footer">
-                <p id="user-id-tag">NODE_LINKED</p>
-            </div>
-        </aside>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">FLEETPRO</div>
+    <nav>
+      <button onclick="showView('calendar')">Calendar</button>
+      <button onclick="showView('drivers')">Drivers</button>
+      <button onclick="showView('trucks')">Trucks</button>
+      <button onclick="showView('dispatch')">Dispatch</button>
+      <button onclick="showView('finance')">Finance</button>
+      <button onclick="showView('inventory')">Inventory</button>
+      <button onclick="showView('ai')">AI Scanner</button>
+    </nav>
+  </aside>
 
-        <!-- VIEWPORT: Main Scrollable Content -->
-        <main id="viewport">
-            <header id="main-header">
-                <h2 id="tab-title">DASHBOARD</h2>
-                <div id="live-clock">00:00:00</div>
-            </header>
+  <!-- MAIN -->
+  <main class="main">
 
-            <div id="room-scroller">
-                <!-- ROOM 1: DASHBOARD HUB -->
-                <section id="dashboard-tab" class="tab-panel active">
-                    <div class="p-10 space-y-10">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div onclick="window.tab('clients')" class="lg:col-span-2 balance-card">
-                                <p class="card-label">Revenue Capital</p>
-                                <h2 id="total-display" class="font-mono">$0.00</h2>
-                            </div>
-                            <div onclick="window.tab('trucks')" class="stat-card">
-                                <p class="card-label">Fleet Status</p>
-                                <h3 id="dash-truck-count">0</h3>
-                            </div>
-                        </div>
+    <!-- HEADER -->
+    <header class="topbar">
+      <span id="clock"></span>
+      <span class="status live">SYSTEM LIVE</span>
+    </header>
 
-                        <!-- Dashboard Calendar Registry -->
-                        <div class="calendar-card shadow-2xl">
-                            <div class="flex justify-between items-center mb-8 px-2">
-                                <h3 class="text-xl font-black uppercase italic tracking-widest">Master Schedule</h3>
-                                <button onclick="window.openEventModal()" class="action-btn">+ Add Job</button>
-                            </div>
-                            <!-- PHYSICAL ANCHOR FOR CALENDAR -->
-                            <div id="dash-calendar"></div>
-                        </div>
+    <!-- VIEWS -->
 
-                        <!-- Live Ledger Activity -->
-                        <div class="ledger-box shadow-2xl">
-                            <div class="p-8 border-b border-white/5 uppercase text-[10px] font-black tracking-widest opacity-50 italic">Logistics Feed</div>
-                            <div id="ledger-stream" class="divide-y divide-white/5"></div>
-                        </div>
-                    </div>
-                </section>
+    <section id="calendar" class="view active">
+      <h2>Fleet Calendar</h2>
+      <div id="calendarGrid"></div>
+    </section>
 
-                <!-- SPREADSHEET MODULE ROOMS (Dynamically Filled by JS) -->
-                <section id="calendar-tab" class="tab-panel"><div class="p-10 h-full"><div id="full-page-calendar" class="full-cal-room"></div></div></section>
-                <section id="driverlog-tab" class="tab-panel"><div class="p-10" id="driverlog-registry"></div></section>
-                <section id="trucks-tab" class="tab-panel"><div class="p-10" id="trucks-registry"></div></section>
-                <section id="scan-tab" class="tab-panel"><div class="p-10" id="scan-registry"></div></section>
-                <section id="inventory-tab" class="tab-panel"><div class="p-10" id="inventory-registry"></div></section>
-                <section id="dispatch-tab" class="tab-panel"><div class="p-10" id="dispatch-registry"></div></section>
-                <section id="clients-tab" class="tab-panel"><div class="p-10" id="clients-registry"></div></section>
-                <section id="ai-tab" class="tab-panel"><div class="p-10" id="ai-registry"><h4 class="text-2xl font-black opacity-10">AI AUDITOR_NODE_LOCKED</h4></div></section>
-            </div>
-        </main>
-    </div>
+    <section id="drivers" class="view">
+      <h2>Drivers</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Hours</th></tr>
+        </thead>
+        <tbody id="driversTable"></tbody>
+      </table>
+    </section>
 
-    <!-- MODAL ENGINE -->
-    <div id="event-modal" class="modal-overlay hidden">
-        <div class="modal-box">
-            <h3 class="text-2xl font-black italic mb-8">Schedule Entry</h3>
-            <input type="text" id="ev-title" class="form-input" placeholder="Task details">
-            <input type="date" id="ev-date" class="form-input">
-            <button class="save-btn" onclick="window.saveEvent()">Commit to Database</button>
-            <button class="w-full mt-4 text-[10px] uppercase font-black opacity-50" onclick="window.closeModal()">Discard</button>
-        </div>
-    </div>
+    <section id="trucks" class="view">
+      <h2>Truck Units</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Status</th><th>Mileage</th></tr>
+        </thead>
+        <tbody id="trucksTable"></tbody>
+      </table>
+    </section>
 
-    <script src="script.js" type="module"></script>
+    <section id="dispatch" class="view">
+      <h2>Dispatch</h2>
+      <p>Drag jobs onto calendar dates (phase 2).</p>
+    </section>
+
+    <section id="finance" class="view">
+      <h2>Finance</h2>
+      <div class="card">
+        <div class="amount">$0.00</div>
+        <button>Analyze Receipts</button>
+      </div>
+    </section>
+
+    <section id="inventory" class="view">
+      <h2>Inventory Audit</h2>
+      <div class="card">
+        <div class="amount">0.0 ft³</div>
+        <button>Run Neural Inventory Audit</button>
+      </div>
+    </section>
+
+    <section id="ai" class="view">
+      <h2>AI Scanner</h2>
+      <div class="card warning">AI SYNC DELAY</div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
-
