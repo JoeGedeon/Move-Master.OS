@@ -9,25 +9,25 @@ let fleetData = { trucks: [], jobs: [], receipts: [], logs: [], clients: [] };
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 auth = getAuth(app); db = getFirestore(app);
-appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v500-final';
+appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-logic-v700';
 
-// --- 1. NAVIGATION HUB (THE SWITCHBOARD) ---
+// --- 1. THE SWITCHBOARD (Navigation & Data Room Entry) ---
 window.tab = (id) => {
-    // A. Hide all panels
+    // A. Visual Switch
     document.querySelectorAll('.tab-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     
-    // B. Activate target
+    // B. Activate Target
     const target = document.getElementById(`${id}-tab`);
     if (target) {
         target.classList.add('active');
         target.style.display = 'block';
         
-        // C. Build the high-density spreadsheets for the specific page
+        // C. SPREADSHEET ENGINE: Build the page registry dynamically
         if(id === 'dashboard') renderDashboard();
         if(['trucks', 'driverlog', 'clients', 'dispatch', 'inventory'].includes(id)) buildRegistry(id);
 
-        // D. CALENDAR WAKEUP: This is what fixes the "Blank Void" issue
+        // D. CALENDAR REFRESH: Force-renders the calendar to fix the "Void" issue
         if(id === 'dashboard' && dashCal) { 
             setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 100); 
         }
@@ -45,9 +45,8 @@ window.tab = (id) => {
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
 
-// --- 2. SPREADSHEET ENGINE (The High-Density Registry Builder) ---
+// --- 2. SPREADSHEET BUILDER (Universal Registry Implementation) ---
 function buildRegistry(tabId) {
-    // Finds the registry container in your current HTML
     const containerId = tabId === 'trucks' ? 'trucks-registry' : (tabId === 'driverlog' ? 'driverlog-registry' : (tabId === 'clients' ? 'clients-registry' : `${tabId}-registry`));
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -55,23 +54,28 @@ function buildRegistry(tabId) {
     let headers = [];
     let rows = [];
 
+    // DATA MAPPING
     if (tabId === 'trucks') {
-        headers = ['Unit ID', 'Make', 'Mileage', 'Status', 'Action'];
+        headers = ['Unit ID', 'Make/Model', 'Mileage', 'Status', 'Manage'];
         rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString() + ' mi', t.status, 'EDIT']);
     } else if (tabId === 'driverlog') {
-        headers = ['Date', 'Driver', 'Truck', 'Route', 'Status'];
-        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR', 'SYNCED']);
+        headers = ['Date', 'Driver', 'Unit', 'Route', 'Sync'];
+        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR', 'LIVE']);
     } else if (tabId === 'clients') {
-        headers = ['Partner', 'Contact', 'HQ', 'Rate', 'Sync'];
-        rows = fleetData.clients.map(c => [c.name, c.contact, c.city, `$${c.rate}`, 'ACTIVE']);
+        headers = ['Company', 'POC', 'HQ', 'Rate', 'Sync'];
+        rows = fleetData.clients.map(c => [c.name, c.contact, c.city, `$${c.rate}`, 'SETTLED']);
     }
 
     container.innerHTML = `
+        <div class="flex justify-between items-center mb-10">
+            <h3 class="text-4xl font-black uppercase italic">${tabId} Registry</h3>
+            ${tabId === 'trucks' ? '<button onclick="window.openTruckModal()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl">+ NEW UNIT</button>' : ''}
+        </div>
         <div class="spreadsheet-container shadow-2xl">
             <table class="fleet-table">
                 <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
                 <tbody>
-                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No satellite data linked</td></tr>'}
+                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No Satellite Data Synced</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -91,7 +95,7 @@ function initCalendars() {
             window.openEventModal(); 
         },
         eventClick: (i) => {
-            const newTitle = prompt("Edit Job Description:", i.event.title);
+            const newTitle = prompt("Edit Task Details:", i.event.title);
             if (newTitle === "") i.event.remove();
             else if (newTitle) i.event.setProp('title', newTitle);
         },
@@ -107,27 +111,26 @@ function initCalendars() {
 
 // --- 4. DASHBOARD RENDERER ---
 function renderDashboard() {
-    // Links Dashboard Tiles to Sidebar Pages
+    // Tile Shortcut mapping
     const revTile = document.getElementById('tile-revenue') || document.getElementById('dash-revenue-tile');
     const truckTile = document.getElementById('tile-trucks') || document.getElementById('dash-trucks-tile');
     if(revTile) revTile.onclick = () => window.tab('clients');
     if(truckTile) truckTile.onclick = () => window.tab('trucks');
 
     let bal = fleetData.receipts.reduce((s, r) => s + (r.category === 'Inflow' ? r.amount : -r.amount), 0);
-    const displayBal = document.getElementById('total-display');
-    const displayTrucks = document.getElementById('dash-truck-count');
+    const dBal = document.getElementById('total-display');
+    const dTrk = document.getElementById('dash-truck-count');
     
-    if(displayBal) displayBal.innerText = `$${bal.toLocaleString()}`;
-    if(displayTrucks) displayTrucks.innerText = fleetData.trucks.length;
+    if(dBal) dBal.innerText = `$${bal.toLocaleString()}`;
+    if(dTrk) dTrk.innerText = fleetData.trucks.length;
 
-    // Build the Ledger feed below calendar
     const stream = document.getElementById('ledger-stream');
     if (stream) {
         stream.innerHTML = fleetData.receipts.slice(0, 5).map(r => `
             <div class="p-8 flex justify-between items-center group hover:bg-white/[0.02] cursor-pointer">
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-500 flex items-center justify-center"><i data-lucide="activity" size="18"></i></div>
-                    <div><h4 class="text-sm font-black text-white">${r.vendor}</h4><p class="text-[9px] opacity-50 uppercase font-bold">${r.category} • ${r.truckId}</p></div>
+                    <div><h4 class="text-sm font-black text-white">${r.vendor}</h4><p class="text-[9px] opacity-50 uppercase">${r.category}</p></div>
                 </div>
                 <h4 class="font-black text-white">$${Number(r.amount).toFixed(2)}</h4>
             </div>
@@ -139,8 +142,8 @@ function renderDashboard() {
 // --- 5. INITIALIZATION ---
 window.addEventListener('load', async () => {
     setInterval(() => { 
-        const clock = document.getElementById('live-clock');
-        if(clock) clock.innerText = new Date().toLocaleTimeString(); 
+        const clk = document.getElementById('live-clock');
+        if(clk) clk.innerText = new Date().toLocaleTimeString(); 
     }, 1000);
     
     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
