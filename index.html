@@ -17,7 +17,7 @@
 
     <div id="app-root">
         
-        <!-- SIDEBAR: Locked 9-Button Toolbar -->
+        <!-- SIDEBAR -->
         <aside id="sidebar">
             <div class="sidebar-header">
                 <div class="logo-box"><i data-lucide="shield-check"></i></div>
@@ -70,7 +70,7 @@
                 <h2 id="tab-title" class="title-text">FLEET_CALENDAR</h2>
                 <div class="header-right">
                     <div id="live-clock" class="clock">00:00:00</div>
-                    <div class="status-chip"><span class="pulse"></span> SATELLITE_ACTIVE</div>
+                    <div class="status-chip"><span class="pulse"></span> HUB_CONNECTED</div>
                 </div>
             </header>
 
@@ -93,13 +93,13 @@
                             <i data-lucide="trending-up" class="bg-icon"></i>
                         </div>
                         <div class="stat-card">
-                            <p class="card-label">Monthly Burn</p>
-                            <h3 id="burn-rate" class="stat-text text-red-400">$0</h3>
+                            <p class="card-label">Active Units</p>
+                            <h3 id="active-truck-count" class="stat-text">0</h3>
                         </div>
                     </div>
                     <div class="ledger-container">
-                        <div class="ledger-head">MASTER ACCOUNTABILITY SCRIPT</div>
-                        <div id="ledger-stream"></div>
+                        <div class="ledger-head">CENTRAL LEDGER STREAM</div>
+                        <div id="ledger-stream" class="divide-y divide-white/5"></div>
                     </div>
                 </section>
 
@@ -107,12 +107,9 @@
                 <section id="driverlog-tab" class="tab-panel custom-scroll">
                     <div class="panel-header">
                         <h3 class="panel-title">ACCOUNTABILITY LOG</h3>
-                        <div class="flex gap-4">
-                            <button onclick="document.getElementById('receipt-upload').click()" class="bg-white/5 px-6 py-4 rounded-2xl font-black text-[10px] uppercase border border-white/5">Quick Scan</button>
-                            <button onclick="window.openLogModal()" class="action-btn">New Entry</button>
-                        </div>
+                        <button onclick="window.openLogModal()" class="action-btn">New Entry</button>
                     </div>
-                    <div class="table-card">
+                    <div class="table-card shadow-2xl">
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -124,27 +121,36 @@
                     </div>
                 </section>
 
-                <!-- 5. AI SCANNER -->
+                <!-- 7. TRUCK UNITS -->
+                <section id="trucks-tab" class="tab-panel custom-scroll">
+                    <div class="panel-header">
+                        <h3 class="panel-title">FLEET UNIT DATABASE</h3>
+                        <button onclick="window.openTruckModal()" class="action-btn">Register Unit</button>
+                    </div>
+                    <div id="trucks-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <!-- Truck Cards Injected Here -->
+                    </div>
+                </section>
+
+                <!-- OTHERS -->
                 <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center">
-                    <div class="w-full max-w-lg aspect-[4/3] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative">
+                    <div class="w-full max-w-lg aspect-[4/3] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative overflow-hidden">
                         <div id="scan-idle" class="text-center">
                             <div class="w-20 h-20 bg-blue-500/10 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-8"><i data-lucide="camera" size="32"></i></div>
                             <h4 class="text-2xl font-black uppercase italic">AI Auditor Lens</h4>
-                            <p class="text-slate-500 text-sm mt-4 px-10">Upload receipts for Diesel, Hotel, or Repairs. AI will categorize and link to the driver log.</p>
+                            <p class="text-slate-500 text-sm mt-4 px-10">Scan receipts to attribute costs to truck units.</p>
                         </div>
                         <div id="scan-loading" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-20">
                             <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Extracting_Logistics_Data</p>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Processing_AI_Metadata</p>
                         </div>
                     </div>
                     <input type="file" id="receipt-upload" accept="image/*" capture="environment" class="hidden" onchange="window.handleSmartIntake(event)">
                     <button onclick="document.getElementById('receipt-upload').click()" class="mt-12 w-full max-w-lg bg-blue-600 py-6 rounded-[2.5rem] font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Upload Receipt</button>
                 </section>
 
-                <!-- OTHERS -->
                 <section id="dispatch-tab" class="tab-panel"></section>
                 <section id="inventory-tab" class="tab-panel"></section>
-                <section id="trucks-tab" class="tab-panel"></section>
                 <section id="estimator-tab" class="tab-panel"></section>
                 <section id="ai-tab" class="tab-panel"></section>
                 <section id="generic-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black opacity-20">MODULE_STANDBY</h4></section>
@@ -153,82 +159,75 @@
         </main>
     </div>
 
-    <!-- MODAL: AI VERIFY (THE MOST IMPORTANT PART) -->
+    <!-- MODAL: TRUCK ENTRY -->
+    <div id="truck-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title">Register Fleet Unit</h3>
+            <div class="modal-body">
+                <input type="text" id="t-id" class="form-input font-black uppercase" placeholder="Truck ID (e.g. TRK-01)">
+                <div class="input-grid">
+                    <input type="text" id="t-make" class="form-input" placeholder="Make/Model">
+                    <input type="number" id="t-miles" class="form-input" placeholder="Current Mileage">
+                </div>
+                <select id="t-status" class="form-input font-black uppercase text-[10px]">
+                    <option value="Active">Operational (Active)</option>
+                    <option value="In Shop">Maintenance (In Shop)</option>
+                    <option value="Down">Out of Service (Down)</option>
+                </select>
+            </div>
+            <button class="save-btn w-full mt-8" onclick="window.saveTruckUnit()">REGISTER UNIT</button>
+            <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- OTHER MODALS (LOGS/TASKS/AI) -->
     <div id="audit-modal" class="modal-overlay hidden">
         <div class="modal-box">
             <h3 class="modal-title text-blue-400">AI Receipt Intake</h3>
             <div class="modal-body">
                 <div class="input-grid">
-                    <div>
-                        <label class="label">Truck/Driver ID</label>
-                        <input type="text" id="v-truck" class="form-input font-black uppercase">
-                    </div>
-                    <div>
-                        <label class="label">Total Amount</label>
-                        <input type="number" id="v-amount" class="form-input font-black text-xl">
-                    </div>
+                    <input type="text" id="v-truck" class="form-input font-black uppercase" placeholder="Unit ID">
+                    <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
                 </div>
-                <label class="label">Merchant/Source</label>
-                <input type="text" id="v-vendor" class="form-input">
-                
+                <input type="text" id="v-vendor" class="form-input" placeholder="Merchant">
                 <div class="input-grid">
-                    <div>
-                        <label class="label">Log Category</label>
-                        <select id="v-cat" class="form-input font-black uppercase text-[10px]">
-                            <option value="Diesel">Diesel Fuel</option>
-                            <option value="Hotel">Hotel/Lodging</option>
-                            <option value="Repair">Maintenance/Repair</option>
-                            <option value="Toll">Tolls/Scale</option>
-                            <option value="Inflow">Company Sent Money</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label">Log Date</label>
-                        <input type="date" id="v-date" class="form-input">
-                    </div>
+                    <select id="v-cat" class="form-input uppercase font-black text-[10px]">
+                        <option>Diesel</option><option>Hotel</option><option>Repair</option><option value="Inflow">Funding</option>
+                    </select>
+                    <input type="date" id="v-date" class="form-input">
                 </div>
-                <label class="label">Specific Details (AI Detected)</label>
-                <input type="text" id="v-details" class="form-input text-xs italic text-slate-400">
             </div>
             <button class="save-btn w-full mt-6" onclick="window.commitAuditLog()">COMMIT TO HUB</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
         </div>
     </div>
 
-    <!-- MODAL: DRIVER LOG -->
     <div id="log-modal" class="modal-overlay hidden">
         <div class="modal-box">
             <h3 class="modal-title">New Driver Log</h3>
             <div class="modal-body">
-                <input type="text" id="l-driver" class="form-input" placeholder="Driver Full Name">
+                <input type="text" id="l-driver" class="form-input" placeholder="Driver Name">
                 <div class="input-grid">
                     <input type="text" id="l-truck" class="form-input font-black uppercase" placeholder="Truck ID">
                     <input type="date" id="l-date" class="form-input">
                 </div>
-                <select id="l-status" class="form-input uppercase font-black text-[10px]">
-                    <option>On Duty (Driving)</option><option>On Duty (Not Driving)</option><option>Off Duty</option>
-                </select>
+                <button class="save-btn w-full mt-8" onclick="window.saveDriverLog()">CREATE LOG</button>
             </div>
-            <button class="save-btn w-full mt-8" onclick="window.saveDriverLog()">CREATE LOG</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">CANCEL</button>
         </div>
     </div>
 
-    <!-- MODAL: TASK -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Update Schedule</h3>
+            <h3 class="modal-title">Schedule Task</h3>
             <div class="modal-body">
-                <input type="text" id="ev-title" class="form-input" placeholder="Task Details">
+                <input type="text" id="ev-title" class="form-input" placeholder="Work detail...">
                 <div class="input-grid">
                     <input type="text" id="ev-truck" class="form-input" placeholder="Truck ID">
                     <input type="date" id="ev-date" class="form-input">
                 </div>
             </div>
-            <div class="modal-footer flex gap-4">
-                <button id="modal-del-btn" class="del-btn hidden bg-red-500/10 text-red-500 p-4 rounded-xl flex-1 font-black text-[10px]" onclick="window.deleteEvent()">PURGE</button>
-                <button class="save-btn flex-[2]" onclick="window.saveEvent()">UPDATE</button>
-            </div>
+            <button class="save-btn w-full mt-6" onclick="window.saveEvent()">UPDATE</button>
             <button class="cancel-btn mt-4" onclick="window.closeModal()">BACK</button>
         </div>
     </div>
