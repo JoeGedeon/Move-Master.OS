@@ -1,4 +1,4 @@
-/* --- MISSION CONTROL MASTER THEME --- */
+/* --- ENTERPRISE SCROLL & INTERACTION LOCK --- */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -18,9 +18,9 @@ body, html {
     color: white; overflow: hidden;
 }
 
-#app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+#app-shell, #app-root { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 
-/* --- SIDEBAR SCROLLING: LOCKED --- */
+/* --- TOOLBAR SCROLLING --- */
 #sidebar {
     width: 260px !important;
     background: var(--card);
@@ -31,7 +31,7 @@ body, html {
 
 .sidebar-nav {
     flex: 1;
-    overflow-y: auto !important; /* Forces toolbar scroll */
+    overflow-y: auto !important; /* FORCED SCROLL */
     padding: 12px 0;
 }
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
@@ -43,26 +43,25 @@ body, html {
     border-radius: 16px; color: #64748b;
     font-size: 11px; font-weight: 800; text-transform: uppercase;
     letter-spacing: 0.1em; transition: 0.2s;
-    background: transparent; border: none; cursor: pointer;
-    text-align: left;
+    background: transparent; border: none; cursor: pointer; text-align: left;
 }
 .nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
 .nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
 /* --- DASHBOARD & PANEL SCROLLING --- */
-#viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
+#viewport, #main-viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
 
 .tab-panel {
     display: none; 
     position: absolute; inset: 0; width: 100%; height: 100%;
-    overflow-y: auto !important; /* Forces Dashboard scroll */
-    padding-bottom: 120px;
+    overflow-y: auto !important; /* FORCED SCROLL */
+    padding-bottom: 150px;
 }
 .tab-panel.active { display: block; }
 .tab-panel::-webkit-scrollbar { width: 6px; }
 .tab-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-/* --- TRUCK INTELLIGENCE BAR --- */
+/* --- FLEET COMMAND BAR --- */
 .fleet-vitals-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -79,24 +78,22 @@ body, html {
 .vital-label { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
 .vital-value { font-size: 32px; font-weight: 800; color: white; margin-top: 4px; }
 
-/* --- TRUCK CARDS (EDITABLE TILES) --- */
+/* --- TRUCK TILES --- */
 .truck-card { 
     background: var(--card); border: 1px solid var(--border); 
     border-radius: 40px; padding: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer; position: relative;
 }
-.truck-card:hover { border-color: var(--blue); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+.truck-card:hover { border-color: var(--blue); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
 
-/* --- DASHBOARD WIDGETS --- */
+/* --- DASHBOARD --- */
 .balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 48px; }
 .balance-text { font-size: 56px; font-weight: 800; letter-spacing: -3px; }
-#dash-calendar { min-height: 600px; padding: 20px; background: transparent; }
 
 /* --- MODALS --- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; box-shadow: 0 50px 100px rgba(0,0,0,0.8); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; }
 .form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
 
 .hidden { display: none !important; }
-.status-pill { font-size: 9px; font-weight: 900; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; }
 
