@@ -3,53 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Command Terminal</title>
+    <title>Fleet Command Terminal v10</title>
     
-    <!-- Core UI Scripts -->
+    <!-- Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
         
         :root {
-            --primary: #3b82f6;
-            --bg-dark: #0b0f1a;
-            --sidebar-bg: #111827;
+            --blue: #3b82f6;
+            --bg: #0b0f1a;
+            --card: #111827;
+            --border: rgba(255, 255, 255, 0.08);
         }
 
-        /* HARD-CODED VISIBILITY - This ignores Tailwind to ensure you see the layout */
+        * { box-sizing: border-box; }
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: #0b0f1a !important;
-            color: #ffffff !important;
+            background-color: var(--bg);
+            color: #ffffff;
             margin: 0; padding: 0;
             height: 100vh; width: 100vw;
             display: flex; overflow: hidden;
         }
 
-        /* Sidebar - Locked Visible */
+        /* --- PERSISTENT TOOLBAR (Locked at 260px) --- */
         #sidebar {
             width: 260px !important;
-            background-color: #111827 !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex !important;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
             flex-direction: column;
             height: 100vh;
             flex-shrink: 0;
             z-index: 100;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .nav-btn {
             display: flex !important;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             width: 90%;
-            margin: 6px auto;
-            padding: 14px 20px;
-            border-radius: 14px;
-            color: #94a3b8 !important;
+            margin: 4px auto;
+            padding: 14px 18px;
+            border-radius: 16px;
+            color: #64748b !important;
             font-size: 13px;
             font-weight: 700;
             text-transform: uppercase;
@@ -57,230 +59,469 @@
             background: transparent;
             border: none;
             cursor: pointer;
-            text-decoration: none;
+            transition: all 0.2s;
         }
 
-        .nav-btn.active {
-            background-color: #3b82f6 !important;
-            color: #ffffff !important;
-        }
+        .nav-btn:hover { background: rgba(255, 255, 255, 0.03); color: #fff !important; }
+        .nav-btn.active { background: var(--blue) !important; color: #fff !important; shadow: 0 10px 30px rgba(59, 130, 246, 0.4); }
 
-        /* Main Content Container */
-        .main-container {
+        /* --- CONTENT VIEWPORT --- */
+        .viewport {
             flex: 1;
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            background: radial-gradient(circle at 80% 20%, #1e293b 0%, #0b0f1a 100%);
         }
 
         .tab-panel {
             display: none;
             height: 100%;
             width: 100%;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .tab-panel.active { display: flex; flex-direction: column; }
+        #calendar-tab.active { flex-direction: row; }
+
+        /* --- CALENDAR SYSTEM (THE FRONT WINDOW) --- */
+        #calendar-stage {
+            flex: 1;
+            background: var(--card);
+            border-radius: 32px;
             padding: 24px;
+            height: calc(100vh - 120px);
+            border: 1px solid var(--border);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+        }
+
+        .fc { height: 100% !important; color: #fff; font-family: inherit; }
+        .fc-toolbar-title { font-weight: 900; text-transform: uppercase; color: var(--blue); letter-spacing: 0.1em; }
+        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255, 255, 255, 0.03) !important; }
+        .fc-button-primary { background: #1e293b !important; border: 1px solid var(--border) !important; font-weight: 800 !important; font-size: 9px !important; text-transform: uppercase !important; border-radius: 12px !important; }
+        .fc-event { background: var(--blue) !important; border: none !important; border-radius: 8px !important; padding: 6px 12px !important; font-weight: 800 !important; font-size: 10px !important; }
+
+        /* --- AGENDA PANEL --- */
+        #agenda-sidebar {
+            width: 340px;
+            margin-left: 30px;
+            background: var(--card);
+            border-radius: 32px;
+            border: 1px solid var(--border);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
             overflow-y: auto;
         }
 
-        .tab-panel.active {
-            display: block !important;
-        }
-        
-        #calendar-tab.active {
-            display: flex !important;
-        }
-
-        /* Calendar Forced Height */
-        #calendar-wrapper {
-            flex: 1;
-            background: #111827;
-            border-radius: 24px;
-            padding: 20px;
-            height: calc(100vh - 120px) !important;
-            min-height: 500px;
-            border: 1px solid rgba(255,255,255,0.05);
+        /* --- BOOT SEQUENCE ANIMATION --- */
+        #boot-screen {
+            position: fixed; inset: 0; background: #000; z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        .fc { height: 100% !important; color: white !important; }
-        
-        /* Mobile adjustment */
+        .boot-text { color: var(--blue); font-size: 12px; margin: 4px 0; overflow: hidden; white-space: nowrap; border-right: 2px solid var(--blue); }
+
+        /* Custom Scroll */
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+
+        /* Mobile Viewport */
         @media (max-width: 1024px) {
-            #sidebar { width: 80px !important; }
-            .nav-btn span { display: none !important; }
+            #sidebar { width: 88px !important; }
+            #sidebar span { display: none !important; }
+            #agenda-sidebar { display: none !important; }
+        }
+
+        .form-input {
+            width: 100%; background: #1e293b; border: 1px solid var(--border);
+            border-radius: 20px; padding: 18px; color: #fff; font-weight: 700; outline: none;
         }
     </style>
 </head>
 <body>
 
-    <!-- PERSISTENT SIDEBAR -->
-    <aside id="sidebar">
-        <div class="p-8">
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg"><i data-lucide="shield-check"></i></div>
-                <span class="hidden lg:block text-xl font-black tracking-tighter">FLEETPRO</span>
-            </div>
+    <!-- BOOT SEQUENCE (Surprise Touch) -->
+    <div id="boot-screen">
+        <div class="w-64">
+            <p class="boot-text" id="b1">> initializing_fleet_hub_os...</p>
+            <p class="boot-text hidden" id="b2">> checking_cloud_sync... [OK]</p>
+            <p class="boot-text hidden" id="b3">> verifying_admin_terminal... [OK]</p>
+            <p class="boot-text hidden" id="b4">> launching_command_deck...</p>
         </div>
+    </div>
+
+    <!-- MAIN TERMINAL -->
+    <div class="flex w-full h-full">
         
-        <nav class="flex-1 overflow-y-auto py-2">
-            <button onclick="switchTab('calendar')" class="nav-btn active" data-tab="calendar">
-                <i data-lucide="calendar"></i> <span>Fleet Calendar</span>
-            </button>
-            <button onclick="switchTab('dashboard')" class="nav-btn" data-tab="dashboard">
-                <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
-            </button>
-            <button onclick="switchTab('jobs')" class="nav-btn" data-tab="jobs">
-                <i data-lucide="briefcase"></i> <span>Active Jobs</span>
-            </button>
-            <button onclick="switchTab('scan')" class="nav-btn" data-tab="scan">
-                <i data-lucide="maximize"></i> <span>AI Scanner</span>
-            </button>
-            <button onclick="switchTab('inventory')" class="nav-btn" data-tab="inventory">
-                <i data-lucide="package"></i> <span>Inventory</span>
-            </button>
-            <button onclick="switchTab('trucks')" class="nav-btn" data-tab="trucks">
-                <i data-lucide="truck"></i> <span>Truck Units</span>
-            </button>
-            <button onclick="switchTab('calc')" class="nav-btn" data-tab="calc">
-                <i data-lucide="calculator"></i> <span>Estimator</span>
-            </button>
-            <button onclick="switchTab('ai')" class="nav-btn" data-tab="ai">
-                <i data-lucide="bot"></i> <span>AI Auditor</span>
-            </button>
-            <button onclick="alert('Exporting...')" class="nav-btn text-slate-500 mt-10">
-                <i data-lucide="file-down"></i> <span>Master Dump</span>
-            </button>
-        </nav>
-    </aside>
-
-    <!-- MAIN APP AREA -->
-    <main class="main-container">
-        <header class="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
-            <h2 id="active-title" class="text-sm font-black uppercase tracking-[0.2em] text-blue-500">Fleet Calendar</h2>
-            <div class="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
-                <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse"></span> Terminal Connected
+        <!-- COMMAND TOOLBAR (Left Hand Side) -->
+        <aside id="sidebar">
+            <div class="p-8">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2 rounded-xl shadow-[0_0_15px_#3b82f6]"><i data-lucide="shield-check" size="24"></i></div>
+                    <span class="hidden lg:block text-xl font-black tracking-tighter italic">FLEETPRO</span>
+                </div>
             </div>
-        </header>
+            
+            <nav class="flex-1 overflow-y-auto custom-scroll py-2">
+                <button onclick="tab('calendar')" class="nav-btn active" data-tab="calendar">
+                    <i data-lucide="calendar"></i> <span>Fleet Calendar</span>
+                </button>
+                <button onclick="tab('dashboard')" class="nav-btn" data-tab="dashboard">
+                    <i data-lucide="layout-grid"></i> <span>Dashboard</span>
+                </button>
+                <button onclick="tab('jobs')" class="nav-btn" data-tab="jobs">
+                    <i data-lucide="briefcase"></i> <span>Active Jobs</span>
+                </button>
+                <button onclick="tab('scan')" class="nav-btn" data-tab="scan">
+                    <i data-lucide="maximize"></i> <span>AI Scanner</span>
+                </button>
+                <button onclick="tab('inventory')" class="nav-btn" data-tab="inventory">
+                    <i data-lucide="package"></i> <span>Inventory</span>
+                </button>
+                <button onclick="tab('trucks')" class="nav-btn" data-tab="trucks">
+                    <i data-lucide="truck"></i> <span>Truck Units</span>
+                </button>
+                <button onclick="tab('calc')" class="nav-btn" data-tab="calc">
+                    <i data-lucide="calculator"></i> <span>Estimator</span>
+                </button>
+                <button onclick="tab('ai')" class="nav-btn" data-tab="ai">
+                    <i data-lucide="bot"></i> <span>AI Auditor</span>
+                </button>
+                <button onclick="exportFullReport()" class="nav-btn text-slate-500 mt-10">
+                    <i data-lucide="download"></i> <span>Master Dump</span>
+                </button>
+            </nav>
 
-        <div class="flex-1 relative overflow-hidden">
-            <!-- 1. CALENDAR VIEW -->
-            <section id="calendar-tab" class="tab-panel active">
-                <div id="calendar-wrapper">
-                    <div id="fleet-calendar"></div>
+            <div class="p-6 border-t border-white/5 bg-[#0b0f1a]/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
+                    <div class="hidden lg:block"><p class="text-[10px] font-black text-slate-500 uppercase">Secure Line</p></div>
                 </div>
-            </section>
+            </div>
+        </aside>
 
-            <!-- 2. DASHBOARD VIEW -->
-            <section id="dashboard-tab" class="tab-panel">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                        <p class="text-blue-100/60 text-xs font-black uppercase mb-1">Total Net Balance</p>
-                        <h2 id="total-display" class="text-5xl font-black text-white">$0.00</h2>
+        <!-- CONTENT VIEWPORT -->
+        <main class="viewport">
+            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl">
+                <h2 id="tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500">Fleet Calendar</h2>
+                <div class="flex items-center gap-4">
+                    <div id="live-clock" class="text-[11px] font-mono text-slate-500 mr-4">00:00:00</div>
+                    <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Link Active
                     </div>
-                    <div class="bg-[#111827] p-10 rounded-[3rem] border border-white/5 flex flex-col justify-center text-center">
-                        <p class="text-slate-500 text-[10px] font-black uppercase mb-2">Truck Units</p>
-                        <h3 id="truck-count" class="text-5xl font-black">0</h3>
-                    </div>
                 </div>
-                <div id="logs-container" class="bg-[#111827] rounded-[3rem] p-4 border border-white/5">
-                    <p class="text-slate-500 p-8 text-center uppercase text-xs font-black tracking-widest">Awaiting Terminal Data Sync...</p>
-                </div>
-            </section>
+            </header>
 
-            <!-- SCANNER -->
-            <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center">
-                <div class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[3.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-12">
-                     <i data-lucide="scan" size="48" class="text-blue-500 mb-4"></i>
-                     <h4 class="font-black uppercase">AI Scanner Ready</h4>
+            <!-- TABS AREA -->
+            <div class="flex-1 relative overflow-hidden">
+                
+                <!-- 1. CALENDAR (FRONT WINDOW) -->
+                <section id="calendar-tab" class="tab-panel active">
+                    <div id="calendar-stage">
+                        <div id="calendar-render"></div>
+                    </div>
+                    <!-- Today's Sidebar -->
+                    <aside id="agenda-sidebar">
+                        <div class="flex justify-between items-center mb-10">
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-widest italic">Live Agenda</h3>
+                            <div class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></div>
+                        </div>
+                        <div id="agenda-stream" class="space-y-4">
+                            <p class="text-[10px] text-slate-600 uppercase font-black tracking-widest text-center mt-20 opacity-30 italic">Standby...</p>
+                        </div>
+                    </aside>
+                </section>
+
+                <!-- 2. DASHBOARD VIEW (SCROLLABLE) -->
+                <section id="dashboard-tab" class="tab-panel custom-scroll">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                        <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden border border-white/10">
+                            <p class="text-blue-200 text-xs font-black uppercase mb-2 tracking-widest">Global Fleet Revenue</p>
+                            <h2 id="total-display" class="text-6xl font-black tracking-tighter mb-4">$0.00</h2>
+                            <span class="bg-white/10 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10">Active Records: <span id="log-stat">0</span></span>
+                            <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
+                        </div>
+                        <div class="bg-[#111827] rounded-[3.5rem] p-10 flex flex-col justify-center text-center border border-white/5">
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Tracking Units</p>
+                            <h3 id="truck-stat" class="text-5xl font-black text-white">0</h3>
+                        </div>
+                    </div>
+                    <div id="logs-container" class="bg-[#111827] rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl mb-20">
+                        <div class="p-8 border-b border-white/5 flex justify-between bg-white/[0.02]">
+                            <span class="text-[10px] font-black uppercase text-slate-400">Terminal Ledger Stream</span>
+                        </div>
+                        <div id="logs-stream" class="divide-y divide-white/5"></div>
+                    </div>
+                </section>
+
+                <!-- 3. JOBS (DISPATCH GRID) -->
+                <section id="jobs-tab" class="tab-panel">
+                    <div id="jobs-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+                </section>
+
+                <!-- 4. SCANNER -->
+                <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center min-h-[70vh]">
+                    <div class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl">
+                        <div id="scan-init" class="text-center">
+                            <div class="w-24 h-24 bg-blue-600/10 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner">
+                                <i data-lucide="scan" size="48"></i>
+                            </div>
+                            <h4 class="text-2xl font-black uppercase italic tracking-tighter">AI Terminal Scanner</h4>
+                            <p class="text-slate-500 text-sm mt-4 font-medium px-6 leading-relaxed">Decrypting driver receipts into verified data logs via Gemini AI.</p>
+                        </div>
+                        <div id="scan-loader" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-10">
+                            <div class="loader-circle mb-6"></div>
+                            <p class="text-xs font-black uppercase tracking-[0.4em] text-blue-500">Processing_Receipt</p>
+                        </div>
+                    </div>
+                    <input type="file" id="camera-in" capture="environment" accept="image/*" class="hidden" onchange="runOCR(event)">
+                    <button onclick="document.getElementById('camera-in').click()" class="mt-12 w-full max-w-md bg-blue-600 py-6 rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all">Launch AI Intake</button>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL: CALENDAR ENTRY (GOOGLE STYLE) -->
+    <div id="modal-event" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl animate-in">
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Assign Fleet Task</h3>
+            <div class="space-y-5">
+                <input type="text" id="ev-title" class="form-input" placeholder="Work order detail...">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="ev-truck" class="form-input text-blue-400 font-black" placeholder="Truck ID">
+                    <input type="date" id="ev-date" class="form-input">
                 </div>
-            </section>
+                <select id="ev-status" class="form-input font-bold uppercase text-xs">
+                    <option>Pending</option><option>Active</option><option>Completed</option>
+                </select>
+            </div>
+            <div class="flex gap-4 mt-10">
+                <button id="modal-del-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Purge</button>
+                <button id="modal-save-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Sync to Hub</button>
+            </div>
+            <button onclick="closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">Bypass Terminal</button>
         </div>
-    </main>
+    </div>
 
-    <!-- UI Script (Safe from Crashes) -->
-    <script>
-        // 1. Initial Icon Render
-        lucide.createIcons();
+    <!-- MODAL: AUDIT VERIFY -->
+    <div id="modal-audit" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[150] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-400">Authorize Entry</h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="v-truck" class="form-input font-black" placeholder="Truck ID">
+                    <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
+                </div>
+                <select id="v-cat" class="form-input font-black uppercase text-[10px]">
+                    <option>Fuel</option><option>Income</option><option>Repair</option><option>Toll</option>
+                </select>
+                <input type="text" id="v-loc" class="form-input" placeholder="Merchant Vendor">
+            </div>
+            <button id="save-audit-btn" class="w-full mt-12 bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Confirm & Log</button>
+        </div>
+    </div>
 
-        // 2. Tab Switcher Logic
-        window.switchTab = (id) => {
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById(id + '-tab').classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
-            document.getElementById('active-title').innerText = "Fleet " + id.toUpperCase();
-            if (id === 'calendar' && window.fleetCalendar) { 
-                setTimeout(() => window.fleetCalendar.updateSize(), 100); 
-            }
-            lucide.createIcons();
-        };
-
-        // 3. Simple Calendar Init (No Data Dependency)
-        window.addEventListener('DOMContentLoaded', () => {
-            const el = document.getElementById('fleet-calendar');
-            window.fleetCalendar = new FullCalendar.Calendar(el, {
-                initialView: 'dayGridMonth',
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
-                height: '100%'
-            });
-            window.fleetCalendar.render();
-        });
-    </script>
-
-    <!-- Data Module (Firebase) -->
+    <!-- FIREBASE MODULE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-        // FALLBACK CONFIG FOR GITHUB
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            console.warn("Firebase config missing. Sync disabled.");
+        // APP CONFIGURATION
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-terminal-v10';
+        const apiKey = ""; 
+
+        let user = null, receipts = [], jobs = [], cal = null, activeId = null;
+
+        // AUTH & SYNC (THE "GETTING BACK TO WORK" DATA ENGINE)
+        onAuthStateChanged(auth, async (u) => {
+            if (!u) { await signInAnonymously(auth); } else {
+                user = u;
+                // Financials Sync
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), (snap) => {
+                    receipts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderAudit();
+                });
+                // Dispatch Sync
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), (snap) => {
+                    jobs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    syncCalData();
+                    renderJobs();
+                    renderAgenda();
+                });
+            }
+        });
+
+        // CALENDAR ENGINE (GOOGLE STYLE)
+        function initFleetCal() {
+            const el = document.getElementById('calendar-render');
+            if(!el) return;
+            cal = new FullCalendar.Calendar(el, {
+                initialView: 'dayGridMonth',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+                height: '100%', editable: true, selectable: true,
+                dateClick: (info) => openEventModal(null, info.dateStr),
+                eventClick: (info) => openEventModal(info.event.id)
+            });
+            cal.render();
         }
 
-        if (firebaseConfig.apiKey) {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v9-master';
-
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) { await signInAnonymously(auth); } else {
-                    // Sync Receipts
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), (snap) => {
-                        const receipts = snap.docs.map(d => d.data());
-                        updateDashboardUI(receipts);
-                    });
-                    // Sync Jobs for Calendar
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), (snap) => {
-                        const jobs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        updateCalendarUI(jobs);
-                    });
-                }
+        function syncCalData() {
+            if(!cal) return;
+            cal.removeAllEvents();
+            jobs.forEach(j => {
+                cal.addEvent({ 
+                    id: j.id, 
+                    title: `${j.truckId || 'GEN'}: ${j.title}`, 
+                    start: j.date, 
+                    color: j.status === 'Completed' ? '#10b981' : '#3b82f6' 
+                });
             });
         }
 
-        function updateDashboardUI(receipts) {
-            const container = document.getElementById('logs-container');
-            let total = 0; container.innerHTML = '';
+        // NAVIGATION ENGINE
+        window.tab = (id) => {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(id + '-tab').classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+            document.getElementById('tab-title').innerText = "Terminal_" + id.toUpperCase();
+            if(id === 'calendar' && cal) { setTimeout(() => cal.updateSize(), 100); }
+            lucide.createIcons();
+        };
+
+        // RENDERERS
+        function renderAudit() {
+            const container = document.getElementById('logs-stream');
+            let balance = 0; container.innerHTML = '';
+            const units = new Set();
             receipts.forEach(r => {
-                total += r.amount;
+                const isInc = r.category?.toLowerCase().includes('income');
+                balance = isInc ? balance + r.amount : balance - r.amount;
+                if(r.truckId) units.add(r.truckId.toUpperCase());
                 const row = document.createElement('div');
-                row.className = "p-6 border-b border-white/5 flex justify-between";
-                row.innerHTML = `<span class="font-black">$${r.amount.toFixed(2)}</span><span class="text-slate-500 uppercase text-[10px]">${r.truckId}</span>`;
+                row.className = "p-10 flex justify-between items-center group transition-all";
+                row.innerHTML = `
+                    <div class="flex items-center gap-10">
+                        <i data-lucide="${isInc ? 'arrow-up-right' : 'arrow-down-left'}" class="${isInc ? 'text-blue-400' : 'text-slate-500'}"></i>
+                        <div>
+                            <h4 class="font-black text-2xl">$${r.amount.toFixed(2)}</h4>
+                            <p class="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em] mt-3">${r.truckId || 'GEN'} • ${r.location || 'Local'}</p>
+                        </div>
+                    </div>
+                    <button onclick="window.delAudit('${r.id}')" class="text-slate-800 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" size="20"></i></button>
+                `;
                 container.appendChild(row);
             });
-            document.getElementById('total-display').innerText = `$${total.toLocaleString()}`;
+            document.getElementById('total-display').innerText = `$${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('truck-stat').innerText = units.size;
+            document.getElementById('log-stat').innerText = receipts.length;
+            lucide.createIcons();
         }
 
-        function updateCalendarUI(jobs) {
-            if (!window.fleetCalendar) return;
-            window.fleetCalendar.removeAllEvents();
-            jobs.forEach(j => {
-                window.fleetCalendar.addEvent({ title: j.title, start: j.date, color: '#3b82f6' });
+        function renderAgenda() {
+            const stream = document.getElementById('agenda-stream');
+            const today = new Date().toISOString().split('T')[0];
+            const list = jobs.filter(j => j.date === today);
+            stream.innerHTML = list.length ? '' : '<p class="text-[10px] text-slate-700 italic text-center py-20 uppercase tracking-widest">No Events Today</p>';
+            list.forEach(j => {
+                const div = document.createElement('div');
+                div.className = "p-6 bg-white/[0.03] border border-white/5 rounded-3xl animate-in";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 mb-2"><span class="w-2 h-2 rounded-full ${j.status === 'Completed' ? 'bg-green-500' : 'bg-blue-500'}"></span><p class="text-[10px] font-black text-slate-500 uppercase">${j.truckId || 'GEN'}</p></div>
+                    <p class="text-sm font-bold leading-relaxed">${j.title}</p>
+                `;
+                stream.appendChild(div);
             });
         }
+
+        function renderJobs() {
+            const grid = document.getElementById('jobs-grid');
+            grid.innerHTML = '';
+            jobs.forEach(j => {
+                const div = document.createElement('div');
+                div.className = "bg-[#111827] border border-white/5 p-10 rounded-[3.5rem] shadow-2xl relative";
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-10">
+                        <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-4 py-1.5 rounded-xl border border-blue-500/20">${j.status}</span>
+                        <button onclick="window.delJob('${j.id}')" class="text-slate-800"><i data-lucide="trash-2" size="18"></i></button>
+                    </div>
+                    <h4 class="text-2xl font-black tracking-tight mb-2">${j.title}</h4>
+                    <p class="text-[10px] font-black uppercase text-slate-500">${j.truckId} • ${j.date}</p>
+                    <div class="mt-10">
+                        ${j.status !== 'Completed' ? `<button onclick="window.finishJob('${j.id}')" class="w-full bg-blue-600 py-4 rounded-[1.5rem] font-black text-[10px] uppercase shadow-xl shadow-blue-500/10">Mark Verified</button>` : '<p class="text-green-500 font-black uppercase text-[10px] text-center italic">Verified Task</p>'}
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // MODAL CONTROLS
+        function openEventModal(id = null, date = null) {
+            activeId = id;
+            if(id) {
+                const j = jobs.find(x => x.id === id);
+                document.getElementById('ev-title').value = j.title;
+                document.getElementById('ev-truck').value = j.truckId;
+                document.getElementById('ev-date').value = j.date;
+                document.getElementById('ev-status').value = j.status;
+                document.getElementById('modal-del-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('ev-title').value = '';
+                document.getElementById('ev-truck').value = '';
+                document.getElementById('ev-date').value = date;
+                document.getElementById('modal-del-btn').classList.add('hidden');
+            }
+            document.getElementById('modal-event').classList.remove('hidden');
+        }
+
+        window.closeModal = () => {
+            document.getElementById('modal-event').classList.add('hidden');
+            document.getElementById('modal-audit').classList.add('hidden');
+        };
+
+        document.getElementById('modal-save-btn').onclick = async () => {
+            const data = { title: document.getElementById('ev-title').value, truckId: document.getElementById('ev-truck').value, date: document.getElementById('ev-date').value, status: document.getElementById('ev-status').value };
+            if(!data.title || !user) return;
+            if(activeId) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', activeId), data);
+            else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...data, timestamp: Timestamp.now() });
+            closeModal();
+        };
+
+        document.getElementById('modal-del-btn').onclick = async () => {
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', activeId));
+            closeModal();
+        };
+
+        // SYSTEM STARTUP
+        window.addEventListener('load', () => {
+            // Animation sequence
+            setTimeout(() => document.getElementById('b2').classList.remove('hidden'), 500);
+            setTimeout(() => document.getElementById('b3').classList.remove('hidden'), 1000);
+            setTimeout(() => document.getElementById('b4').classList.remove('hidden'), 1500);
+            setTimeout(() => {
+                document.getElementById('boot-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('boot-screen').remove(), 500);
+            }, 2500);
+
+            initFleetCal();
+            lucide.createIcons();
+            setInterval(() => { document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+        });
+
+        // GLOBAL HANDLERS
+        window.delAudit = async (id) => await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', id));
+        window.delJob = async (id) => await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', id));
+        window.finishJob = async (id) => await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', id), { status: 'Completed' });
     </script>
 </body>
 </html>
