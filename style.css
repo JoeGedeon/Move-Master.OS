@@ -1,4 +1,6 @@
-/* --- UI SCROLL & INTERACTION FIX --- */
+/* --- THE WALLS: STRUCTURAL INTEGRITY --- */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
     --blue: #3b82f6;
@@ -7,57 +9,94 @@
     --border: rgba(255, 255, 255, 0.08);
 }
 
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+
 body, html {
     margin: 0; padding: 0;
     height: 100vh; width: 100vw;
     background-color: var(--bg);
-    overflow: hidden; /* Prevent page-wide scroll */
+    color: white; font-family: 'Plus Jakarta Sans', sans-serif;
+    overflow: hidden; /* Lock the global viewport */
 }
 
-/* SIDEBAR: SCROLLABLE */
+#app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+
+/* --- SIDEBAR: The Fixed Column --- */
 #sidebar {
-    width: 260px; height: 100vh;
-    background: var(--card); border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; flex-shrink: 0;
+    width: 260px !important;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    height: 100vh; flex-shrink: 0;
 }
+
 .sidebar-nav {
     flex: 1;
-    overflow-y: auto !important; /* ENABLE TOOLBAR SCROLL */
-    padding: 10px 0;
+    overflow-y: auto !important; /* Forces Toolbar Scroll */
+    padding: 12px 0;
 }
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
 
 .nav-btn {
     display: flex; align-items: center; gap: 14px;
     width: 90%; margin: 4px auto; padding: 14px 20px;
     border-radius: 16px; color: #64748b;
     font-size: 11px; font-weight: 800; text-transform: uppercase;
-    background: transparent; border: none; cursor: pointer;
+    letter-spacing: 0.1em; transition: 0.2s;
+    background: transparent; border: none; cursor: pointer; text-align: left;
 }
-.nav-btn.active { color: white; background: var(--blue); }
+.nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
+.nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-/* DASHBOARD: SCROLLABLE */
+/* --- VIEWPORT: The Scrolling Room --- */
 .tab-panel {
-    display: none; height: 100%;
-    overflow-y: auto !important; /* ENABLE DASHBOARD SCROLL */
+    display: none; 
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    overflow-y: auto !important; /* Forces Dashboard Scroll */
     padding-bottom: 120px;
 }
 .tab-panel.active { display: block; }
+.tab-panel::-webkit-scrollbar { width: 6px; }
+.tab-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-/* TILES & TABLES */
-.balance-card, .stat-card { cursor: pointer; transition: 0.2s; }
-.balance-card:hover, .stat-card:hover { transform: scale(1.01); filter: brightness(1.2); }
+/* --- DASHBOARD WIDGETS --- */
+.balance-card, .stat-card {
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 40px; }
+.balance-card:hover { transform: scale(1.01); filter: brightness(1.1); }
+.balance-text { font-size: 56px; font-weight: 800; letter-spacing: -3px; }
 
+.stat-card { background: var(--card); border: 1px solid var(--border); padding: 40px; border-radius: 40px; text-align: center; }
+.stat-card:hover { border-color: var(--blue); transform: translateY(-4px); }
+
+/* --- SPREADSHEET LEDGER --- */
+.ledger-container { background: var(--card); border: 1px solid var(--border); border-radius: 32px; overflow: hidden; }
 .fleet-table { width: 100%; border-collapse: collapse; text-align: left; }
-.fleet-table th { padding: 16px 24px; font-size: 10px; color: #64748b; text-transform: uppercase; background: rgba(255,255,255,0.02); }
-.fleet-table td { padding: 16px 24px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.fleet-table th { padding: 20px 24px; font-size: 10px; color: #64748b; text-transform: uppercase; background: rgba(255,255,255,0.02); }
+.fleet-table td { padding: 20px 24px; font-size: 13px; border-bottom: 1px solid var(--border); }
 .fleet-table tr:hover td { background: rgba(255,255,255,0.03); color: var(--blue); cursor: pointer; }
 
+/* --- THE PAINT: STATUS COLORS --- */
+.vitals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.vital-tile { background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 24px; border-radius: 24px; text-align: center; }
+.vital-num { font-size: 32px; font-weight: 800; color: white; display: block; }
+.vital-label { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; }
+
 /* MODALS */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: var(--card); border: 1px solid var(--border); padding: 40px; border-radius: 32px; width: 400px; }
-.modal-input { width: 100%; background: #1e293b; border: 1px solid var(--border); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; box-shadow: 0 50px 100px rgba(0,0,0,0.8); }
+.form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
+
+.save-btn { background: var(--blue); color: white; padding: 18px; border-radius: 18px; font-weight: 900; width: 100%; border: none; cursor: pointer; }
+.action-btn { background: var(--blue); color: white; padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 10px; border: none; cursor: pointer; }
+.action-btn-sm { background: var(--blue); color: white; padding: 10px 18px; border-radius: 12px; font-weight: 900; font-size: 9px; border: none; cursor: pointer; }
 
 .hidden { display: none !important; }
+.pulse { display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: p-anim 2s infinite; }
+@keyframes p-anim { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+#dash-calendar { height: 100%; background: transparent; }
 
