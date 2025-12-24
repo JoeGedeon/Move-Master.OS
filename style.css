@@ -1,89 +1,213 @@
-/* --- COMMAND CENTER UI LOCK --- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+// --- SYSTEM STATE ---
+let auth, db, user, appId, dashCal, fullCal;
+let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
+let activeEditId = null;
 
-:root {
-    --blue: #3b82f6;
-    --bg: #0b0f1a;
-    --card: #111827;
-    --border: rgba(255, 255, 255, 0.08);
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+auth = getAuth(app);
+db = getFirestore(app);
+appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v43-interactive';
+
+// --- 1. THE NAVIGATION ENGINE (FIXES LIGHTING & VISIBILITY) ---
+window.tab = (id) => {
+    // A. Hide all panels
+    const panels = document.querySelectorAll('.tab-panel');
+    panels.forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none'; // Hard reset visibility
+    });
+    
+    // B. Show target panel
+    const target = document.getElementById(`${id}-tab`);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
+        
+        // C. Refresh Data
+        if(id === 'dashboard') renderDashboard();
+        if(id === 'trucks') renderTruckSpreadsheet();
+        if(id === 'driverlog') renderLogs();
+
+        // D. GOOGLE CALENDAR RE-RENDER (Fixes the collapse)
+        if(id === 'dashboard' && dashCal) { 
+            setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 100); 
+        }
+        if(id === 'calendar' && fullCal) { 
+            setTimeout(() => { fullCal.updateSize(); fullCal.render(); }, 100); 
+        }
+    }
+    
+    // E. Update Navigation Buttons "Lighting"
+    document.querySelectorAll('.nav-btn').forEach(b => {
+        const btnTab = b.getAttribute('data-tab');
+        if (btnTab === id) {
+            b.classList.add('active');
+        } else {
+            b.classList.remove('active');
+        }
+    });
+
+    const titleEl = document.getElementById('tab-title');
+    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_OPERATIONS_MASTER`;
+    lucide.createIcons();
+};
+
+window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+
+// --- 2. GOOGLE-LIKE CALENDAR ENGINE ---
+
+function initCalendars() {
+    const calendarOptions = {
+        initialView: 'dayGridMonth',
+        editable: true,
+        selectable: true,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        themeSystem: 'standard',
+        dateClick: (info) => {
+            const dateInput = document.getElementById('ev-date');
+            if(dateInput) dateInput.value = info.dateStr;
+            document.getElementById('event-modal').classList.remove('hidden');
+        },
+        eventClick: (info) => {
+            if(confirm(`Remove event: ${info.event.title}?`)) {
+                info.event.remove();
+                // Cloud delete logic would go here
+            }
+        },
+        events: fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }))
+    };
+
+    const dEl = document.getElementById('dash-calendar');
+    const fEl = document.getElementById('full-calendar-render');
+
+    if (dEl) { 
+        dashCal = new FullCalendar.Calendar(dEl, calendarOptions); 
+        dashCal.render(); 
+    }
+    if (fEl) { 
+        fullCal = new FullCalendar.Calendar(fEl, { ...calendarOptions, height: '100%' }); 
+        fullCal.render(); 
+    }
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-
-body, html {
-    margin: 0; padding: 0;
-    height: 100vh; width: 100vw;
-    background-color: var(--bg);
-    color: white; overflow: hidden;
+function syncCalendarData() {
+    const events = fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }));
+    [dashCal, fullCal].forEach(c => {
+        if(c) {
+            c.removeAllEvents();
+            c.addEventSource(events);
+        }
+    });
 }
 
-#app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+// --- 3. DATA & TRUCK ENGINE ---
 
-/* --- SIDEBAR & NAV LIGHTING --- */
-#sidebar {
-    width: 260px !important;
-    background: var(--card);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    height: 100vh; flex-shrink: 0;
+function renderTruckSpreadsheet() {
+    const container = document.getElementById('trucks-spreadsheet-container');
+    const vitals = document.getElementById('fleet-vitals-bar');
+    if(!container) return;
+
+    // Build the "Descriptive View" (The Counter Bar)
+    const counts = {
+        total: fleetData.trucks.length,
+        ready: fleetData.trucks.filter(t => t.status === 'Operational').length,
+        transit: fleetData.trucks.filter(t => t.status === 'In Transit').length,
+        shop: fleetData.trucks.filter(t => t.status === 'Maintenance').length
+    };
+
+    if(vitals) {
+        vitals.innerHTML = `
+            <div class="vital-tile"><p class="vital-label">Fleet Size</p><h4 class="vital-value">${counts.total}</h4></div>
+            <div class="vital-tile border-green-500/20"><p class="vital-label text-green-500">Ready</p><h4 class="vital-value">${counts.ready}</h4></div>
+            <div class="vital-tile border-blue-500/20"><p class="vital-label text-blue-500">In Transit</p><h4 class="vital-value">${counts.transit}</h4></div>
+            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">In Shop</p><h4 class="vital-value">${counts.shop}</h4></div>
+        `;
+    }
+
+    container.innerHTML = `
+        <table class="fleet-table">
+            <thead><tr><th>Unit ID</th><th>Make</th><th>Mileage</th><th>Status</th></tr></thead>
+            <tbody>
+                ${fleetData.trucks.map(t => `
+                    <tr onclick="window.tab('trucks')">
+                        <td class="font-black text-white italic uppercase">${t.truckId}</td>
+                        <td>${t.make}</td>
+                        <td class="font-mono">${Number(t.miles).toLocaleString()}</td>
+                        <td><span class="text-[9px] font-black uppercase text-blue-500">${t.status}</span></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
-.sidebar-nav {
-    flex: 1;
-    overflow-y: auto !important;
-    padding: 12px 0;
+function renderDashboard() {
+    let bal = 0;
+    fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
+    
+    const revEl = document.getElementById('total-display');
+    if(revEl) {
+        revEl.innerText = `$${bal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        revEl.closest('.balance-card').onclick = () => window.tab('clients');
+    }
+
+    const tCountEl = document.getElementById('truck-count-display');
+    if(tCountEl) {
+        tCountEl.innerText = fleetData.trucks.length;
+        tCountEl.closest('.stat-card').onclick = () => window.tab('trucks');
+    }
 }
 
-.nav-btn {
-    display: flex; align-items: center; gap: 14px;
-    width: 90%; margin: 4px auto; padding: 14px 20px;
-    border-radius: 16px; color: #64748b;
-    font-size: 11px; font-weight: 800; text-transform: uppercase;
-    letter-spacing: 0.1em; transition: 0.2s;
-    background: transparent; border: none; cursor: pointer;
-}
-.nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
-/* The "Lighting Up" logic */
-.nav-btn.active { 
-    color: white !important; 
-    background: var(--blue) !important; 
-    box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); 
-}
+// --- 4. SYSTEM BOOT ---
 
-/* --- PAGE VISIBILITY --- */
-.tab-panel {
-    display: none; 
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    overflow-y: auto !important;
-    padding-bottom: 120px;
-    background: var(--bg);
-}
-.tab-panel.active { 
-    display: block !important; 
-    z-index: 10;
-}
+window.addEventListener('DOMContentLoaded', async () => {
+    // Auth First (Rule 3)
+    const initAuth = async () => {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+            await signInAnonymously(auth);
+        }
+    };
+    await initAuth();
 
-/* --- GOOGLE-STYLE CALENDAR HEIGHT --- */
-.calendar-box, #dash-calendar, #full-calendar-render {
-    min-height: 600px;
-    height: 100% !important;
-}
+    onAuthStateChanged(auth, u => {
+        if(u) {
+            user = u;
+            document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0, 6)}`;
+            
+            // Start Listeners
+            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => {
+                fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderTruckSpreadsheet(); renderDashboard();
+            });
+            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), s => {
+                fleetData.jobs = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                syncCalendarData();
+            });
+        }
+    });
 
-.fc { font-family: inherit; --fc-border-color: rgba(255,255,255,0.05); }
-.fc-toolbar-title { font-weight: 900 !important; color: white !important; text-transform: uppercase; font-size: 1rem !important; }
-.fc .fc-button-primary { background-color: #1e293b; border: 1px solid var(--border); font-size: 10px; font-weight: 900; text-transform: uppercase; }
-.fc .fc-button-primary:hover { background-color: var(--blue); }
+    initCalendars();
+    lucide.createIcons();
+    setInterval(() => {
+        const el = document.getElementById('live-clock');
+        if(el) el.innerText = new Date().toLocaleTimeString();
+    }, 1000);
+});
 
-/* --- SPREADSHEETS --- */
-.ledger-container { background: var(--card); border: 1px solid var(--border); border-radius: 32px; overflow: hidden; margin-top: 20px; }
-.fleet-table { width: 100%; border-collapse: collapse; text-align: left; }
-.fleet-table th { padding: 20px 24px; font-size: 10px; color: #64748b; text-transform: uppercase; background: rgba(255,255,255,0.02); }
-.fleet-table td { padding: 20px 24px; font-size: 13px; border-bottom: 1px solid var(--border); }
-
-/* DASH TILES */
-.balance-card, .stat-card { cursor: pointer; transition: 0.3s; }
-.balance-card:hover, .stat-card:hover { transform: scale(1.01); filter: brightness(1.2); }
-
-.hidden { display: none !important; }
+// Global Function Exports
+window.openEventModal = () => document.getElementById('event-modal').classList.remove('hidden');
+window.openTruckModal = () => document.getElementById('truck-modal').classList.remove('hidden');
+window.saveTruckUnit = async () => { /* Add logic */ };
+window.saveEvent = async () => { /* Add logic */ };
 
