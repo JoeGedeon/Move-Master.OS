@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Hub Enterprise - Global Audit</title>
+    <title>Fleet Hub Enterprise | Global Audit</title>
+    
+    <!-- External Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Link to your separate CSS file -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="antialiased bg-slate-100">
+<body class="antialiased">
 
     <div class="max-w-md mx-auto h-screen flex flex-col bg-white shadow-2xl relative overflow-hidden border-x border-slate-200">
         
-        <!-- Header -->
-        <header class="p-4 border-b border-slate-100 flex items-center justify-between bg-white z-20">
+        <!-- Enterprise Header -->
+        <header class="p-4 border-b border-slate-100 flex items-center justify-between bg-white z-20 shadow-sm">
             <div class="flex items-center gap-3">
                 <div class="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200">
-                    <i data-lucide="bar-chart-3" size="20"></i>
+                    <i data-lucide="shield-check" size="20"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-extrabold text-slate-900 tracking-tight">FLEET<span class="text-blue-600">INTEL</span></h1>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Budget & Resource Control</p>
+                    <h1 class="text-lg font-extrabold text-slate-900 tracking-tight leading-none">FLEET<span class="text-blue-600">HUB</span></h1>
+                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Global Resource Control</p>
                 </div>
             </div>
-            <!-- Monthly Report Dump Button -->
-            <button id="generate-report" class="p-2.5 rounded-xl bg-slate-900 text-white hover:bg-blue-600 transition-all btn-press border border-slate-800 shadow-md" title="Generate Monthly Dump">
+            <!-- Main Monthly Dump Button -->
+            <button id="generate-report" class="p-2.5 rounded-xl bg-slate-900 text-white hover:bg-blue-600 transition-all btn-press border border-slate-800 shadow-md" title="Download Consolidated Report">
                 <i data-lucide="file-spreadsheet" size="18"></i>
             </button>
         </header>
 
-        <!-- Main Content -->
+        <!-- Main Workspace -->
         <main class="flex-1 overflow-hidden relative bg-slate-50/50">
             
             <!-- Audit View -->
@@ -46,7 +50,9 @@
                     </div>
                     <i data-lucide="globe" class="absolute -bottom-8 -right-8 text-white/5 w-48 h-48"></i>
                 </div>
-                <div id="logs-container" class="space-y-3 pb-24"></div>
+                <div id="logs-container" class="space-y-3 pb-24">
+                    <!-- Logs populated via Script -->
+                </div>
             </section>
 
             <!-- Scanner View -->
@@ -57,12 +63,12 @@
                         <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100">
                             <i data-lucide="scan-eye" size="44"></i>
                         </div>
-                        <h4 class="text-xl font-black text-slate-800 tracking-tight">AI Receipt Intake</h4>
-                        <p class="text-sm text-slate-400 mt-2 px-6">Extract expense data and attribute it to a specific truck resource.</p>
+                        <h4 class="text-xl font-black text-slate-800 tracking-tight">AI Intake Scanner</h4>
+                        <p class="text-sm text-slate-400 mt-2 px-6 font-medium">Auto-extract line items and attribute costs to a specific truck unit.</p>
                     </div>
                     <div id="scan-loading" class="hidden absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center z-10">
                         <div class="loader-ring mb-4"></div>
-                        <p class="text-sm font-black text-slate-800 tracking-widest uppercase">Processing Scan...</p>
+                        <p class="text-sm font-black text-slate-800 tracking-widest uppercase">Analyzing Receipt...</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 w-full mt-10">
@@ -79,23 +85,25 @@
                 </div>
             </section>
 
-            <!-- Calculator View -->
+            <!-- Math View -->
             <section id="calc-tab" class="tab-content p-6">
-                <div class="bg-blue-600 text-white rounded-[2.5rem] p-8 mb-6 shadow-2xl relative overflow-hidden text-right">
+                <div class="bg-blue-600 text-white rounded-[2.5rem] p-8 mb-6 shadow-2xl relative overflow-hidden text-right border-4 border-blue-500">
                     <div id="calc-mem" class="text-blue-200 text-sm font-mono h-6 mb-1"></div>
                     <div id="calc-view" class="text-6xl font-mono font-black truncate tracking-tighter">0</div>
                 </div>
-                <div id="calc-board" class="grid grid-cols-4 gap-4 flex-1"></div>
+                <div id="calc-board" class="grid grid-cols-4 gap-4 flex-1">
+                    <!-- Buttons generated via Script -->
+                </div>
                 <button id="calc-export" class="mt-8 w-full bg-slate-900 text-white py-5 rounded-3xl font-black flex items-center justify-center gap-3 active:scale-95 shadow-xl transition-all">
-                    <i data-lucide="plus-circle" size="22"></i> CONVERT TO LOG
+                    <i data-lucide="plus-circle" size="22"></i> USE AS EXPENSE
                 </button>
             </section>
 
-            <!-- Fleet AI View -->
+            <!-- AI Auditor View -->
             <section id="ai-tab" class="tab-content flex flex-col h-full bg-slate-50">
                 <div id="chat-stream" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20"></div>
                 <form id="chat-form" class="p-4 bg-white border-t border-slate-100 flex gap-2 pb-10">
-                    <input type="text" id="chat-input" placeholder="Query truck performance..." class="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-medium outline-none">
+                    <input type="text" id="chat-input" placeholder="Query truck performance..." class="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-medium outline-none shadow-inner">
                     <button type="submit" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg active:scale-90 transition-all">
                         <i data-lucide="send" size="20"></i>
                     </button>
@@ -103,14 +111,14 @@
             </section>
         </main>
 
-        <!-- Nav -->
+        <!-- Bottom Navigation -->
         <nav class="bg-white border-t border-slate-100 h-24 px-8 flex items-center justify-between pb-8 z-30 shadow-inner">
             <button class="nav-btn active text-blue-600" data-tab="logs">
                 <i data-lucide="activity" size="24"></i>
                 <span class="text-[9px] font-black uppercase tracking-tighter">Audit</span>
             </button>
             <button class="nav-btn text-slate-300" data-tab="scan">
-                <i data-lucide="scan" size="24"></i>
+                <i data-lucide="maximize" size="24"></i>
                 <span class="text-[9px] font-black uppercase tracking-tighter">Scan</span>
             </button>
             <button class="nav-btn text-slate-300" data-tab="calc">
@@ -118,46 +126,65 @@
                 <span class="text-[9px] font-black uppercase tracking-tighter">Math</span>
             </button>
             <button class="nav-btn text-slate-300" data-tab="ai">
-                <i data-lucide="bot" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Budget</span>
+                <i data-lucide="sparkles" size="24"></i>
+                <span class="text-[9px] font-black uppercase tracking-tighter">Auditor</span>
             </button>
         </nav>
 
-        <!-- Verification Modal -->
-        <div id="modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl relative">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-black text-slate-800">Assign Entry</h3>
-                    <button id="close-modal" class="p-2 text-slate-300 hover:text-red-500"><i data-lucide="x"></i></button>
+        <!-- Data Verification Modal -->
+        <div id="modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-4 overflow-y-auto">
+            <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-8 shadow-2xl relative mb-4 sm:mb-0">
+                <div class="flex justify-between items-center mb-8">
+                    <div>
+                        <h3 class="text-2xl font-black text-slate-800 leading-none tracking-tight">Post Log</h3>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Audit Assignment</p>
+                    </div>
+                    <button id="close-modal" class="bg-slate-50 p-2.5 rounded-full text-slate-300 hover:text-red-500 transition-all">
+                        <i data-lucide="x" size="20"></i>
+                    </button>
                 </div>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
+                
+                <div class="space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Truck ID</label>
-                            <input type="text" id="v-truck" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold text-blue-600" placeholder="TRUCK-01">
+                            <input type="text" id="v-truck" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-black text-blue-600 uppercase" placeholder="TRUCK-01">
                         </div>
                         <div>
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Total ($)</label>
-                            <input type="number" id="v-amount" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-black" placeholder="0.00">
+                            <input type="number" id="v-amount" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-black text-slate-800" placeholder="0.00">
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <select id="v-cat" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold">
-                            <option>Fuel (Expense)</option>
-                            <option>Repair (Expense)</option>
-                            <option>Toll (Expense)</option>
-                            <option>Income (Main)</option>
-                            <option>Other</option>
-                        </select>
-                        <input type="date" id="v-date" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Type</label>
+                            <select id="v-cat" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-blue-500 appearance-none">
+                                <option>Fuel (Expense)</option>
+                                <option>Repair (Expense)</option>
+                                <option>Income (Main)</option>
+                                <option>Toll (Expense)</option>
+                                <option>Misc</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Date</label>
+                            <input type="date" id="v-date" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none">
+                        </div>
                     </div>
-                    <input type="text" id="v-loc" placeholder="Merchant or Resource Source" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none">
+
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Vendor / Resource Source</label>
+                        <input type="text" id="v-loc" placeholder="e.g. Loves Travel Stop" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none shadow-inner">
+                    </div>
                 </div>
-                <button id="commit-btn" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black text-lg">VERIFY & LOG</button>
+
+                <button id="commit-btn" class="w-full mt-10 bg-blue-600 text-white py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-blue-200 active:scale-95 transition-all uppercase">Verify & Post</button>
             </div>
         </div>
     </div>
 
+    <!-- Main JavaScript Link -->
     <script src="script.js" type="module"></script>
 </body>
 </html>
