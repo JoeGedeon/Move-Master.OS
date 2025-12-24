@@ -1,90 +1,106 @@
-/* --- ENTERPRISE DESIGN TOKENS --- */
+/* --- DARK COMMAND CENTER CSS --- */
+
 :root {
-    --primary: #2563eb;
-    --dark: #0F172A;
-    --sidebar-active: rgba(255, 255, 255, 0.05);
+    --primary-blue: #3b82f6;
+    --dark-bg: #0b0f1a;
+    --card-bg: #111827;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-
-body { 
-    font-family: 'Plus Jakarta Sans', sans-serif; 
-    -webkit-tap-highlight-color: transparent;
+/* Custom Background */
+.bg-radial-gradient {
+    background: radial-gradient(circle at 50% 50%, #111827 0%, #0b0f1a 100%);
 }
 
-/* Sidebar Buttons */
+/* Sidebar Styling */
 .nav-btn-sidebar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     width: 100%;
-    padding: 14px 16px;
-    border-radius: 14px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #94A3B8;
-    transition: all 0.2s;
+    padding: 18px 20px;
+    border-radius: 18px;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #4b5563;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-btn-sidebar:hover {
     color: white;
-    background: var(--sidebar-active);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .nav-btn-sidebar.active {
     color: white;
-    background: var(--primary);
-    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+    background: var(--primary-blue);
+    box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.3);
 }
 
-/* Mobile Nav Buttons */
-.nav-btn-mobile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    transition: all 0.2s;
+/* Mobile Nav Bar */
+.nav-btn-mob {
+    color: #4b5563;
+    padding: 12px;
+    border-radius: 16px;
+    transition: all 0.3s;
 }
 
-/* Tab Management */
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-/* Interactive Elements */
-.btn-press:active { transform: scale(0.97); opacity: 0.9; }
-
-/* Custom Animations */
-.animate-in {
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.nav-btn-mob.active {
+    color: var(--primary-blue);
+    background: rgba(59, 130, 246, 0.1);
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Input Fields */
+.form-input {
+    width: 100%;
+    background: #0b0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 16px;
+    color: white;
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s;
 }
 
-.loader-ring {
-    border: 4px solid #f1f5f9;
-    border-top: 4px solid var(--primary);
+.form-input:focus {
+    border-color: var(--primary-blue);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+
+/* Loader */
+.loader-circle {
+    border: 3px solid rgba(255, 255, 255, 0.05);
+    border-top: 3px solid var(--primary-blue);
     border-radius: 50%;
     width: 48px;
     height: 48px;
-    animation: spin 1s linear infinite;
+    animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+/* Animations */
+.animate-in {
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
-/* Dashboard List Styling */
-#logs-container > div {
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Table Item Interaction */
+.audit-row {
     transition: all 0.2s;
 }
-#logs-container > div:hover {
-    transform: translateX(4px);
-    border-color: #BFDBFE;
+
+.audit-row:hover {
+    background: rgba(255, 255, 255, 0.02);
 }
 
