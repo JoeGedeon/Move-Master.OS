@@ -3,244 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Hub | Enterprise Dashboard</title>
+    <title>Fleet Command Master</title>
     
-    <!-- Frameworks -->
+    <!-- CSS & UI Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Charting for the visual look in your image -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Professional Calendar Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="antialiased bg-[#0b0f1a] text-white">
+<body class="bg-[#0b0f1a] text-white overflow-hidden">
 
-    <div class="flex h-screen overflow-hidden">
+    <!-- The Master Layout -->
+    <div id="app-root" class="flex w-screen h-screen">
         
-        <!-- Sidebar: Premium Dark Sidebar -->
-        <aside class="hidden lg:flex w-72 bg-[#111827] border-r border-white/5 flex-col z-50">
-            <div class="p-8">
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-500 p-2 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-                        <i data-lucide="shield-check" class="text-white" size="24"></i>
-                    </div>
-                    <span class="text-xl font-black tracking-tight">FLEET<span class="text-blue-500 underline decoration-2 underline-offset-4">PRO</span></span>
+        <!-- PERSISTENT SIDEBAR (The 9-Button Toolbar) -->
+        <aside id="main-sidebar" class="flex-shrink-0 w-20 lg:w-64 bg-[#111827] border-r border-white/5 flex flex-col h-full shadow-2xl z-50">
+            <div class="p-6 flex items-center justify-center lg:justify-start gap-3">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20">
+                    <i data-lucide="shield-check" class="text-white"></i>
                 </div>
+                <span class="hidden lg:block text-lg font-black uppercase tracking-tighter">FleetHub</span>
             </div>
             
-            <nav class="flex-1 px-6 space-y-2">
-                <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Main Navigation</p>
-                <button onclick="setTab('logs')" class="nav-btn-sidebar active" data-tab="logs">
-                    <i data-lucide="layout-grid" size="18"></i>
-                    <span>Command Center</span>
+            <nav class="flex-1 px-2 lg:px-4 space-y-1 mt-6 overflow-y-auto custom-scrollbar">
+                <button onclick="setTab('calendar')" class="nav-btn-sidebar active" data-tab="calendar">
+                    <i data-lucide="calendar"></i> <span class="hidden lg:block">Calendar</span>
+                </button>
+                <button onclick="setTab('dashboard')" class="nav-btn-sidebar" data-tab="dashboard">
+                    <i data-lucide="layout-grid"></i> <span class="hidden lg:block">Dashboard</span>
                 </button>
                 <button onclick="setTab('jobs')" class="nav-btn-sidebar" data-tab="jobs">
-                    <i data-lucide="truck" size="18"></i>
-                    <span>Dispatch Jobs</span>
+                    <i data-lucide="briefcase"></i> <span class="hidden lg:block">Active Jobs</span>
                 </button>
                 <button onclick="setTab('scan')" class="nav-btn-sidebar" data-tab="scan">
-                    <i data-lucide="maximize" size="18"></i>
-                    <span>AI Receipt Scan</span>
+                    <i data-lucide="maximize"></i> <span class="hidden lg:block">AI Scanner</span>
+                </button>
+                <button onclick="setTab('inventory')" class="nav-btn-sidebar" data-tab="inventory">
+                    <i data-lucide="package"></i> <span class="hidden lg:block">Inventory</span>
+                </button>
+                <button onclick="setTab('trucks')" class="nav-btn-sidebar" data-tab="trucks">
+                    <i data-lucide="truck"></i> <span class="hidden lg:block">Truck Units</span>
                 </button>
                 <button onclick="setTab('calc')" class="nav-btn-sidebar" data-tab="calc">
-                    <i data-lucide="calculator" size="18"></i>
-                    <span>Math Estimates</span>
+                    <i data-lucide="calculator"></i> <span class="hidden lg:block">Estimator</span>
+                </button>
+                <button onclick="setTab('ai')" class="nav-btn-sidebar" data-tab="ai">
+                    <i data-lucide="bot"></i> <span class="hidden lg:block">AI Auditor</span>
+                </button>
+                <button onclick="exportFullReport()" class="nav-btn-sidebar text-slate-500 hover:text-white mt-10">
+                    <i data-lucide="download"></i> <span class="hidden lg:block">Master Dump</span>
                 </button>
             </nav>
 
-            <div class="p-8 mt-auto border-t border-white/5">
-                <button id="dump-report-side" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl flex items-center justify-center gap-2 transition-all font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20">
-                    <i data-lucide="file-down" size="16"></i>
-                    Master Data Dump
-                </button>
+            <div class="p-4 border-t border-white/5 bg-[#0b0f1a]/50">
+                <div class="flex items-center justify-center lg:justify-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
+                    <div class="hidden lg:block truncate"><p id="user-id" class="text-[9px] font-mono text-blue-400">...</p></div>
+                </div>
             </div>
         </aside>
 
-        <!-- Main Workspace -->
-        <div class="flex-1 flex flex-col h-screen relative overflow-hidden bg-radial-gradient">
+        <!-- CONTENT VIEWPORT -->
+        <main class="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-[#0b0f1a]">
             
-            <!-- Global Top Bar -->
-            <header class="h-20 bg-[#111827]/50 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-8 z-40">
+            <!-- Global Header -->
+            <header class="flex-shrink-0 h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#111827]/80 backdrop-blur-md z-40">
                 <div class="flex items-center gap-4">
-                    <div class="lg:hidden bg-blue-500 p-1.5 rounded-lg mr-2"><i data-lucide="shield-check" size="18"></i></div>
-                    <h2 id="page-title" class="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Command Center</h2>
+                    <h2 id="active-title" class="text-sm font-black uppercase tracking-[0.2em] text-blue-500">Fleet Calendar</h2>
                 </div>
-                
-                <div class="flex items-center gap-6">
-                    <div class="hidden md:flex flex-col items-end">
-                        <span id="live-time" class="text-xs font-mono text-blue-400">00:00:00</span>
-                        <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Global Fleet Sync</span>
-                    </div>
-                    <div class="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 p-0.5 shadow-lg">
-                        <div class="h-full w-full rounded-full bg-[#0b0f1a] flex items-center justify-center font-bold text-xs text-white">A</div>
-                    </div>
+                <div class="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse"></span> Terminal Live
                 </div>
             </header>
 
-            <!-- Scrollable Content -->
-            <main class="flex-1 overflow-y-auto p-6 lg:p-10 pb-32 lg:pb-10 custom-scrollbar">
+            <!-- Pages Area -->
+            <div id="tab-container" class="flex-1 overflow-hidden relative">
                 
-                <!-- 1. AUDIT DASHBOARD TAB -->
-                <section id="logs-tab" class="tab-content active animate-in space-y-8">
-                    <!-- Top Metrics Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div class="metric-card bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                            <p class="text-blue-100/60 text-[10px] font-black uppercase tracking-widest mb-2">Net Fleet Balance</p>
-                            <h2 id="total-display" class="text-4xl font-black tracking-tighter">$0.00</h2>
-                            <div class="mt-4 flex items-center gap-2 text-xs font-bold text-blue-100">
-                                <i data-lucide="trending-up" size="14"></i> +12% vs last month
-                            </div>
-                            <i data-lucide="activity" class="absolute -bottom-6 -right-6 w-32 h-32 text-white/10"></i>
-                        </div>
-                        
-                        <div class="metric-card bg-[#111827] border border-white/5 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                            <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-2">Active Jobs</p>
-                            <h2 id="job-count-display" class="text-4xl font-black tracking-tighter">0</h2>
-                            <div class="mt-4 flex items-center gap-2 text-xs font-bold text-blue-400">
-                                <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span> Tracking Live
-                            </div>
-                        </div>
-
-                        <!-- Mini Chart from your image -->
-                        <div class="lg:col-span-2 bg-[#111827] border border-white/5 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                            <div class="flex justify-between items-start mb-4">
-                                <div>
-                                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Resource Health</p>
-                                    <h3 class="text-xl font-black">Efficiency Graph</h3>
-                                </div>
-                                <select class="bg-white/5 border-none text-[10px] rounded-lg px-2 py-1 outline-none font-bold uppercase tracking-wider">
-                                    <option>Weekly</option>
-                                    <option>Monthly</option>
-                                </select>
-                            </div>
-                            <div class="h-24 w-full">
-                                <canvas id="mini-chart"></canvas>
-                            </div>
+                <!-- 1. CALENDAR VIEW (THE DEFAULT FRONT WINDOW) -->
+                <section id="calendar-tab" class="tab-content active flex flex-row h-full">
+                    <div class="flex-1 p-4 lg:p-8 h-full">
+                        <div class="bg-[#111827] rounded-[2.5rem] border border-white/5 shadow-2xl p-6 h-full flex flex-col relative overflow-hidden">
+                            <div id="fleet-calendar" class="h-full w-full"></div>
                         </div>
                     </div>
+                    <!-- Today's Agenda Side Panel -->
+                    <aside id="agenda-panel" class="hidden xl:flex w-80 bg-[#111827] border-l border-white/5 flex-col p-8 overflow-y-auto custom-scrollbar">
+                        <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-6">Today's Dispatch</h3>
+                        <div id="agenda-list" class="space-y-4">
+                            <p class="text-[10px] text-slate-600 italic">No events scheduled.</p>
+                        </div>
+                    </aside>
+                </section>
 
-                    <!-- Transaction List (The Grid from your image) -->
-                    <div class="bg-[#111827] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                        <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/5">
-                            <h3 class="font-black text-sm uppercase tracking-widest">Fleet Transaction Audit</h3>
-                            <button onclick="setTab('scan')" class="bg-blue-600 text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest hover:bg-blue-500 transition-all">
-                                <i data-lucide="plus" size="12" class="inline mr-1"></i> New Log
-                            </button>
+                <!-- 2. DASHBOARD VIEW (SCROLLABLE) -->
+                <section id="dashboard-tab" class="tab-content h-full p-6 lg:p-10 overflow-y-auto custom-scrollbar space-y-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 rounded-[3rem] p-10 relative overflow-hidden shadow-2xl border border-white/5">
+                            <p class="text-blue-100/60 text-xs font-black uppercase tracking-widest mb-1">Total Revenue Balance</p>
+                            <h2 id="total-display" class="text-6xl font-black tracking-tighter mb-4">$0.00</h2>
+                            <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
                         </div>
-                        <div id="logs-container" class="divide-y divide-white/5">
-                            <!-- Logs will be populated here -->
+                        <div class="bg-[#111827] border border-white/5 rounded-[3rem] p-10 flex flex-col justify-center shadow-xl">
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Unit Health</p>
+                            <h3 id="truck-count" class="text-4xl font-black">0</h3>
                         </div>
+                    </div>
+                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl pb-10">
+                        <div class="p-8 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                            <span class="text-xs font-black uppercase tracking-widest text-slate-400 font-mono">Ledger_Stream_v4</span>
+                        </div>
+                        <div id="logs-container" class="divide-y divide-white/5"></div>
                     </div>
                 </section>
 
-                <!-- 2. JOBS TAB -->
-                <section id="jobs-tab" class="tab-content animate-in space-y-6">
-                    <div class="flex justify-between items-center px-4">
-                        <h3 class="text-2xl font-black tracking-tighter">Dispatch Center</h3>
-                        <button onclick="document.getElementById('job-modal').classList.remove('hidden')" class="bg-white text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">
-                            + Assign Job
-                        </button>
-                    </div>
-                    <div id="jobs-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-                </section>
-
-                <!-- 3. SCAN TAB -->
-                <section id="scan-tab" class="tab-content animate-in flex flex-col items-center justify-center min-h-[70vh]">
-                    <div id="scan-frame" class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[3rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-10 relative overflow-hidden shadow-2xl">
-                        <img id="scan-preview" class="hidden absolute inset-0 w-full h-full object-cover rounded-[3rem] opacity-50">
-                        <div id="scan-init" class="text-center relative z-10">
-                            <div class="w-24 h-24 bg-blue-500/10 text-blue-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                <!-- 3. SCANNER VIEW -->
+                <section id="scan-tab" class="tab-content h-full flex flex-col items-center justify-center p-8">
+                    <div id="scan-frame" class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[3rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-12 relative shadow-2xl">
+                        <div id="scan-init" class="text-center">
+                            <div class="w-20 h-20 bg-blue-600/10 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner border border-blue-600/20">
                                 <i data-lucide="scan" size="48"></i>
                             </div>
-                            <h4 class="text-2xl font-black tracking-tight">AI Intake Scanner</h4>
-                            <p class="text-slate-400 text-sm mt-4 px-10 leading-relaxed font-medium">Capture a receipt. Our Gemini OCR engine will automate the entry attribution.</p>
+                            <h4 class="text-2xl font-black uppercase tracking-tight">AI Intake</h4>
+                            <p class="text-slate-500 text-sm mt-4 px-6 leading-relaxed">Decrypting physical receipts into terminal data.</p>
                         </div>
-                        <div id="scan-loading" class="hidden absolute inset-0 bg-[#0b0f1a]/90 backdrop-blur-md flex flex-col items-center justify-center z-10">
-                            <div class="loader-circle mb-6"></div>
-                            <p class="text-xs font-black uppercase tracking-[0.3em] text-blue-400">Analyzing Metadata</p>
+                        <div id="scan-loading" class="hidden absolute inset-0 bg-[#0b0f1a]/95 flex flex-col items-center justify-center z-10">
+                            <div class="loader-circle mb-4"></div>
+                            <p class="text-xs font-black uppercase tracking-widest text-blue-500">Processing Data...</p>
                         </div>
                     </div>
-                    <div class="flex gap-4 w-full max-w-md mt-10">
-                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                        <input type="file" id="gallery-input" accept="image/*" class="hidden">
-                        <button onclick="document.getElementById('camera-input').click()" class="flex-1 bg-blue-600 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">
-                            Snap Photo
-                        </button>
-                        <button onclick="document.getElementById('gallery-input').click()" class="flex-1 bg-white/5 border border-white/10 py-5 rounded-3xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all">
-                            Browse
-                        </button>
-                    </div>
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" onchange="processOCR(event)">
+                    <button onclick="document.getElementById('camera-input').click()" class="mt-8 w-full max-w-md bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Launch Scanner</button>
                 </section>
 
-                <!-- 4. CALCULATOR TAB -->
-                <section id="calc-tab" class="tab-content animate-in">
-                    <div class="max-w-md mx-auto py-10">
-                        <div class="bg-black rounded-[2.5rem] p-10 mb-8 border border-white/10 shadow-2xl text-right">
-                            <div id="calc-history" class="text-slate-600 text-xs font-mono h-6 mb-2 tracking-widest"></div>
-                            <div id="calc-display" class="text-7xl font-mono font-black truncate tracking-tighter text-blue-500">0</div>
-                        </div>
-                        <div id="calc-board" class="grid grid-cols-4 gap-4"></div>
-                        <button onclick="exportCalcValue()" class="w-full mt-10 bg-blue-600 py-6 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20">
-                            Push to Audit Log
-                        </button>
-                    </div>
-                </section>
-
-            </main>
-
-            <!-- Mobile Navbar: Replicating high-end app bars -->
-            <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-[#111827]/80 backdrop-blur-2xl border-t border-white/5 h-24 px-8 flex items-center justify-between pb-8 z-50">
-                <button onclick="setTab('logs')" class="nav-btn-mob active" data-tab="logs"><i data-lucide="layout-grid" size="24"></i></button>
-                <button onclick="setTab('jobs')" class="nav-btn-mob" data-tab="jobs"><i data-lucide="truck" size="24"></i></button>
-                <button onclick="setTab('scan')" class="nav-btn-mob" data-tab="scan"><i data-lucide="maximize" size="24"></i></button>
-                <button onclick="setTab('calc')" class="nav-btn-mob" data-tab="calc"><i data-lucide="calculator" size="24"></i></button>
-            </nav>
-
-        </div>
+            </div>
+        </main>
     </div>
 
-    <!-- Modals (Frosted Glass Look) -->
-    <div id="job-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[110] flex items-end sm:items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3rem] p-10 shadow-2xl">
+    <!-- MODAL: GOOGLE CALENDAR ENTRY -->
+    <div id="event-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-10 shadow-2xl animate-in">
             <div class="flex justify-between items-center mb-8">
-                <h3 class="text-2xl font-black tracking-tight">Assign Dispatch</h3>
-                <button onclick="document.getElementById('job-modal').classList.add('hidden')" class="p-2 text-slate-500 hover:text-white transition-colors"><i data-lucide="x"></i></button>
+                <h3 class="text-2xl font-black tracking-tight uppercase italic">Schedule Job</h3>
+                <button onclick="closeEventModal()" class="text-slate-500 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <div class="space-y-4">
-                <input type="text" id="j-title" class="form-input" placeholder="Task Description">
-                <input type="text" id="j-truck" class="form-input" placeholder="Truck ID">
-                <select id="j-status" class="form-input">
-                    <option>Pending</option>
-                    <option>Active</option>
+                <input type="text" id="ev-title" class="form-input" placeholder="Work Order Detail">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="ev-truck" class="form-input text-blue-400 font-bold" placeholder="Truck ID">
+                    <input type="date" id="ev-date" class="form-input">
+                </div>
+                <select id="ev-status" class="form-input font-bold">
+                    <option>Pending</option><option>Active</option><option>Completed</option>
                 </select>
             </div>
-            <button id="save-job-btn" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest">Finalize Assignment</button>
+            <div class="flex gap-4 mt-8">
+                <button id="del-event-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Delete</button>
+                <button id="save-event-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update Fleet</button>
+            </div>
         </div>
     </div>
 
-    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3rem] p-10 shadow-2xl">
-            <div class="flex justify-between items-center mb-8">
-                <h3 class="text-2xl font-black tracking-tight">Audit Confirmation</h3>
-                <button onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="p-2 text-slate-500 hover:text-white transition-colors"><i data-lucide="x"></i></button>
-            </div>
+    <!-- MODAL: AUDIT VERIFY -->
+    <div id="audit-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-10 shadow-2xl animate-in">
+            <h3 class="text-2xl font-black mb-10 uppercase italic">Confirm Transaction</h3>
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <input type="text" id="v-truck" class="form-input text-blue-400 font-black" placeholder="Truck ID">
                     <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <select id="v-cat" class="form-input">
-                        <option>Fuel (Expense)</option>
-                        <option>Repair (Expense)</option>
-                        <option>Toll (Expense)</option>
-                        <option>Income (Revenue)</option>
-                    </select>
-                    <input type="date" id="v-date" class="form-input">
-                </div>
-                <input type="text" id="v-loc" placeholder="Merchant / Resource Point" class="form-input">
+                <select id="v-cat" class="form-input font-black uppercase text-xs tracking-widest">
+                    <option>Fuel</option><option>Income</option><option>Repair</option><option>Toll</option>
+                </select>
+                <input type="text" id="v-loc" class="form-input" placeholder="Resource Location">
             </div>
-            <button id="commit-btn" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20">Verified & Logged</button>
+            <button id="save-audit-btn" class="w-full mt-10 bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Commit Ledger</button>
         </div>
     </div>
 
