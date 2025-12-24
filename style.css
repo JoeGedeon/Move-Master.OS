@@ -1,92 +1,230 @@
-/* --- MISSION CONTROL MASTER STYLES --- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+// --- SYSTEM CONSTANTS & STATE ---
+const apiKey = ""; // Terminal Injected Key
+let auth, db, user, appId, dashCal, fullCal;
+let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [], inventory: [] };
 
-:root {
-    --blue: #3b82f6;
-    --bg: #0b0f1a;
-    --card: #111827;
-    --border: rgba(255, 255, 255, 0.08);
+// --- 1. PROACTIVE NAVIGATION ---
+window.tab = (id) => {
+    const panels = document.querySelectorAll('.tab-panel');
+    panels.forEach(p => p.classList.remove('active'));
+    
+    const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
+    if (target) {
+        target.classList.add('active');
+        // FORCE RENDER: Essential for FullCalendar to appear in hidden containers
+        if(id === 'dashboard' && dashCal) { setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); }
+        if(id === 'calendar' && fullCal) { setTimeout(() => { fullCal.render(); fullCal.updateSize(); }, 50); }
+        
+        // INTELLIGENCE TRIGGER: Re-calculate metrics on every tab swap
+        runSystemDiagnostics();
+    }
+    
+    document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === id);
+    });
+
+    const titleEl = document.getElementById('tab-title');
+    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_OPERATIONS_MODE`;
+    lucide.createIcons();
+};
+
+window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+
+// --- 2. AI AUDITOR: VISION OCR ENGINE ---
+window.handleSmartIntake = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const loader = document.getElementById('scan-loading');
+    if (loader) loader.classList.remove('hidden');
+
+    try {
+        const base64 = await new Promise(res => {
+            const r = new FileReader(); r.readAsDataURL(file);
+            r.onload = () => res(r.result.split(',')[1]);
+        });
+        
+        const prompt = `Act as an elite logistics auditor. Analyze this receipt/document. 
+        Identify: Merchant Name, Date (YYYY-MM-DD), Total Amount, Truck ID (if present), and Category (Diesel, Repair, Hotel, Toll, or Inflow/Funding). 
+        CRITICAL: If it's a repair, list items like "Tires" or "Oil".
+        Return ONLY valid JSON: {"vendor":string, "amount":number, "date":"string", "category":string, "truckId":string, "parts":string[]}`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                contents: [{role: "user", parts: [{text: prompt}, {inlineData: {mimeType: "image/png", data: base64}}]}],
+                generationConfig: { responseMimeType: "application/json" }
+            })
+        });
+
+        const result = await response.json();
+        const aiData = JSON.parse(result.candidates[0].content.parts[0].text);
+
+        // Map AI Data to Audit Modal
+        document.getElementById('v-vendor').value = aiData.vendor || '';
+        document.getElementById('v-amount').value = aiData.amount || 0;
+        document.getElementById('v-cat').value = aiData.category || 'Diesel';
+        document.getElementById('v-truck').value = aiData.truckId || '';
+        if(document.getElementById('v-items')) document.getElementById('v-items').value = aiData.parts?.join(', ') || '';
+        
+        document.getElementById('audit-modal').classList.remove('hidden');
+    } catch (err) {
+        console.error("AI Error:", err);
+        document.getElementById('audit-modal').classList.remove('hidden'); // Fallback to manual
+    } finally {
+        if (loader) loader.classList.add('hidden');
+    }
+};
+
+window.commitAudit = async () => {
+    const val = {
+        amount: parseFloat(document.getElementById('v-amount').value) || 0,
+        vendor: document.getElementById('v-vendor').value,
+        category: document.getElementById('v-cat').value,
+        truckId: document.getElementById('v-truck').value.toUpperCase(),
+        date: document.getElementById('v-date')?.value || new Date().toISOString().split('T')[0],
+        timestamp: Date.now()
+    };
+
+    // INSTANT FEEDBACK
+    fleetData.receipts.push({ ...val, id: "temp_" + Date.now() });
+    runSystemDiagnostics();
+    window.closeModal();
+    window.tab('dashboard');
+
+    // PERSISTENCE (Rule 3)
+    if (user && db) {
+        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts'), { ...val, timestamp: Timestamp.now() });
+    }
+};
+
+// --- 3. SYSTEM DIAGNOSTICS (THE "SMART" PART) ---
+function runSystemDiagnostics() {
+    renderDashboard();
+    renderLogs();
+    renderTrucks();
+    renderClients();
+    syncCals();
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+function renderDashboard() {
+    let balance = 0; let burn = 0;
+    const stream = document.getElementById('ledger-stream');
+    if (!stream) return;
+    stream.innerHTML = '';
 
-body, html {
-    margin: 0; padding: 0;
-    height: 100vh; width: 100vw;
-    background-color: var(--bg);
-    color: white; overflow: hidden; /* Lock body */
+    // Calculate Cashflow
+    fleetData.receipts.sort((a,b) => b.date?.localeCompare(a.date)).forEach(r => {
+        const isIn = r.category === 'Inflow' || r.category === 'Funding';
+        balance += isIn ? r.amount : -r.amount;
+        if(!isIn) burn += r.amount;
+
+        const row = document.createElement('div');
+        row.className = "p-8 flex justify-between items-center group hover:bg-white/[0.01]";
+        row.innerHTML = `
+            <div class="flex items-center gap-6">
+                <div class="w-10 h-10 rounded-full ${isIn ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'} flex items-center justify-center">
+                    <i data-lucide="${isIn ? 'trending-up' : 'trending-down'}" size="16"></i>
+                </div>
+                <div>
+                    <h4 class="font-black text-xl text-white">$${r.amount.toFixed(2)}</h4>
+                    <p class="text-[9px] uppercase font-black text-slate-500 tracking-tighter">${r.vendor} • ${r.truckId || 'FLT'}</p>
+                </div>
+            </div>
+            <p class="text-[10px] font-mono text-slate-600">${r.date}</p>
+        `;
+        stream.appendChild(row);
+    });
+
+    document.getElementById('total-display').innerText = `$${balance.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    if(document.getElementById('burn-display')) document.getElementById('burn-display').innerText = `$${burn.toLocaleString()}`;
+    lucide.createIcons();
 }
 
-#app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+function renderLogs() {
+    const rows = document.getElementById('log-rows');
+    if (!rows) return;
+    rows.innerHTML = '';
 
-/* --- SIDEBAR: Scrollable & Fixed --- */
-#sidebar {
-    width: 260px !important;
-    background: var(--card);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    height: 100%; flex-shrink: 0;
+    fleetData.driverLogs.forEach(l => {
+        // INTELLIGENCE: Auto-match expenses to this specific log (Accountability)
+        const dayExp = fleetData.receipts
+            .filter(r => r.truckId === l.truckId && r.date === l.date && r.category !== 'Inflow')
+            .reduce((s, r) => s + r.amount, 0);
+        
+        const dayFund = fleetData.receipts
+            .filter(r => r.truckId === l.truckId && r.date === l.date && r.category === 'Inflow')
+            .reduce((s, r) => s + r.amount, 0);
+
+        const net = dayFund - dayExp;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="p-8 text-xs font-mono text-slate-400">${l.date}</td>
+            <td class="p-8 text-xs font-black uppercase text-white">${l.driver}</td>
+            <td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td>
+            <td class="p-8 text-xs text-red-400">$${dayExp.toFixed(2)}</td>
+            <td class="p-8 text-xs ${net < 0 ? 'text-red-400' : 'text-green-400'} font-black">$${net.toFixed(2)}</td>
+            <td class="p-8 text-right"><button onclick="window.delLog('${l.id}')" class="text-slate-800 hover:text-red-500"><i data-lucide="trash-2" size="14"></i></button></td>
+        `;
+        rows.appendChild(tr);
+    });
+    lucide.createIcons();
 }
 
-.sidebar-nav {
-    flex: 1;
-    overflow-y: auto !important; /* Forces Toolbar Scroll */
-    padding: 12px 0;
+// --- 4. DATA COMMITS (HYBRID) ---
+window.saveDriverLog = async () => {
+    const val = { driver: document.getElementById('l-driver').value, truckId: document.getElementById('l-truck').value.toUpperCase(), date: document.getElementById('l-date').value, timestamp: Date.now() };
+    if(!val.driver) return;
+    fleetData.driverLogs.push({ ...val, id: "local_" + Date.now() });
+    runSystemDiagnostics(); window.closeModal();
+    if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs'), { ...val, timestamp: Timestamp.now() });
+};
+
+window.saveClient = async () => {
+    const val = { name: document.getElementById('c-name').value, contact: document.getElementById('c-contact').value, location: document.getElementById('c-location').value, rate: document.getElementById('c-rate').value, timestamp: Date.now() };
+    if(!val.name) return;
+    fleetData.clients.push({ ...val, id: "cl_" + Date.now() });
+    runSystemDiagnostics(); window.closeModal();
+    if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'clients'), { ...val, timestamp: Timestamp.now() });
+};
+
+// --- 5. INITIALIZATION ---
+window.addEventListener('load', () => {
+    initCalendars();
+    connectTerminal();
+    setInterval(() => {
+        const el = document.getElementById('live-clock');
+        if(el) el.innerText = new Date().toLocaleTimeString();
+    }, 1000);
+});
+
+function initCalendars() {
+    const cfg = { initialView: 'dayGridMonth', height: '100%', dateClick: (i) => { document.getElementById('ev-date').value = i.dateStr; document.getElementById('event-modal').classList.remove('hidden'); } };
+    const dEl = document.getElementById('dash-calendar');
+    const fEl = document.getElementById('full-calendar-render');
+    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, cfg); dashCal.render(); }
+    if (fEl) { fullCal = new FullCalendar.Calendar(fEl, cfg); fullCal.render(); }
 }
 
-.nav-btn {
-    display: flex; align-items: center; gap: 14px;
-    width: 90%; margin: 4px auto; padding: 14px 20px;
-    border-radius: 16px; color: #64748b;
-    font-size: 11px; font-weight: 800; text-transform: uppercase;
-    letter-spacing: 0.1em; transition: 0.2s;
-    background: transparent; border: none; cursor: pointer;
-    text-align: left;
+function syncCals() { [dashCal, fullCal].forEach(c => { if(c){ c.removeAllEvents(); fleetData.jobs.forEach(j => c.addEvent({ title: j.title, start: j.date, color: '#3b82f6' })); } }); }
+
+async function connectTerminal() {
+    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+    if(!configStr) return;
+    const app = initializeApp(JSON.parse(configStr));
+    auth = getAuth(app); db = getFirestore(app);
+    appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-final-v30';
+    onAuthStateChanged(auth, u => { if(u){ user = u; document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0,6)}`; startListeners(); } else { signInAnonymously(auth); }});
 }
-.nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
-.nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-/* --- VIEWPORT: Dashboard Scroll --- */
-#viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
-
-.tab-panel {
-    display: none; 
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    overflow-y: auto !important; /* Forces Dashboard/Panel Scroll */
-    padding-bottom: 100px;
+function startListeners() {
+    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), s => { fleetData.receipts = s.docs.map(d => ({ id: d.id, ...d.data() })); runSystemDiagnostics(); });
+    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs')), s => { fleetData.driverLogs = s.docs.map(d => ({ id: d.id, ...d.data() })); runSystemDiagnostics(); });
 }
-.tab-panel.active { display: block; }
-
-/* Custom Scrollbars */
-.custom-scroll::-webkit-scrollbar { width: 6px; }
-.custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-
-/* --- DASHBOARD COMPONENTS --- */
-.balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 40px; position: relative; }
-.balance-text { font-size: 56px; font-weight: 800; letter-spacing: -3px; }
-.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 40px; padding: 40px; text-align: center; }
-
-/* CALENDAR CENTERING */
-#dash-calendar { min-height: 600px; background: transparent; }
-.fc { font-family: inherit; --fc-border-color: rgba(255,255,255,0.05); }
-.fc-toolbar-title { font-weight: 900 !important; color: var(--blue) !important; font-size: 1.1rem !important; text-transform: uppercase; }
-
-/* CRM CARDS */
-.client-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 24px; border-bottom: 3px solid var(--blue); }
-
-/* TABLES */
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th { padding: 24px; text-align: left; font-size: 10px; color: #64748b; background: rgba(255,255,255,0.01); text-transform: uppercase; }
-.data-table td { padding: 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
-
-/* MODALS */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; }
-.form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
-
-.action-btn { background: var(--blue); color: white; padding: 16px 24px; border-radius: 16px; font-weight: 900; font-size: 10px; border: none; cursor: pointer; }
-.hidden { display: none !important; }
-.pulse { display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: p 2s infinite; }
-@keyframes p { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
