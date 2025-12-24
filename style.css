@@ -1,1 +1,58 @@
 
+/* FLEET HUB MASTER - CSS
+  Separated concerns for GitHub modularity.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
+:root {
+    --primary: #2563eb;
+    --dark: #0f172a;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+body { 
+    font-family: 'Plus Jakarta Sans', sans-serif; 
+    background-color: #f8fafc;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* Tab Management */
+.tab-content { display: none; }
+.tab-content.active { display: flex; flex-direction: column; height: 100%; }
+
+/* UI Feedback */
+.btn-press:active { transform: scale(0.96); opacity: 0.9; }
+
+/* Loader for AI Scan */
+.loader-ring {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Transitions */
+.animate-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Handling */
+body.modal-open { overflow: hidden; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
