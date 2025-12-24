@@ -3,188 +3,261 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Hub Pro</title>
+    <title>Fleet Hub Pro | Enterprise Dashboard</title>
     
-    <!-- External Frameworks -->
+    <!-- External UI Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="antialiased">
+<body class="antialiased bg-[#F8FAFC]">
 
-    <div class="max-w-md mx-auto h-screen flex flex-col bg-white shadow-2xl relative overflow-hidden border-x border-slate-200">
+    <!-- Main Container: Flex for Sidebar + Content -->
+    <div class="flex h-screen overflow-hidden">
         
-        <!-- Header -->
-        <header class="p-4 border-b border-slate-100 flex items-center justify-between bg-white z-20 shadow-sm">
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-xl text-white shadow-lg">
-                    <i data-lucide="layout-dashboard" size="20"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-black text-slate-900 tracking-tight leading-none">FLEET<span class="text-blue-600">PRO</span></h1>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Resource & Job Control</p>
+        <!-- Desktop Sidebar (Hidden on Mobile) -->
+        <aside class="hidden md:flex w-64 bg-[#0F172A] flex-col z-50">
+            <div class="p-6">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2 rounded-lg text-white shadow-lg shadow-blue-500/20">
+                        <i data-lucide="shield-check" size="24"></i>
+                    </div>
+                    <span class="text-white text-xl font-black tracking-tight">FLEET<span class="text-blue-500">PRO</span></span>
                 </div>
             </div>
-            <!-- MASTER CSV DUMP -->
-            <button id="dump-report" class="p-2.5 rounded-xl bg-slate-900 text-white hover:bg-blue-600 transition-all btn-press shadow-md" title="Download Fleet Data Dump">
-                <i data-lucide="file-spreadsheet" size="18"></i>
-            </button>
-        </header>
-
-        <!-- Main Workspace -->
-        <main class="flex-1 overflow-hidden relative bg-slate-50/50">
             
-            <!-- AUDIT TAB (Cash Flow) -->
-            <section id="logs-tab" class="tab-content active p-4 overflow-y-auto pb-24">
-                <div class="bg-slate-900 text-white rounded-[2.5rem] p-7 mb-6 shadow-xl relative overflow-hidden border-4 border-slate-800">
-                    <div class="relative z-10">
-                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Fleet Net Balance</p>
-                        <h2 id="total-display" class="text-4xl font-black tracking-tighter mb-4">$0.00</h2>
-                        <div class="flex gap-2">
-                            <span class="text-[10px] bg-blue-600/50 px-3 py-1.5 rounded-full font-bold border border-blue-400/20 flex items-center gap-1 backdrop-blur-md">
-                                <i data-lucide="truck" size="12"></i> <span id="truck-count">0</span> Active Units
-                            </span>
-                        </div>
-                    </div>
-                    <i data-lucide="globe" class="absolute -bottom-8 -right-8 text-white/5 w-48 h-48"></i>
-                </div>
-                <div id="logs-container" class="space-y-3"></div>
-            </section>
-
-            <!-- JOBS TAB (Workflow Control) -->
-            <section id="jobs-tab" class="tab-content p-4 overflow-y-auto pb-24">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-black text-slate-800 text-lg">Work Orders</h3>
-                    <button id="new-job-btn" class="bg-blue-600 text-white text-[10px] font-black px-4 py-2 rounded-full shadow-lg">
-                        + ASSIGN JOB
-                    </button>
-                </div>
-                <div id="jobs-container" class="space-y-4"></div>
-            </section>
-
-            <!-- SCAN TAB (AI Scanner) -->
-            <section id="scan-tab" class="tab-content p-6 flex flex-col items-center justify-center">
-                <div id="scan-frame" class="w-full aspect-[3/4] bg-white rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-inner">
-                    <img id="scan-preview" class="hidden absolute inset-0 w-full h-full object-cover rounded-[3rem]">
-                    <div id="scan-init" class="text-center">
-                        <div class="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                            <i data-lucide="scan-eye" size="44"></i>
-                        </div>
-                        <h4 class="text-xl font-black text-slate-800 tracking-tight">AI Receipt Scanner</h4>
-                        <p class="text-sm text-slate-400 mt-2 px-6">Snap a photo. AI will extract data and attribute it to the correct truck.</p>
-                    </div>
-                    <div id="scan-loading" class="hidden absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center z-10">
-                        <div class="loader-ring mb-4"></div>
-                        <p class="text-sm font-black text-slate-800 tracking-widest uppercase">Analyzing Data...</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4 w-full mt-10">
-                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                    <input type="file" id="gallery-input" accept="image/*" class="hidden">
-                    <button id="cam-trigger" class="bg-blue-600 text-white py-5 rounded-3xl font-bold flex flex-col items-center gap-2 shadow-xl btn-press">
-                        <i data-lucide="camera" size="24"></i>
-                        <span class="text-[10px] uppercase tracking-widest">Camera</span>
-                    </button>
-                    <button id="gal-trigger" class="bg-white border-2 border-slate-100 text-slate-700 py-5 rounded-3xl font-bold flex flex-col items-center gap-2 shadow-sm btn-press">
-                        <i data-lucide="image" size="24"></i>
-                        <span class="text-[10px] uppercase tracking-widest">Gallery</span>
-                    </button>
-                </div>
-            </section>
-
-            <!-- MATH TAB (Estimates) -->
-            <section id="calc-tab" class="tab-content p-6">
-                <div class="bg-blue-600 text-white rounded-[2.5rem] p-8 mb-6 shadow-2xl relative overflow-hidden text-right border-4 border-blue-500">
-                    <div id="calc-mem" class="text-blue-200 text-sm font-mono h-6 mb-1"></div>
-                    <div id="calc-view" class="text-6xl font-mono font-black truncate tracking-tighter">0</div>
-                </div>
-                <div id="calc-board" class="grid grid-cols-4 gap-4 flex-1"></div>
-                <button id="calc-export" class="mt-8 w-full bg-slate-900 text-white py-5 rounded-3xl font-black flex items-center justify-center gap-3 active:scale-95 shadow-xl transition-all">
-                    <i data-lucide="plus-circle" size="22"></i> CONVERT TO LOG
+            <nav class="flex-1 px-4 space-y-2 mt-4">
+                <button onclick="setTab('logs')" class="nav-btn-sidebar active" data-tab="logs">
+                    <i data-lucide="layout-dashboard" size="18"></i>
+                    <span>Audit Dashboard</span>
                 </button>
-            </section>
+                <button onclick="setTab('jobs')" class="nav-btn-sidebar" data-tab="jobs">
+                    <i data-lucide="briefcase" size="18"></i>
+                    <span>Jobs & Dispatch</span>
+                </button>
+                <button onclick="setTab('scan')" class="nav-btn-sidebar" data-tab="scan">
+                    <i data-lucide="scan" size="18"></i>
+                    <span>AI Receipt Scan</span>
+                </button>
+                <button onclick="setTab('calc')" class="nav-btn-sidebar" data-tab="calc">
+                    <i data-lucide="calculator" size="18"></i>
+                    <span>Math & Estimates</span>
+                </button>
+                <button onclick="setTab('ai')" class="nav-btn-sidebar" data-tab="ai">
+                    <i data-lucide="bot" size="18"></i>
+                    <span>Fleet Auditor</span>
+                </button>
+            </nav>
 
-            <!-- AI TAB (Fleet Auditor) -->
-            <section id="ai-tab" class="tab-content flex flex-col h-full bg-slate-50">
-                <div id="chat-stream" class="flex-1 overflow-y-auto p-4 space-y-4 pb-20"></div>
-                <form id="chat-form" class="p-4 bg-white border-t border-slate-100 flex gap-2 pb-10">
-                    <input type="text" id="chat-input" placeholder="Query fleet budget or jobs..." class="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-medium outline-none">
-                    <button type="submit" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg active:scale-90 transition-all">
-                        <i data-lucide="send" size="20"></i>
+            <div class="p-6 border-t border-slate-800">
+                <button id="dump-report-side" class="w-full bg-slate-800 hover:bg-blue-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm">
+                    <i data-lucide="download" size="16"></i>
+                    Export Master
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col h-screen relative bg-[#F8FAFC]">
+            
+            <!-- Top Header (Contextual) -->
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-40">
+                <div class="md:hidden flex items-center gap-2">
+                     <span class="text-slate-900 font-black tracking-tight">FLEET<span class="text-blue-600">PRO</span></span>
+                </div>
+                <h2 id="page-title" class="hidden md:block text-sm font-bold text-slate-500 uppercase tracking-widest">Audit Dashboard</h2>
+                
+                <div class="flex items-center gap-4">
+                    <div id="status-indicator" class="flex items-center gap-2 text-[10px] font-black text-green-500 bg-green-50 px-3 py-1 rounded-full uppercase tracking-widest">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> System Active
+                    </div>
+                    <button id="header-report-btn" class="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                        <i data-lucide="file-spreadsheet" size="20"></i>
                     </button>
-                </form>
-            </section>
-        </main>
-
-        <!-- Navigation -->
-        <nav class="bg-white border-t border-slate-100 h-24 px-6 flex items-center justify-between pb-8 z-30 shadow-inner">
-            <button class="nav-btn active text-blue-600" data-tab="logs">
-                <i data-lucide="activity" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Audit</span>
-            </button>
-            <button class="nav-btn text-slate-300" data-tab="jobs">
-                <i data-lucide="calendar" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Jobs</span>
-            </button>
-            <button class="nav-btn text-slate-300" data-tab="scan">
-                <i data-lucide="maximize" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Scan</span>
-            </button>
-            <button class="nav-btn text-slate-300" data-tab="calc">
-                <i data-lucide="calculator" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Math</span>
-            </button>
-            <button class="nav-btn text-slate-300" data-tab="ai">
-                <i data-lucide="bot" size="24"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">AI</span>
-            </button>
-        </nav>
-
-        <!-- Receipt Modal -->
-        <div id="modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl relative">
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black text-slate-800">Assign Entry</h3>
-                    <button id="close-modal" class="p-2 text-slate-300"><i data-lucide="x"></i></button>
                 </div>
-                <div class="space-y-5">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="v-truck" class="bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold text-blue-600" placeholder="Truck ID">
-                        <input type="number" id="v-amount" class="bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-black" placeholder="0.00">
+            </header>
+
+            <!-- Scrollable Viewport -->
+            <main class="flex-1 overflow-y-auto relative pb-24 md:pb-6">
+                
+                <!-- 1. Audit Tab -->
+                <section id="logs-tab" class="tab-content active p-6 animate-in">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="md:col-span-2 bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl">
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Fleet Net Balance</p>
+                            <h2 id="total-display" class="text-5xl font-black tracking-tighter mb-6">$0.00</h2>
+                            <div class="flex gap-4">
+                                <div class="bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5">
+                                    <p class="text-[9px] text-slate-400 font-bold uppercase">Active Units</p>
+                                    <p id="truck-count" class="text-lg font-black">0</p>
+                                </div>
+                                <div class="bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5">
+                                    <p class="text-[9px] text-slate-400 font-bold uppercase">Log Health</p>
+                                    <p class="text-lg font-black text-green-400">Stable</p>
+                                </div>
+                            </div>
+                            <i data-lucide="activity" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
+                        </div>
+                        <div class="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm flex flex-col justify-center">
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Quick Actions</p>
+                            <button onclick="setTab('scan')" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black mb-3 btn-press shadow-lg shadow-blue-500/20">
+                                Start AI Scan
+                            </button>
+                            <button onclick="document.getElementById('job-modal').classList.remove('hidden')" class="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-black btn-press">
+                                New Job Task
+                            </button>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <select id="v-cat" class="bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
-                            <option>Fuel (Expense)</option>
-                            <option>Repair (Expense)</option>
-                            <option>Toll (Expense)</option>
-                            <option>Income (Revenue)</option>
-                        </select>
-                        <input type="date" id="v-date" class="bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
+
+                    <div class="flex justify-between items-center mb-4 px-2">
+                        <h3 class="font-black text-slate-800 tracking-tight">Financial Stream</h3>
                     </div>
-                    <input type="text" id="v-loc" placeholder="Merchant / Source" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none">
-                </div>
-                <button id="commit-btn" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black">POST TO AUDIT</button>
-            </div>
+                    <div id="logs-container" class="space-y-3"></div>
+                </section>
+
+                <!-- 2. Jobs Tab -->
+                <section id="jobs-tab" class="tab-content p-6 animate-in">
+                    <div class="flex justify-between items-center mb-8">
+                        <div>
+                            <h3 class="text-2xl font-black text-slate-900 tracking-tight">Jobs & Dispatch</h3>
+                            <p class="text-xs text-slate-400 font-bold uppercase mt-1">Real-time workflow tracking</p>
+                        </div>
+                        <button onclick="document.getElementById('job-modal').classList.remove('hidden')" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-blue-500/20 btn-press">
+                            Assign New
+                        </button>
+                    </div>
+                    <div id="jobs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </section>
+
+                <!-- 3. Scan Tab -->
+                <section id="scan-tab" class="tab-content p-6 flex flex-col items-center justify-center animate-in min-h-[80vh]">
+                    <div id="scan-frame" class="w-full max-w-sm aspect-[3/4] bg-white rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-8 relative overflow-hidden shadow-inner bg-slate-50">
+                        <img id="scan-preview" class="hidden absolute inset-0 w-full h-full object-cover rounded-[3rem]">
+                        <div id="scan-init" class="text-center">
+                            <div class="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <i data-lucide="scan" size="44"></i>
+                            </div>
+                            <h4 class="text-xl font-black text-slate-800 tracking-tight">AI Receipt Intake</h4>
+                            <p class="text-sm text-slate-400 mt-2 px-6">Upload or capture a receipt. Gemini AI will handle the data extraction.</p>
+                        </div>
+                        <div id="scan-loading" class="hidden absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center z-10 text-center">
+                            <div class="loader-ring mb-4"></div>
+                            <p class="text-sm font-black text-slate-800 uppercase tracking-widest">Running AI Auditor...</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-8">
+                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+                        <input type="file" id="gallery-input" accept="image/*" class="hidden">
+                        <button id="cam-trigger" class="bg-blue-600 text-white py-5 rounded-3xl font-bold flex flex-col items-center gap-2 shadow-xl btn-press">
+                            <i data-lucide="camera" size="24"></i>
+                            <span class="text-[10px] uppercase">Camera</span>
+                        </button>
+                        <button id="gal-trigger" class="bg-white border border-slate-200 text-slate-700 py-5 rounded-3xl font-bold flex flex-col items-center gap-2 btn-press">
+                            <i data-lucide="image" size="24"></i>
+                            <span class="text-[10px] uppercase">Library</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 4. Math Tab -->
+                <section id="calc-tab" class="tab-content p-6 animate-in">
+                    <div class="max-w-md mx-auto">
+                        <div class="bg-slate-900 text-white rounded-[2.5rem] p-10 mb-6 shadow-2xl relative overflow-hidden text-right border-4 border-slate-800">
+                            <div id="calc-mem" class="text-slate-500 text-sm font-mono h-6 mb-2"></div>
+                            <div id="calc-view" class="text-7xl font-mono font-black truncate tracking-tighter">0</div>
+                            <i data-lucide="calculator" class="absolute -top-10 -left-10 text-white/5 w-40 h-40"></i>
+                        </div>
+                        <div id="calc-board" class="grid grid-cols-4 gap-4"></div>
+                        <button id="calc-export" class="mt-8 w-full bg-blue-600 text-white py-5 rounded-3xl font-black flex items-center justify-center gap-3 active:scale-95 shadow-xl transition-all">
+                            <i data-lucide="plus-circle" size="22"></i> CONVERT TO RECEIPT
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 5. AI Tab -->
+                <section id="ai-tab" class="tab-content flex flex-col h-full animate-in">
+                    <div class="flex-1 flex flex-col max-w-2xl mx-auto w-full">
+                        <div id="chat-stream" class="flex-1 overflow-y-auto p-6 space-y-4">
+                            <div class="flex justify-start">
+                                <div class="bg-white p-5 rounded-3xl rounded-tl-none text-sm text-slate-700 max-w-[85%] shadow-sm border border-slate-100 leading-relaxed">
+                                    <p class="font-black text-blue-600 mb-2 uppercase text-[10px] tracking-widest">Fleet Auditor</p>
+                                    Systems green. I have context on all truck IDs, expenses, and job statuses. Ask me for a performance summary or a tax breakdown.
+                                </div>
+                            </div>
+                        </div>
+                        <form id="chat-form" class="p-6 bg-white border-t border-slate-100 flex gap-3 pb-10">
+                            <input type="text" id="chat-input" placeholder="Analyze truck performance..." class="flex-1 bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-medium outline-none shadow-inner focus:ring-2 focus:ring-blue-500 transition-all">
+                            <button type="submit" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg active:scale-90 transition-all">
+                                <i data-lucide="send" size="22"></i>
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Bottom Nav (Mobile Only) -->
+            <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 h-20 px-6 flex items-center justify-between pb-4 z-[60] shadow-inner">
+                <button onclick="setTab('logs')" class="nav-btn-mobile text-blue-600" data-tab="logs">
+                    <i data-lucide="activity" size="22"></i>
+                </button>
+                <button onclick="setTab('jobs')" class="nav-btn-mobile text-slate-300" data-tab="jobs">
+                    <i data-lucide="calendar" size="22"></i>
+                </button>
+                <button onclick="setTab('scan')" class="nav-btn-mobile text-slate-300" data-tab="scan">
+                    <i data-lucide="maximize" size="22"></i>
+                </button>
+                <button onclick="setTab('calc')" class="nav-btn-mobile text-slate-300" data-tab="calc">
+                    <i data-lucide="calculator" size="22"></i>
+                </button>
+                <button onclick="setTab('ai')" class="nav-btn-mobile text-slate-300" data-tab="ai">
+                    <i data-lucide="sparkles" size="22"></i>
+                </button>
+            </nav>
         </div>
+    </div>
 
-        <!-- Job Assignment Modal -->
-        <div id="job-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-end sm:items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-black text-slate-800">Job Assignment</h3>
-                    <button id="close-job-modal" class="p-2 text-slate-300"><i data-lucide="x"></i></button>
-                </div>
-                <div class="space-y-4">
-                    <input type="text" id="j-title" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold" placeholder="Job/Task Description">
-                    <input type="text" id="j-truck" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold" placeholder="Assigned Truck">
-                    <select id="j-status" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
-                        <option>Active</option>
-                        <option>Pending</option>
-                    </select>
-                </div>
-                <button id="save-job-btn" class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-black">ASSIGN TO FLEET</button>
+    <!-- Modals -->
+    <div id="job-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight">Assign Task</h3>
+                <button onclick="document.getElementById('job-modal').classList.add('hidden')" class="p-2 text-slate-300"><i data-lucide="x"></i></button>
             </div>
+            <div class="space-y-4">
+                <input type="text" id="j-title" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold" placeholder="Job/Task Description">
+                <input type="text" id="j-truck" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold" placeholder="Assigned Truck ID">
+                <select id="j-status" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
+                    <option>Active</option>
+                    <option>Pending</option>
+                </select>
+            </div>
+            <button id="save-job-btn" class="w-full mt-10 bg-blue-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-blue-500/20">CREATE ORDER</button>
+        </div>
+    </div>
+
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight">Post Log</h3>
+                <button onclick="document.getElementById('modal-overlay').classList.add('hidden')" class="p-2 text-slate-300"><i data-lucide="x"></i></button>
+            </div>
+            <div class="space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="v-truck" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold text-blue-600" placeholder="Truck ID">
+                    <input type="number" id="v-amount" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-black" placeholder="0.00">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <select id="v-cat" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
+                        <option>Fuel (Expense)</option>
+                        <option>Repair (Expense)</option>
+                        <option>Income (Revenue)</option>
+                    </select>
+                    <input type="date" id="v-date" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold">
+                </div>
+                <input type="text" id="v-loc" placeholder="Merchant / Location" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold">
+            </div>
+            <button id="commit-btn" class="w-full mt-10 bg-blue-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl">VERIFY & LOG</button>
         </div>
     </div>
 
