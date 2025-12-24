@@ -2,12 +2,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-// --- GLOBAL STATE ---
+// --- SYSTEM STATE ---
 let auth, db, user, appId, dashCal;
 let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
-let activeEditId = null; // Key for the Edit Engine
+let activeEditTruckId = null;
 
-// --- 1. COMMAND NAVIGATION (THE SHORTCUT ENGINE) ---
+// --- 1. PROACTIVE NAVIGATION (TAB SYSTEM) ---
 window.tab = (id) => {
     const panels = document.querySelectorAll('.tab-panel');
     panels.forEach(p => p.classList.remove('active'));
@@ -16,29 +16,29 @@ window.tab = (id) => {
     if (target) {
         target.classList.add('active');
         
-        // Refresh Visuals on entry
+        // Refresh specific data visuals
         if(id === 'dashboard') renderDashboard();
         if(id === 'trucks') renderTrucks();
         if(id === 'driverlog') renderLogs();
         
-        // Fix Calendar visibility
+        // FullCalendar Refresh Logic
         if(id === 'dashboard' && dashCal) { 
             setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); 
         }
     }
     
+    // Sidebar Active State Sync
     document.querySelectorAll('.nav-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === id);
     });
 
-    const titleEl = document.getElementById('tab-title');
-    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_OPERATIONS`;
+    document.getElementById('tab-title').innerText = `${id.toUpperCase()}_OPERATIONS`;
     lucide.createIcons();
 };
 
 window.closeModal = () => {
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
-    activeEditId = null; 
+    activeEditTruckId = null; 
 };
 
 // --- 2. TRUCK MODULE (ACCURATE COUNTS & EDITING) ---
@@ -47,7 +47,7 @@ function renderTrucks() {
     const grid = document.getElementById('trucks-grid');
     if (!grid) return;
 
-    // A. CALCULATE ACCURATE VITALS
+    // A. CALCULATE DESCRIPTIVE FLEET VITALS
     const stats = {
         total: fleetData.trucks.length,
         ready: fleetData.trucks.filter(t => t.status === 'Operational' || t.status === 'Active').length,
@@ -55,31 +55,31 @@ function renderTrucks() {
         shop: fleetData.trucks.filter(t => t.status === 'Maintenance' || t.status === 'In Shop').length
     };
 
-    // B. INJECT COUNTER COMMAND BAR
+    // B. INJECT THE COMMAND BAR (The actual "Counter" view you need)
     const counterHtml = `
-        <div class="fleet-vitals-bar col-span-full animate-in slide-in-from-top duration-500">
+        <div class="fleet-vitals-bar col-span-full">
             <div class="vital-tile"><p class="vital-label">Fleet Size</p><h4 class="vital-value">${stats.total}</h4></div>
             <div class="vital-tile border-green-500/20"><p class="vital-label text-green-500">Ready</p><h4 class="vital-value">${stats.ready}</h4></div>
             <div class="vital-tile border-blue-500/20"><p class="vital-label text-blue-500">In Transit</p><h4 class="vital-value">${stats.transit}</h4></div>
-            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">In Shop</p><h4 class="vital-value">${stats.shop}</h4></div>
+            <div class="vital-tile border-red-500/20"><p class="vital-label text-red-500">In Maintenance</p><h4 class="vital-value">${stats.shop}</h4></div>
         </div>
     `;
 
-    // C. RENDER INTERACTIVE TRUCK TILES
+    // C. RENDER INTERACTIVE TILES WITH EDIT TRIGGERS
     const cardsHtml = fleetData.trucks.map(t => {
-        let sStyle = "bg-green-500/10 text-green-500 border-green-500/20";
-        if(t.status === 'In Transit') sStyle = "bg-blue-500/10 text-blue-500 border-blue-500/20";
-        if(t.status === 'Maintenance' || t.status === 'In Shop') sStyle = "bg-red-500/10 text-red-500 border-red-500/20";
+        let sCol = "bg-green-500/10 text-green-500";
+        if(t.status === 'In Transit') sCol = "bg-blue-500/10 text-blue-500";
+        if(t.status === 'Maintenance' || t.status === 'In Shop') sCol = "bg-red-500/10 text-red-500";
         
         return `
         <div class="truck-card group" onclick="window.initEditTruck('${t.id}')">
             <div class="flex justify-between items-start mb-6">
                 <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-all"><i data-lucide="truck"></i></div>
-                <span class="status-pill ${sStyle}">${t.status}</span>
+                <span class="status-pill ${sCol}">${t.status}</span>
             </div>
-            <h4 class="text-2xl font-black italic uppercase text-white">${t.truckId}</h4>
+            <h4 class="text-2xl font-black italic uppercase">${t.truckId}</h4>
             <p class="text-[10px] font-bold text-slate-500 uppercase mt-1 tracking-widest">${t.make} • ${Number(t.miles).toLocaleString()} mi</p>
-            <p class="mt-6 text-[9px] font-black text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase italic">Click to Edit Unit</p>
+            <p class="mt-6 text-[9px] font-black text-blue-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity italic">Manage Unit Data</p>
         </div>
         `;
     }).join('');
@@ -89,14 +89,15 @@ function renderTrucks() {
 }
 
 window.initEditTruck = (id) => {
-    const t = fleetData.trucks.find(x => x.id === id);
-    if (!t) return;
-    activeEditId = id; // Track that we are editing
+    const truck = fleetData.trucks.find(x => x.id === id);
+    if (!truck) return;
+    activeEditTruckId = id;
     
-    document.getElementById('t-id').value = t.truckId;
-    document.getElementById('t-make').value = t.make || '';
-    document.getElementById('t-miles').value = t.miles || '';
-    document.getElementById('t-status').value = t.status || 'Operational';
+    // Fill Modal Inputs
+    document.getElementById('t-id').value = truck.truckId;
+    document.getElementById('t-make').value = truck.make || '';
+    document.getElementById('t-miles').value = truck.miles || '';
+    document.getElementById('t-status').value = truck.status || 'Operational';
     
     document.getElementById('truck-modal').classList.remove('hidden');
 };
@@ -109,55 +110,51 @@ window.saveTruckUnit = async () => {
         status: document.getElementById('t-status').value,
         timestamp: Date.now()
     };
-    if (!val.truckId) return;
+    if(!val.truckId) return;
 
-    // Local-First UI Update
-    if (activeEditId) {
-        const idx = fleetData.trucks.findIndex(t => t.id === activeEditId);
-        if (idx !== -1) fleetData.trucks[idx] = { ...val, id: activeEditId };
+    if (activeEditTruckId) {
+        // UPDATE Existing
+        const idx = fleetData.trucks.findIndex(t => t.id === activeEditTruckId);
+        fleetData.trucks[idx] = { ...val, id: activeEditTruckId };
+        if (user && db && !activeEditTruckId.startsWith('local')) {
+            await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'trucks', activeEditTruckId), { ...val, timestamp: Timestamp.now() });
+        }
     } else {
-        fleetData.trucks.push({ ...val, id: "local_" + Date.now() });
+        // ADD New
+        const newId = "local_" + Date.now();
+        fleetData.trucks.push({ ...val, id: newId });
+        if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() });
     }
 
     renderTrucks();
     window.closeModal();
-
-    // Cloud Persistence
-    if (user && db) {
-        try {
-            if (activeEditId && !activeEditId.startsWith('local')) {
-                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'trucks', activeEditId), { ...val, timestamp: Timestamp.now() });
-            } else {
-                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() });
-            }
-        } catch(e) {}
-    }
 };
 
-// --- 3. DASHBOARD SHORTCUTS ---
+// --- 3. DASHBOARD SHORTCUTS & VITALS ---
 
 function renderDashboard() {
+    // A. Revenue Display
     let bal = 0;
     fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
-    
-    const revCard = document.getElementById('total-display');
-    if (revCard) {
-        revCard.innerText = `$${bal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-        // SHORTCUT: Click revenue to go to CRM
-        revCard.closest('.balance-card').onclick = () => window.tab('clients');
+    const totalEl = document.getElementById('total-display');
+    if (totalEl) {
+        totalEl.innerText = `$${bal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        // SHORTCUT: Click balance to see ledger/CRM
+        totalEl.closest('.balance-card').onclick = () => window.tab('clients');
     }
 
-    const truckStat = document.getElementById('truck-count-display');
-    if (truckStat) {
-        truckStat.innerText = fleetData.trucks.length;
-        // SHORTCUT: Click Truck Stat to go to Trucks Tab
-        truckStat.closest('.stat-card').onclick = () => window.tab('trucks');
+    // B. Dashboard Truck Count (Click to navigate)
+    const countEl = document.getElementById('truck-count-display');
+    if (countEl) {
+        countEl.innerText = fleetData.trucks.length;
+        countEl.closest('.stat-card').onclick = () => window.tab('trucks');
     }
 }
 
 // --- 4. INITIALIZATION ---
 
 window.addEventListener('load', () => {
+    // Connect Dashboard Calendar
     const dEl = document.getElementById('dash-calendar');
     if (dEl) {
         dashCal = new FullCalendar.Calendar(dEl, { 
@@ -169,18 +166,36 @@ window.addEventListener('load', () => {
         });
         dashCal.render();
     }
-    
-    // Connect "Schedule" Buttons
-    const schedBtn = document.querySelector('[onclick*="dispatch"]');
-    if(schedBtn) schedBtn.onclick = () => document.getElementById('event-modal').classList.remove('hidden');
 
     lucide.createIcons();
     setInterval(() => {
-        const clock = document.getElementById('live-clock');
-        if(clock) clock.innerText = new Date().toLocaleTimeString();
+        const el = document.getElementById('live-clock');
+        if(el) el.innerText = new Date().toLocaleTimeString();
     }, 1000);
+
+    // Boot Firebase Link
+    initCommandCenter();
 });
 
-// Other Renderers (Placeholder for your logic)
-function renderLogs() { /* Driver log table logic */ }
+async function initCommandCenter() {
+    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+    if(!configStr) return;
+    const app = initializeApp(JSON.parse(configStr));
+    auth = getAuth(app); db = getFirestore(app);
+    appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v36-master';
+    
+    onAuthStateChanged(auth, u => {
+        if(u){
+            user = u;
+            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => {
+                fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderTrucks(); renderDashboard();
+            });
+            onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), s => {
+                fleetData.receipts = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderDashboard();
+            });
+        }
+    });
+}
 
