@@ -1,6 +1,4 @@
-/* --- ENTERPRISE VISUAL OVERHAUL --- */
-
-/* --- SCROLL-FIXED ENTERPRISE THEME --- */
+/* --- MISSION CONTROL MASTER STYLES --- */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -17,12 +15,12 @@ body, html {
     margin: 0; padding: 0;
     height: 100vh; width: 100vw;
     background-color: var(--bg);
-    color: white; overflow: hidden;
+    color: white; overflow: hidden; /* Lock body */
 }
 
-#app-shell { display: flex; width: 100%; height: 100vh; }
+#app-shell { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 
-/* --- TOOLBAR SCROLLING --- */
+/* --- SIDEBAR: Scrollable & Fixed --- */
 #sidebar {
     width: 260px !important;
     background: var(--card);
@@ -33,53 +31,62 @@ body, html {
 
 .sidebar-nav {
     flex: 1;
-    overflow-y: auto !important; /* FORCES TOOLBAR SCROLL */
+    overflow-y: auto !important; /* Forces Toolbar Scroll */
     padding: 12px 0;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
-.sidebar-nav::-webkit-scrollbar { width: 4px; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
 
 .nav-btn {
     display: flex; align-items: center; gap: 14px;
     width: 90%; margin: 4px auto; padding: 14px 20px;
     border-radius: 16px; color: #64748b;
     font-size: 11px; font-weight: 800; text-transform: uppercase;
-    letter-spacing: 0.1em; transition: all 0.2s;
+    letter-spacing: 0.1em; transition: 0.2s;
     background: transparent; border: none; cursor: pointer;
+    text-align: left;
 }
 .nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
 .nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-/* --- DASHBOARD SCROLLING --- */
-#main-viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
+/* --- VIEWPORT: Dashboard Scroll --- */
+#viewport { flex: 1; height: 100%; display: flex; flex-direction: column; min-width: 0; position: relative; }
 
 .tab-panel {
     display: none; 
     position: absolute; inset: 0; width: 100%; height: 100%;
-    overflow-y: auto !important; /* FORCES DASHBOARD SCROLL */
-    padding-bottom: 120px;
+    overflow-y: auto !important; /* Forces Dashboard/Panel Scroll */
+    padding-bottom: 100px;
 }
 .tab-panel.active { display: block; }
 
-/* CUSTOM SCROLLBAR FOR DASHBOARD */
-.tab-panel::-webkit-scrollbar { width: 6px; }
-.tab-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+/* Custom Scrollbars */
+.custom-scroll::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-/* --- DASHBOARD WIDGETS --- */
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; padding: 40px; }
-.balance-card { grid-column: span 2; background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 40px; position: relative; }
+/* --- DASHBOARD COMPONENTS --- */
+.balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 40px; position: relative; }
 .balance-text { font-size: 56px; font-weight: 800; letter-spacing: -3px; }
-.stat-card { background: var(--card); border: 1px solid var(--border); padding: 40px; border-radius: 40px; text-align: center; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 40px; padding: 40px; text-align: center; }
 
-.calendar-container { background: var(--card); border: 1px solid var(--border); border-radius: 40px; padding: 32px; height: 650px; margin: 0 40px 40px 40px; }
+/* CALENDAR CENTERING */
+#dash-calendar { min-height: 600px; background: transparent; }
+.fc { font-family: inherit; --fc-border-color: rgba(255,255,255,0.05); }
+.fc-toolbar-title { font-weight: 900 !important; color: var(--blue) !important; font-size: 1.1rem !important; text-transform: uppercase; }
 
-/* --- MODALS --- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(15px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+/* CRM CARDS */
+.client-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 24px; border-bottom: 3px solid var(--blue); }
+
+/* TABLES */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { padding: 24px; text-align: left; font-size: 10px; color: #64748b; background: rgba(255,255,255,0.01); text-transform: uppercase; }
+.data-table td { padding: 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
+
+/* MODALS */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; }
 .form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
 
+.action-btn { background: var(--blue); color: white; padding: 16px 24px; border-radius: 16px; font-weight: 900; font-size: 10px; border: none; cursor: pointer; }
 .hidden { display: none !important; }
-.fc { height: 100% !important; }
+.pulse { display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: p 2s infinite; }
+@keyframes p { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
