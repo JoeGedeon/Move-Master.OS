@@ -9,9 +9,9 @@ let fleetData = { trucks: [], jobs: [], receipts: [], logs: [], clients: [] };
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 auth = getAuth(app); db = getFirestore(app);
-appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-modular-stable';
+appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-modular-stable-v1';
 
-// --- 1. NAVIGATION HUB (THE COMMANDER) ---
+// --- 1. NAVIGATION HUB (Room Switcher) ---
 window.tab = (id) => {
     // Hide all rooms
     document.querySelectorAll('.tab-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
@@ -23,16 +23,13 @@ window.tab = (id) => {
         target.classList.add('active');
         target.style.display = 'block';
         
-        // SPREADSHEET ENGINE: Populate the registry for this room
+        // Logical Refresh: Populate room content
         if(id === 'dashboard') renderDashboard();
         if(['trucks', 'driverlog', 'clients', 'dispatch', 'inventory'].includes(id)) buildRoomRegistry(id);
 
-        // CALENDAR REFRESH: Physically forces the calendar to draw after room is visible
+        // CALENDAR WAKEUP: Force size calculation after room is visible
         if(id === 'dashboard' && dashCal) { 
             setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 50); 
-        }
-        if(id === 'calendar' && fullCal) { 
-            setTimeout(() => { fullCal.updateSize(); fullCal.render(); }, 50); 
         }
     }
 
@@ -45,38 +42,38 @@ window.tab = (id) => {
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
 
-// --- 2. SPREADSHEET ENGINE (Implementing registries for every page) ---
+// --- 2. SPREADSHEET ENGINE (Building the data for every room) ---
 function buildRoomRegistry(tabId) {
-    const containerId = `${tabId}-registry`;
-    const container = document.getElementById(containerId);
+    const container = document.getElementById(`${tabId}-room`);
     if (!container) return;
 
     let headers = [];
     let rows = [];
 
-    // DEFINE HEADERS BASED ON ROOM
+    // DATA MAPPING
     if (tabId === 'trucks') {
-        headers = ['Unit ID', 'Make/Model', 'Odometer', 'Status', 'Log'];
-        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString(), t.status, 'OPEN']);
+        headers = ['Unit ID', 'Model', 'Mileage', 'Status'];
+        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString(), t.status]);
     } else if (tabId === 'driverlog') {
-        headers = ['Date', 'Driver Name', 'Unit', 'Route', 'Sync'];
-        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR', 'LIVE']);
+        headers = ['Date', 'Driver', 'Unit', 'Route'];
+        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR']);
     } else if (tabId === 'clients') {
-        headers = ['Partner', 'Contact', 'Location', 'Base Rate', 'Balance'];
-        rows = fleetData.clients.map(c => [c.name, c.contact, c.city, `$${c.rate}`, 'SETTLED']);
+        headers = ['Partner', 'Location', 'Base Rate', 'Balance'];
+        rows = fleetData.clients.map(c => [c.name, c.city, `$${c.rate}`, 'ACTIVE']);
     }
 
-    // INJECT THE LEDGER TABLE
     container.innerHTML = `
         <div class="flex justify-between items-center mb-10 px-2">
             <h3 class="text-4xl font-black uppercase italic">${tabId} Data Registry</h3>
-            <button class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase">+ New Registry</button>
+            <button class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl">+ New Entry</button>
         </div>
-        <div class="spreadsheet-box">
-            <table class="fleet-table">
-                <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-                <tbody>
-                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20">NO_SATELLITE_DATA_SYNCED</td></tr>'}
+        <div class="spreadsheet-box shadow-2xl bg-slate-900/50 p-1 border border-white/5 rounded-[2rem] overflow-hidden">
+             <table class="w-full text-left border-collapse">
+                <thead class="bg-white/5 uppercase text-[10px] font-black text-slate-500">
+                    <tr>${headers.map(h => `<th class="p-6">${h}</th>`).join('')}</tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    ${rows.length ? rows.map(r => `<tr class="hover:bg-blue-500/5 cursor-pointer">${r.map(c => `<td class="p-6 text-sm">${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No satellite data linked</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -85,7 +82,7 @@ function buildRoomRegistry(tabId) {
 
 // --- 3. GOOGLE STYLE CALENDAR ENGINE ---
 function initCalendars() {
-    const cfg = {
+    const config = {
         initialView: 'dayGridMonth',
         editable: true,
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
@@ -94,9 +91,7 @@ function initCalendars() {
     };
 
     const dEl = document.getElementById('dash-calendar');
-    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, cfg); dashCal.render(); }
-    const fEl = document.getElementById('full-page-calendar');
-    if (fEl) { fullCal = new FullCalendar.Calendar(fEl, { ...cfg, height: '100%' }); fullCal.render(); }
+    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, config); dashCal.render(); }
 }
 
 // --- 4. DASHBOARD RENDERER ---
@@ -108,10 +103,10 @@ function renderDashboard() {
     const stream = document.getElementById('ledger-stream');
     if (stream) {
         stream.innerHTML = fleetData.receipts.slice(0, 5).map(r => `
-            <div class="p-8 flex justify-between items-center group hover:bg-white/[0.02] cursor-pointer">
+            <div class="p-8 flex justify-between items-center group hover:bg-white/[0.02]">
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-500 flex items-center justify-center"><i data-lucide="activity" size="18"></i></div>
-                    <div><h4 class="text-sm font-black text-white">${r.vendor}</h4><p class="text-[9px] opacity-50 uppercase font-bold tracking-widest">${r.category}</p></div>
+                    <div><h4 class="text-sm font-black text-white">${r.vendor}</h4><p class="text-[9px] opacity-50 uppercase">${r.category}</p></div>
                 </div>
                 <h4 class="font-black text-white">$${Number(r.amount).toFixed(2)}</h4>
             </div>
@@ -120,9 +115,13 @@ function renderDashboard() {
     }
 }
 
-// --- 5. SYSTEM INITIALIZATION ---
+// --- 5. INITIALIZATION ---
 window.addEventListener('load', async () => {
-    setInterval(() => { document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+    setInterval(() => { 
+        const clock = document.getElementById('live-clock');
+        if(clock) clock.innerText = new Date().toLocaleTimeString(); 
+    }, 1000);
+    
     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } else { await signInAnonymously(auth); }
 
     onAuthStateChanged(auth, u => {
@@ -144,5 +143,5 @@ window.addEventListener('load', async () => {
 });
 
 window.openEventModal = () => document.getElementById('event-modal').classList.remove('hidden');
-window.saveEvent = async () => { /* Add logic */ window.closeModal(); };
+window.saveEvent = async () => { /* Logic */ window.closeModal(); };
 
