@@ -9,57 +9,63 @@ let fleetData = { trucks: [], jobs: [], receipts: [], logs: [], clients: [] };
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 auth = getAuth(app); db = getFirestore(app);
-appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-modular-stable-v1';
+appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-modular-stable';
 
-// --- 1. NAVIGATION HUB (Room Switcher) ---
+// --- 1. NAVIGATION HUB (THE SWITCHBOARD) ---
 window.tab = (id) => {
-    // Hide all rooms
+    // Hide panels
     document.querySelectorAll('.tab-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     
-    // Activate target room
+    // Activate target
     const target = document.getElementById(`${id}-tab`);
     if (target) {
         target.classList.add('active');
         target.style.display = 'block';
         
-        // Logical Refresh: Populate room content
+        // C. SPREADSHEET ENGINE: Build the room content on entry
         if(id === 'dashboard') renderDashboard();
-        if(['trucks', 'driverlog', 'clients', 'dispatch', 'inventory'].includes(id)) buildRoomRegistry(id);
+        if(['trucks', 'driverlog', 'clients', 'dispatch', 'inventory', 'scan'].includes(id)) buildRoomRegistry(id);
 
-        // CALENDAR WAKEUP: Force size calculation after room is visible
+        // D. CALENDAR WAKEUP: Physically forces the calendar to calculate its size after room is shown
         if(id === 'dashboard' && dashCal) { 
             setTimeout(() => { dashCal.updateSize(); dashCal.render(); }, 50); 
+        }
+        if(id === 'calendar' && fullCal) { 
+            setTimeout(() => { fullCal.updateSize(); fullCal.render(); }, 50); 
         }
     }
 
     const btn = document.querySelector(`[data-tab="${id}"]`);
     if(btn) btn.classList.add('active');
     
-    document.getElementById('tab-title').innerText = id.toUpperCase() + '_TERMINAL';
+    document.getElementById('tab-title').innerText = id.toUpperCase() + '_OPERATIONS';
     lucide.createIcons();
 };
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
 
-// --- 2. SPREADSHEET ENGINE (Building the data for every room) ---
+// --- 2. SPREADSHEET ENGINE (Building registries for every page) ---
 function buildRoomRegistry(tabId) {
-    const container = document.getElementById(`${tabId}-room`);
+    const container = document.getElementById(`${tabId}-registry`);
     if (!container) return;
 
     let headers = [];
     let rows = [];
 
-    // DATA MAPPING
+    // DEFINE HEADERS FOR EASY AI INTERPRETATION
     if (tabId === 'trucks') {
-        headers = ['Unit ID', 'Model', 'Mileage', 'Status'];
-        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString(), t.status]);
+        headers = ['Unit ID', 'Model', 'Mileage', 'Status', 'Last Audit'];
+        rows = fleetData.trucks.map(t => [t.truckId, t.make, Number(t.miles).toLocaleString(), t.status, 'OK']);
     } else if (tabId === 'driverlog') {
-        headers = ['Date', 'Driver', 'Unit', 'Route'];
-        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR']);
+        headers = ['Date', 'Driver Name', 'Unit ID', 'Route', 'Clock Status'];
+        rows = fleetData.logs.map(l => [l.date, l.driver, l.truckId, l.route || 'OTR', 'LIVE']);
     } else if (tabId === 'clients') {
-        headers = ['Partner', 'Location', 'Base Rate', 'Balance'];
-        rows = fleetData.clients.map(c => [c.name, c.city, `$${c.rate}`, 'ACTIVE']);
+        headers = ['Partner', 'Contact', 'HQ', 'Base Rate', 'Balance'];
+        rows = fleetData.clients.map(c => [c.name, c.contact, c.city, `$${c.rate}`, 'SETTLED']);
+    } else if (tabId === 'inventory') {
+        headers = ['Item Name', 'Category', 'Stock Level', 'Reorder Threshold'];
+        rows = [['Tires (Set)', 'Maintenance', '12', '4'], ['Diesel Exhaust Fluid', 'Fuel', '50 Gal', '10 Gal']];
     }
 
     container.innerHTML = `
@@ -67,13 +73,11 @@ function buildRoomRegistry(tabId) {
             <h3 class="text-4xl font-black uppercase italic">${tabId} Data Registry</h3>
             <button class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl">+ New Entry</button>
         </div>
-        <div class="spreadsheet-box shadow-2xl bg-slate-900/50 p-1 border border-white/5 rounded-[2rem] overflow-hidden">
-             <table class="w-full text-left border-collapse">
-                <thead class="bg-white/5 uppercase text-[10px] font-black text-slate-500">
-                    <tr>${headers.map(h => `<th class="p-6">${h}</th>`).join('')}</tr>
-                </thead>
-                <tbody class="divide-y divide-white/5">
-                    ${rows.length ? rows.map(r => `<tr class="hover:bg-blue-500/5 cursor-pointer">${r.map(c => `<td class="p-6 text-sm">${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No satellite data linked</td></tr>'}
+        <div class="spreadsheet-box shadow-2xl">
+            <table class="fleet-table">
+                <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                <tbody>
+                    ${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') : '<tr><td colspan="5" class="p-10 text-center opacity-20 italic">No satellite data linked</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -82,16 +86,19 @@ function buildRoomRegistry(tabId) {
 
 // --- 3. GOOGLE STYLE CALENDAR ENGINE ---
 function initCalendars() {
-    const config = {
+    const cfg = {
         initialView: 'dayGridMonth',
         editable: true,
+        selectable: true,
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
         dateClick: (i) => { window.openEventModal(); },
         events: fleetData.jobs.map(j => ({ title: j.title, start: j.date, color: '#3b82f6' }))
     };
 
     const dEl = document.getElementById('dash-calendar');
-    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, config); dashCal.render(); }
+    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, cfg); dashCal.render(); }
+    const fEl = document.getElementById('full-page-calendar');
+    if (fEl) { fullCal = new FullCalendar.Calendar(fEl, { ...cfg, height: '100%' }); fullCal.render(); }
 }
 
 // --- 4. DASHBOARD RENDERER ---
@@ -103,7 +110,7 @@ function renderDashboard() {
     const stream = document.getElementById('ledger-stream');
     if (stream) {
         stream.innerHTML = fleetData.receipts.slice(0, 5).map(r => `
-            <div class="p-8 flex justify-between items-center group hover:bg-white/[0.02]">
+            <div class="p-8 flex justify-between items-center group hover:bg-white/[0.02] cursor-pointer">
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-500 flex items-center justify-center"><i data-lucide="activity" size="18"></i></div>
                     <div><h4 class="text-sm font-black text-white">${r.vendor}</h4><p class="text-[9px] opacity-50 uppercase">${r.category}</p></div>
@@ -143,5 +150,5 @@ window.addEventListener('load', async () => {
 });
 
 window.openEventModal = () => document.getElementById('event-modal').classList.remove('hidden');
-window.saveEvent = async () => { /* Logic */ window.closeModal(); };
+window.saveEvent = async () => { /* Add logic */ window.closeModal(); };
 
