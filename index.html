@@ -10,7 +10,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
-    <!-- 1. LINK TO YOUR CSS FILE -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -38,32 +37,35 @@
                 <button onclick="tab('jobs')" class="nav-btn" data-tab="jobs">
                     <i data-lucide="briefcase"></i> <span>3. Dispatch</span>
                 </button>
+                <button onclick="tab('driverlog')" class="nav-btn" data-tab="driverlog">
+                    <i data-lucide="clipboard-list"></i> <span>4. Driver's Log</span>
+                </button>
                 <button onclick="tab('scan')" class="nav-btn" data-tab="scan">
-                    <i data-lucide="maximize"></i> <span>4. AI Scanner</span>
+                    <i data-lucide="maximize"></i> <span>5. AI Scanner</span>
                 </button>
                 <button onclick="tab('inventory')" class="nav-btn" data-tab="inventory">
-                    <i data-lucide="package"></i> <span>5. Inventory</span>
+                    <i data-lucide="package"></i> <span>6. Inventory</span>
                 </button>
                 <button onclick="tab('trucks')" class="nav-btn" data-tab="trucks">
-                    <i data-lucide="truck"></i> <span>6. Truck Units</span>
+                    <i data-lucide="truck"></i> <span>7. Truck Units</span>
                 </button>
                 <button onclick="tab('calc')" class="nav-btn" data-tab="calc">
-                    <i data-lucide="calculator"></i> <span>7. Estimator</span>
+                    <i data-lucide="calculator"></i> <span>8. Estimator</span>
                 </button>
                 <button onclick="tab('ai')" class="nav-btn" data-tab="ai">
-                    <i data-lucide="bot"></i> <span>8. AI Auditor</span>
-                </button>
-                <button onclick="exportCSV()" class="nav-btn text-slate-500 mt-6">
-                    <i data-lucide="file-down"></i> <span>9. Master Dump</span>
+                    <i data-lucide="bot"></i> <span>9. AI Auditor</span>
                 </button>
             </nav>
 
             <div class="p-6 border-t border-white/5 mt-auto">
+                <button onclick="exportFullReport()" class="w-full mb-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-center gap-2">
+                    <i data-lucide="file-down" size="14"></i> Master Dump
+                </button>
                 <div class="bg-white/5 p-3 rounded-2xl flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase italic">A</div>
                     <div class="hidden lg:block">
                         <p class="text-[10px] font-black uppercase text-slate-400">Admin</p>
-                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 mt-0.5">Terminal_Live</p>
+                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 mt-0.5">Linked_Live</p>
                     </div>
                 </div>
             </div>
@@ -76,14 +78,16 @@
                     <i data-lucide="chevron-right" size="14"></i> Fleet Hub
                 </h2>
                 <div class="flex items-center gap-4">
+                    <div id="live-clock" class="text-[11px] font-mono text-slate-500 mr-4">00:00:00</div>
                     <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
-                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Terminal Active
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Link Active
                     </div>
                 </div>
             </header>
 
             <div class="flex-1 relative overflow-hidden">
                 
+                <!-- 1. CALENDAR VIEW -->
                 <section id="calendar-tab" class="tab-panel active">
                     <div id="calendar-stage">
                         <div id="calendar-render"></div>
@@ -94,6 +98,7 @@
                     </aside>
                 </section>
 
+                <!-- 2. DASHBOARD -->
                 <section id="dashboard-tab" class="tab-panel custom-scroll">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
                         <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden border border-white/10">
@@ -102,14 +107,39 @@
                             <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
                         </div>
                         <div class="bg-[#111827] rounded-[3.5rem] p-10 flex flex-col justify-center text-center border border-white/5">
-                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Linked Units</p>
-                            <h3 id="truck-stat" class="text-5xl font-black text-white">0</h3>
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Total Logs</p>
+                            <h3 id="stat-log-count" class="text-5xl font-black text-white">0</h3>
                         </div>
                     </div>
-                    <div id="ledger-stream" class="bg-[#111827] rounded-[3.5rem] border border-white/5 overflow-hidden"></div>
+                    <div id="ledger-stream" class="bg-[#111827] rounded-[3.5rem] border border-white/5 divide-y divide-white/5 overflow-hidden"></div>
                 </section>
 
-                <!-- Additional Tabs are handled in script.js -->
+                <!-- 4. DRIVER'S LOG -->
+                <section id="driverlog-tab" class="tab-panel custom-scroll">
+                    <div class="flex justify-between items-center mb-10">
+                        <h3 class="text-2xl font-black tracking-tight">Driver Activity Logs</h3>
+                        <button onclick="openLogModal()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20">New Entry</button>
+                    </div>
+                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-white/[0.02] border-b border-white/5">
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Date</th>
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Driver</th>
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Unit</th>
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Status</th>
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Odometer</th>
+                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="driver-log-rows" class="divide-y divide-white/5"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- GENERIC PLACEHOLDER -->
                 <section id="generic-tab" class="tab-panel flex items-center justify-center">
                     <div class="text-center opacity-30">
                         <div class="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6"><i data-lucide="layers"></i></div>
@@ -121,7 +151,7 @@
         </main>
     </div>
 
-    <!-- MODAL: CALENDAR ENTRY -->
+    <!-- MODAL: CALENDAR TASK -->
     <div id="event-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] flex items-center justify-center p-6">
         <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
             <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Edit Fleet Task</h3>
@@ -143,7 +173,32 @@
         </div>
     </div>
 
-    <!-- 2. LINK TO YOUR JS FILE -->
+    <!-- MODAL: DRIVER LOG ENTRY -->
+    <div id="log-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] flex items-center justify-center p-6">
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-500">New Driver Log</h3>
+            <div class="space-y-5">
+                <input type="text" id="log-driver" class="form-input" placeholder="Driver Name">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="log-truck" class="form-input font-black uppercase" placeholder="Truck ID">
+                    <input type="date" id="log-date" class="form-input">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="log-odo-start" class="form-input" placeholder="Start Odo">
+                    <input type="number" id="log-odo-end" class="form-input" placeholder="End Odo">
+                </div>
+                <select id="log-status" class="form-input font-bold uppercase text-[10px]">
+                    <option>On Duty (Driving)</option>
+                    <option>On Duty (Not Driving)</option>
+                    <option>Off Duty</option>
+                    <option>Sleeper Berth</option>
+                </select>
+            </div>
+            <button onclick="saveDriverLog()" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Submit Entry</button>
+            <button onclick="document.getElementById('log-modal').classList.add('hidden')" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase">Dismiss</button>
+        </div>
+    </div>
+
     <script src="script.js" type="module"></script>
 </body>
 </html>
