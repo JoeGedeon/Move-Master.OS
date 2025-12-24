@@ -3,171 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FleetPro | Enterprise Command</title>
+    <title>FleetPro | Master Command Hub</title>
     
-    <!-- External Frameworks -->
+    <!-- External Frameworks (The Utilities) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
-        
-        :root {
-            --blue: #3b82f6;
-            --bg: #0b0f1a;
-            --card: #111827;
-            --border: rgba(255, 255, 255, 0.08);
-        }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        body, html {
-            margin: 0; padding: 0;
-            height: 100vh; width: 100vw;
-            background-color: var(--bg);
-            color: #ffffff;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            overflow: hidden; /* Prevent body bounce */
-        }
-
-        /* --- THE APP LAYOUT --- */
-        #app-shell {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-        }
-
-        /* --- SIDEBAR: Fixed and Scrollable --- */
-        #sidebar {
-            width: 260px;
-            background: var(--card);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            flex-shrink: 0;
-            z-index: 50;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            overflow-y: auto; /* ENABLE TOOLBAR SCROLL */
-            padding: 10px 0;
-        }
-
-        /* Custom Scrollbar for Sidebar */
-        .sidebar-nav::-webkit-scrollbar { width: 4px; }
-        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-
-        .nav-btn {
-            display: flex; align-items: center; gap: 14px;
-            width: 90%; margin: 4px auto; padding: 14px 20px;
-            border-radius: 16px; color: #64748b;
-            font-size: 11px; font-weight: 800; text-transform: uppercase;
-            letter-spacing: 0.1em; transition: all 0.2s;
-            background: transparent; border: none; cursor: pointer;
-        }
-        .nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
-        .nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
-
-        /* --- VIEWPORT --- */
-        #viewport {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0; /* Prevents flex blowout */
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .tab-panel {
-            display: none;
-            height: 100%;
-            width: 100%;
-            overflow-y: auto; /* ENABLE DASHBOARD SCROLL */
-            padding-bottom: 100px;
-        }
-        .tab-panel.active { display: block; }
-
-        /* --- COMPONENTS --- */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            padding: 40px;
-        }
-
-        .balance-card {
-            grid-column: span 2;
-            background: linear-gradient(135deg, #3b82f6, #1e3a8a);
-            padding: 48px;
-            border-radius: 40px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            padding: 40px;
-            border-radius: 40px;
-            text-align: center;
-        }
-
-        .calendar-section {
-            padding: 0 40px;
-            margin-bottom: 40px;
-        }
-
-        .calendar-container {
-            background: var(--card);
-            border-radius: 40px;
-            border: 1px solid var(--border);
-            padding: 32px;
-            height: 600px;
-        }
-
-        .ledger-section {
-            padding: 0 40px 40px 40px;
-        }
-
-        .ledger-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 40px;
-            overflow: hidden;
-        }
-
-        /* --- TABLES --- */
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { padding: 24px; text-align: left; font-size: 10px; color: #64748b; text-transform: uppercase; background: rgba(255,255,255,0.02); }
-        .data-table td { padding: 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
-
-        /* --- MODALS --- */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 48px; padding: 48px; }
-        .form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
-        
-        .action-btn { background: var(--blue); color: white; padding: 16px 24px; border-radius: 16px; font-weight: 900; font-size: 10px; border: none; cursor: pointer; }
-        .hidden { display: none !important; }
-
-        /* --- SCROLLBAR REFINEMENT --- */
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-
-        .fc-toolbar-title { font-weight: 900 !important; color: var(--blue) !important; font-size: 1.1rem !important; text-transform: uppercase; }
-    </style>
+    <!-- Link to our future "Paint" -->
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="bg-[#0b0f1a] text-white overflow-hidden">
 
-    <div id="app-shell">
+    <div id="app-shell" class="flex h-screen w-screen overflow-hidden">
         
-        <!-- SIDEBAR -->
-        <aside id="sidebar">
-            <div class="p-8 flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-xl shadow-[0_0_15px_#3b82f6]"><i data-lucide="shield-check"></i></div>
-                <span class="text-xl font-black italic uppercase">FLEETPRO</span>
+        <!-- SIDEBAR: The Command Strip -->
+        <aside id="sidebar" class="flex flex-col">
+            <div class="p-8 flex items-center gap-3 flex-shrink-0">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-lg"><i data-lucide="shield-check"></i></div>
+                <span class="text-xl font-black italic uppercase tracking-tighter">FLEETPRO</span>
             </div>
             
             <nav class="sidebar-nav custom-scroll">
@@ -178,307 +32,222 @@
                 <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan"><i data-lucide="maximize"></i> <span>5. AI Scanner</span></button>
                 <button onclick="window.tab('inventory')" class="nav-btn" data-tab="inventory"><i data-lucide="package"></i> <span>6. Inventory</span></button>
                 <button onclick="window.tab('dispatch')" class="nav-btn" data-tab="dispatch"><i data-lucide="briefcase"></i> <span>7. Dispatch</span></button>
-                <button onclick="window.tab('estimator')" class="nav-btn" data-tab="estimator"><i data-lucide="calculator"></i> <span>8. Estimator</span></button>
+                <button onclick="window.tab('clients')" class="nav-btn" data-tab="clients"><i data-lucide="users"></i> <span>8. CRM / Clients</span></button>
                 <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai"><i data-lucide="bot"></i> <span>9. AI Auditor</span></button>
             </nav>
 
-            <div class="p-6 border-t border-white/5 bg-black/20">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
-                    <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 uppercase">System_Active</p>
+            <div class="p-6 border-t border-white/5 bg-black/20 flex-shrink-0">
+                <div class="user-pill flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs uppercase">A</div>
+                    <div class="user-info">
+                        <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 uppercase">System_Linked</p>
+                    </div>
                 </div>
             </div>
         </aside>
 
-        <!-- MAIN -->
-        <main id="viewport">
-            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-[#111827]/40 backdrop-blur-xl flex-shrink-0">
-                <h2 id="tab-title" class="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">DASHBOARD_CENTER</h2>
+        <!-- MAIN VIEWPORT: The Dynamic Stages -->
+        <main id="viewport" class="flex-1 flex flex-col min-w-0">
+            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-[#111827]/40 backdrop-blur-xl flex-shrink-0 z-50">
+                <h2 id="tab-title" class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">DASHBOARD</h2>
                 <div class="flex items-center gap-6">
                     <div id="live-clock" class="text-[11px] font-mono text-slate-500">00:00:00</div>
-                    <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[9px] font-black uppercase border border-green-500/20">
-                        <span class="pulse inline-block w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></span> SATELLITE_LIVE
-                    </div>
+                    <div class="status-chip"><span class="pulse"></span> SATELLITE_LINKED</div>
                 </div>
             </header>
 
-            <div class="flex-1 relative overflow-hidden">
+            <div class="content-container flex-1 relative overflow-hidden">
                 
-                <!-- DASHBOARD TAB -->
+                <!-- MODULE 1: DASHBOARD (The Hub) -->
                 <section id="dashboard-tab" class="tab-panel active custom-scroll">
-                    <div class="dashboard-grid">
-                        <div class="balance-card">
-                            <p class="card-label">Operating Capital</p>
-                            <h2 id="total-display" class="balance-text">$0.00</h2>
-                            <p class="text-[10px] font-black text-blue-200 uppercase tracking-widest mt-4">Synced with Live Ledger</p>
+                    <div class="p-10 space-y-10">
+                        <!-- Dashboard Shortcuts -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div id="dash-revenue-tile" class="lg:col-span-2 balance-card shadow-2xl">
+                                <p class="text-blue-200 text-[10px] font-black uppercase mb-2 tracking-widest">Net Fleet Revenue</p>
+                                <h2 id="total-display" class="balance-text">$0.00</h2>
+                                <p class="text-[9px] font-bold text-blue-400 mt-4 uppercase">Manage Financials →</p>
+                            </div>
+                            <div id="dash-trucks-tile" class="stat-card shadow-xl">
+                                <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Fleet Integrity</p>
+                                <h3 id="truck-count-display" class="text-6xl font-black text-white mt-2">0</h3>
+                                <p class="text-[9px] font-black text-green-500 mt-4 uppercase">Operational Units →</p>
+                            </div>
                         </div>
-                        <div class="stat-card">
-                            <p class="card-label text-slate-500">Active Trucks</p>
-                            <h3 id="truck-count" class="text-5xl font-black mt-4">0</h3>
-                        </div>
-                    </div>
 
-                    <div class="calendar-section">
-                        <div class="calendar-container shadow-2xl">
-                            <div id="dash-calendar" class="h-full w-full"></div>
+                        <!-- Integrated Schedule Slot -->
+                        <div class="bg-[#111827] rounded-[3.5rem] p-10 border border-white/10 shadow-2xl">
+                            <div class="flex justify-between items-center mb-8">
+                                <h3 class="text-xl font-black uppercase italic tracking-tighter">Operational Schedule</h3>
+                                <button onclick="window.openEventModal()" class="action-btn-sm">+ Schedule Load</button>
+                            </div>
+                            <div id="dash-calendar" class="h-[600px] bg-black/10 rounded-3xl"></div>
                         </div>
-                    </div>
 
-                    <div class="ledger-section">
-                        <div class="ledger-box shadow-2xl">
-                            <div class="p-8 border-b border-white/5 bg-white/[0.02] text-[10px] font-black text-slate-500 uppercase italic">Transaction Script</div>
+                        <!-- CRM Quickview Slot -->
+                        <div class="bg-[#111827] rounded-[3.5rem] p-10 border border-white/5">
+                            <div class="flex justify-between items-center mb-8">
+                                <h3 class="text-xl font-black uppercase italic tracking-tighter">Top Clients</h3>
+                                <button onclick="window.tab('clients')" class="text-xs font-black text-blue-500 uppercase italic">Full CRM</button>
+                            </div>
+                            <div id="dashboard-client-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+                        </div>
+
+                        <!-- Ledger Activity Slot -->
+                        <div class="bg-[#111827] rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl">
+                            <div class="p-8 border-b border-white/5 bg-white/[0.02] text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Transaction Script</div>
                             <div id="ledger-stream" class="divide-y divide-white/5"></div>
                         </div>
                     </div>
                 </section>
 
-                <!-- DRIVER LOG TAB -->
-                <section id="driverlog-tab" class="tab-panel custom-scroll">
-                    <div class="p-10">
-                        <div class="flex justify-between items-center mb-10">
-                            <h3 class="text-3xl font-black uppercase italic tracking-tighter">Driver Activity</h3>
-                            <button onclick="window.openLogModal()" class="action-btn shadow-lg shadow-blue-500/20">NEW ENTRY</button>
-                        </div>
-                        <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden">
-                            <table class="data-table">
-                                <thead><tr><th>Date</th><th>Driver</th><th>Unit</th><th>Expenses</th><th>Balance</th><th></th></tr></thead>
-                                <tbody id="log-rows"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TRUCK UNITS TAB -->
+                <!-- MODULE 4: TRUCK UNITS (The Spreadsheet Room) -->
                 <section id="trucks-tab" class="tab-panel custom-scroll">
                     <div class="p-10">
                         <div class="flex justify-between items-center mb-10">
                             <h3 class="text-3xl font-black uppercase italic tracking-tighter">Fleet Registry</h3>
-                            <button onclick="window.openTruckModal()" class="action-btn">REGISTER UNIT</button>
+                            <button onclick="window.openTruckModal()" class="action-btn">Register New Unit</button>
                         </div>
-                        <div id="trucks-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+                        
+                        <!-- Anchors for Fleet Vitals (JS will inject counts here) -->
+                        <div id="fleet-vitals-bar" class="vitals-grid"></div>
+
+                        <!-- Anchor for Spreadsheet -->
+                        <div id="trucks-spreadsheet-container" class="ledger-container shadow-2xl"></div>
                     </div>
                 </section>
 
-                <!-- OTHER PANELS (CALENDAR WORKSPACE, ETC) -->
-                <section id="calendar-tab" class="tab-panel custom-scroll">
-                    <div class="p-10 h-full">
-                        <div id="full-calendar-render" class="h-full bg-[#111827] p-8 rounded-[3rem] border border-white/10 shadow-2xl"></div>
+                <!-- MODULE 3: DRIVER LOG -->
+                <section id="driverlog-tab" class="tab-panel custom-scroll">
+                    <div class="p-10">
+                        <div class="flex justify-between items-center mb-10">
+                            <h3 class="text-3xl font-black uppercase italic tracking-tighter">Accountability Ledger</h3>
+                            <button onclick="window.openLogModal()" class="action-btn">New Log Entry</button>
+                        </div>
+                        <div id="log-spreadsheet-container" class="ledger-container shadow-2xl"></div>
                     </div>
                 </section>
 
-                <section id="scan-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black opacity-20 uppercase">AI Scanner Online</h4></section>
-                <section id="dispatch-tab" class="tab-panel"></section>
-                <section id="inventory-tab" class="tab-panel"></section>
-                <section id="ai-tab" class="tab-panel"></section>
-                <section id="estimator-tab" class="tab-panel"></section>
-                <section id="generic-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black opacity-10">TERMINAL_SECURE</h4></section>
+                <!-- MODULE 8: CRM / CLIENTS -->
+                <section id="clients-tab" class="tab-panel custom-scroll">
+                    <div class="p-10">
+                        <div class="flex justify-between items-center mb-10">
+                            <h3 class="text-3xl font-black uppercase italic tracking-tighter">Client Partners</h3>
+                            <button onclick="window.openClientModal()" class="action-btn">Register Partner</button>
+                        </div>
+                        <div id="clients-spreadsheet-container" class="ledger-container shadow-2xl"></div>
+                    </div>
+                </section>
+
+                <!-- MODULE 5: AI SCANNER (Drop Zone Room) -->
+                <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center p-10">
+                    <div id="drop-zone" class="scan-frame group">
+                        <div id="scan-idle" class="text-center">
+                            <div class="scan-icon-container mx-auto mb-10"><i data-lucide="maximize" size="48"></i></div>
+                            <h4 class="text-2xl font-black uppercase italic">AI Auditor Lens</h4>
+                            <p class="text-slate-500 text-sm mt-4 px-10">Drop documents here for instant analysis.</p>
+                        </div>
+                        <input type="file" id="receipt-upload" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="window.handleSmartIntake(event)">
+                        
+                        <!-- Progress Overlay Anchor -->
+                        <div id="scan-loading" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-20">
+                            <div class="loader-circle animate-spin mb-6"></div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 animate-pulse">Vision_Analysis_Active</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- EMPTY ROOMS (Anchors only for future activation) -->
+                <section id="calendar-tab" class="tab-panel"><div id="full-calendar-render" class="h-full p-10"></div></section>
+                <section id="inventory-tab" class="tab-panel custom-scroll"><div id="inventory-content" class="p-10"></div></section>
+                <section id="dispatch-tab" class="tab-panel custom-scroll"><div id="dispatch-content" class="p-10"></div></section>
+                <section id="ai-tab" class="tab-panel flex items-center justify-center"><h4 class="text-xl font-black opacity-10">AI AUDITOR_LOCKED</h4></section>
 
             </div>
         </main>
     </div>
 
-    <!-- MODALS -->
-    <div id="log-modal" class="modal-overlay hidden">
-        <div class="modal-box">
-            <h3 class="modal-title text-blue-500">Log Activity</h3>
-            <input type="text" id="l-driver" class="form-input" placeholder="Driver Name">
-            <div class="grid grid-cols-2 gap-4">
-                <input type="text" id="l-truck" class="form-input font-black uppercase" placeholder="Truck ID">
-                <input type="date" id="l-date" class="form-input">
-            </div>
-            <button class="action-btn w-full py-5 rounded-2xl" onclick="window.saveDriverLog()">COMMIT TO HUB</button>
-            <button class="text-[10px] w-full mt-6 text-slate-500 font-black uppercase" onclick="window.closeModal()">Discard</button>
-        </div>
-    </div>
+    <!-- MODAL DOORS (The Entryways) -->
 
+    <!-- DOOR 1: TRUCK ENTRY/EDIT -->
     <div id="truck-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Register Unit</h3>
-            <input type="text" id="t-id" class="form-input font-black uppercase" placeholder="Unit ID (e.g. TRK-01)">
-            <input type="text" id="t-make" class="form-input" placeholder="Model">
-            <input type="number" id="t-miles" class="form-input" placeholder="Odometer">
-            <button class="action-btn w-full py-5 rounded-2xl" onclick="window.saveTruckUnit()">SYNC REGISTRY</button>
-            <button class="text-[10px] w-full mt-6 text-slate-500 font-black uppercase" onclick="window.closeModal()">Cancel</button>
+            <h3 id="truck-modal-title" class="modal-title text-blue-400 italic">Unit Registry</h3>
+            <div class="space-y-4">
+                <input type="text" id="t-id" class="form-input uppercase font-black" placeholder="Unit ID (e.g. TRK-01)">
+                <input type="text" id="t-make" class="form-input" placeholder="Make / Model">
+                <input type="number" id="t-miles" class="form-input" placeholder="Current Odometer">
+                <select id="t-status" class="form-input font-black uppercase text-[10px]">
+                    <option value="Operational">Operational / Ready</option>
+                    <option value="In Transit">In Transit / Assigned</option>
+                    <option value="Maintenance">Maintenance / In Shop</option>
+                    <option value="Out of Service">Out of Service</option>
+                </select>
+            </div>
+            <button class="save-btn w-full mt-8" onclick="window.saveTruckUnit()">SYNC TO TERMINAL</button>
+            <button class="w-full text-[10px] font-black uppercase mt-6 text-slate-500" onclick="window.closeModal()">Discard</button>
         </div>
     </div>
 
+    <!-- DOOR 2: CLIENT ENTRY -->
+    <div id="client-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title text-green-400 italic">Register Partner</h3>
+            <div class="space-y-4">
+                <input type="text" id="c-name" class="form-input font-black" placeholder="Company Name">
+                <input type="text" id="c-contact" class="form-input" placeholder="Phone / Email">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="c-location" class="form-input" placeholder="HQ City/State">
+                    <input type="number" id="c-rate" class="form-input" placeholder="Base Rate ($)">
+                </div>
+            </div>
+            <button class="save-btn w-full mt-8 bg-green-600" onclick="window.saveClient()">SAVE TO CRM</button>
+            <button class="w-full text-[10px] font-black uppercase mt-6 text-slate-500" onclick="window.closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- DOOR 3: TASK/EVENT ENTRY -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">Schedule Task</h3>
-            <input type="text" id="ev-title" class="form-input" placeholder="Task Details...">
-            <div class="grid grid-cols-2 gap-4">
-                <input type="text" id="ev-truck" class="form-input uppercase" placeholder="Unit">
-                <input type="date" id="ev-date" class="form-input">
+            <h3 class="modal-title text-blue-500 italic">Schedule Assignment</h3>
+            <div class="space-y-4">
+                <input type="text" id="ev-title" class="form-input" placeholder="Load/Task Details">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="ev-truck" class="form-input uppercase font-black" placeholder="Assigned Unit">
+                    <input type="date" id="ev-date" class="form-input">
+                </div>
             </div>
-            <button class="action-btn w-full py-5 rounded-2xl" onclick="window.saveEvent()">UPDATE SCHEDULE</button>
-            <button class="text-[10px] w-full mt-6 text-slate-500 font-black uppercase" onclick="window.closeModal()">Back</button>
+            <button class="save-btn w-full mt-8" onclick="window.saveEvent()">UPDATE MASTER SCHEDULE</button>
+            <button class="w-full text-[10px] font-black uppercase mt-6 text-slate-500" onclick="window.closeModal()">Back</button>
         </div>
     </div>
 
-    <!-- BRAINS -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+    <!-- DOOR 4: AI AUDIT VERIFICATION -->
+    <div id="audit-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title text-blue-400 italic">Audit Verification</h3>
+            <div class="space-y-4">
+                <input type="text" id="v-vendor" class="form-input" placeholder="Detected Merchant">
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="v-amount" class="form-input font-black" placeholder="Amount">
+                    <select id="v-cat" class="form-input uppercase text-[10px]">
+                        <option value="Diesel">Diesel Fuel</option>
+                        <option value="Repair">Maintenance</option>
+                        <option value="Hotel">Lodging</option>
+                        <option value="Inflow">Revenue / Funding</option>
+                    </select>
+                </div>
+                <input type="text" id="v-truck" class="form-input font-black uppercase" placeholder="Attributed Unit">
+            </div>
+            <button class="save-btn w-full mt-8" onclick="window.commitAudit()">COMMIT TO LEDGER</button>
+        </div>
+    </div>
 
-        // --- SYSTEM STATE ---
-        let auth, db, user, appId, dashCal, fullCal;
-        let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [] };
-        
-        // --- 1. CORE UI CONTROLS ---
-        window.tab = (id) => {
-            const panels = document.querySelectorAll('.tab-panel');
-            panels.forEach(p => p.classList.remove('active'));
-            
-            const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
-            if (target) target.classList.add('active');
-            
-            document.querySelectorAll('.nav-btn').forEach(b => {
-                b.classList.toggle('active', b.getAttribute('data-tab') === id);
-            });
+    <!-- DOOR 5: DRIVER LOG -->
+    <div id="log-modal" class="modal-overlay hidden"><div class="modal-box"><h3 class="modal-title">Log Entry</h3><input type="text" id="l-driver" class="form-input"><input type="text" id="l-truck" class="form-input uppercase"><input type="date" id="l-date" class="form-input"><button class="save-btn w-full mt-6" onclick="window.saveDriverLog()">COMMIT LOG</button></div></div>
 
-            document.getElementById('tab-title').innerText = `${id.toUpperCase()}_CENTER`;
-            
-            // Sync Calendar resizing
-            if (id === 'dashboard' && dashCal) { setTimeout(() => dashCal.updateSize(), 50); }
-            if (id === 'calendar' && fullCal) { setTimeout(() => fullCal.updateSize(), 50); }
-            
-            lucide.createIcons();
-        };
-
-        window.openLogModal = () => document.getElementById('log-modal').classList.remove('hidden');
-        window.openTruckModal = () => document.getElementById('truck-modal').classList.remove('hidden');
-        window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
-
-        // --- 2. DATA SAVING (INSTANT FEEDBACK) ---
-
-        window.saveEvent = async () => {
-            const val = {
-                title: document.getElementById('ev-title').value,
-                truckId: document.getElementById('ev-truck').value.toUpperCase(),
-                date: document.getElementById('ev-date').value,
-                timestamp: Date.now()
-            };
-            if (!val.title) return;
-            fleetData.jobs.push({ ...val, id: "local_" + Date.now() });
-            syncCals(); window.closeModal();
-            if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...val, timestamp: Timestamp.now() });
-        };
-
-        window.saveDriverLog = async () => {
-            const val = {
-                driver: document.getElementById('l-driver').value,
-                truckId: document.getElementById('l-truck').value.toUpperCase(),
-                date: document.getElementById('l-date').value,
-                timestamp: Date.now()
-            };
-            if (!val.driver) return;
-            fleetData.driverLogs.push({ ...val, id: "local_" + Date.now() });
-            renderLogs(); window.closeModal();
-            if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs'), { ...val, timestamp: Timestamp.now() });
-        };
-
-        window.saveTruckUnit = async () => {
-            const val = {
-                truckId: document.getElementById('t-id').value.toUpperCase(),
-                make: document.getElementById('t-make').value,
-                miles: document.getElementById('t-miles').value,
-                status: "Operational",
-                timestamp: Date.now()
-            };
-            if (!val.truckId) return;
-            fleetData.trucks.push({ ...val, id: "local_" + Date.now() });
-            renderTrucks(); window.closeModal();
-            if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() });
-        };
-
-        // --- 3. RENDERERS ---
-
-        function renderDashboard() {
-            let bal = 0; const stream = document.getElementById('ledger-stream');
-            if (!stream) return; stream.innerHTML = '';
-            fleetData.receipts.sort((a,b) => b.date.localeCompare(a.date)).forEach(r => {
-                const isIn = r.category === 'Inflow';
-                bal += isIn ? r.amount : -r.amount;
-                const row = document.createElement('div');
-                row.className = "p-10 flex justify-between items-center";
-                row.innerHTML = `<h4 class="font-black text-2xl ${isIn ? 'text-green-500' : 'text-white'}">$${r.amount.toFixed(2)}</h4><p class="text-[10px] uppercase text-slate-500">${r.vendor} • ${r.truckId}</p>`;
-                stream.appendChild(row);
-            });
-            document.getElementById('total-display').innerText = `$${bal.toLocaleString()}`;
-            document.getElementById('truck-count').innerText = fleetData.trucks.length;
-        }
-
-        function renderLogs() {
-            const rows = document.getElementById('log-rows');
-            if (!rows) return; rows.innerHTML = '';
-            fleetData.driverLogs.forEach(l => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="p-8 text-xs font-mono text-slate-400">${l.date}</td><td class="p-8 text-xs font-black uppercase">${l.driver}</td><td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td><td class="p-8 text-xs">$0.00</td><td class="p-8 text-xs font-black">$0.00</td><td class="p-8"></td>`;
-                rows.appendChild(tr);
-            });
-        }
-
-        function renderTrucks() {
-            const grid = document.getElementById('trucks-grid');
-            if (!grid) return; grid.innerHTML = '';
-            fleetData.trucks.forEach(t => {
-                const card = document.createElement('div');
-                card.className = "truck-card";
-                card.innerHTML = `<h4 class="text-2xl font-black italic">${t.truckId}</h4><p class="text-[10px] text-slate-500 uppercase">${t.make} • ${t.status}</p>`;
-                grid.appendChild(card);
-            });
-        }
-
-        // --- 4. CALENDARS ---
-        function initCals() {
-            const cfg = { 
-                initialView: 'dayGridMonth', 
-                height: '100%', 
-                dateClick: (i) => { 
-                    document.getElementById('ev-date').value = i.dateStr; 
-                    document.getElementById('event-modal').classList.remove('hidden'); 
-                } 
-            };
-            const dEl = document.getElementById('dash-calendar');
-            const fEl = document.getElementById('full-calendar-render');
-            if (dEl) { dashCal = new FullCalendar.Calendar(dEl, cfg); dashCal.render(); }
-            if (fEl) { fullCal = new FullCalendar.Calendar(fEl, cfg); fullCal.render(); }
-        }
-
-        function syncCals() { [dashCal, fullCal].forEach(c => { if(c){ c.removeAllEvents(); fleetData.jobs.forEach(j => c.addEvent({ id: j.id, title: j.title, start: j.date, color: '#3b82f6' })); } }); }
-
-        // --- 5. INITIALIZATION ---
-        window.addEventListener('load', () => {
-            initCals();
-            lucide.createIcons();
-            setInterval(() => {
-                const el = document.getElementById('live-clock');
-                if(el) el.innerText = new Date().toLocaleTimeString();
-            }, 1000);
-            
-            // Cloud Sync Fallback
-            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-            if (configStr) {
-                const app = initializeApp(JSON.parse(configStr));
-                auth = getAuth(app);
-                db = getFirestore(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-master-final';
-                
-                onAuthStateChanged(auth, (u) => {
-                    if (u) {
-                        user = u;
-                        document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0, 6)}`;
-                        onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), s => { fleetData.jobs = s.docs.map(d => ({ id: d.id, ...d.data() })); syncCals(); });
-                        onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs')), s => { fleetData.driverLogs = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLogs(); });
-                        onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), s => { fleetData.trucks = s.docs.map(d => ({ id: d.id, ...d.data() })); renderTrucks(); });
-                        onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), s => { fleetData.receipts = s.docs.map(d => ({ id: d.id, ...d.data() })); renderDashboard(); });
-                    } else { signInAnonymously(auth); }
-                });
-            }
-        });
-
-    </script>
+    <!-- Link to our future "Brain" -->
+    <script src="script.js" type="module"></script>
 </body>
 </html>
 
