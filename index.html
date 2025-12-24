@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FleetPro | Command Hub</title>
+    <title>Fleet Hub | Enterprise Command</title>
     
-    <!-- Frameworks -->
+    <!-- External Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -14,18 +14,17 @@
 </head>
 <body class="bg-[#0b0f1a] text-white">
 
-    <div id="app-shell" class="flex h-screen w-screen overflow-hidden">
-        
-        <!-- SIDEBAR -->
+    <div id="app-shell">
+        <!-- SIDEBAR: The Command Column -->
         <aside id="sidebar">
-            <div class="p-8 flex items-center gap-3 flex-shrink-0">
-                <div class="bg-blue-600 p-2 rounded-xl shadow-lg"><i data-lucide="shield-check"></i></div>
-                <span class="text-xl font-black italic uppercase tracking-tighter">FLEETPRO</span>
+            <div class="sidebar-header">
+                <div class="logo-box"><i data-lucide="shield-check"></i></div>
+                <span class="logo-text">FLEETPRO</span>
             </div>
             
-            <nav class="sidebar-nav custom-scroll">
+            <nav class="sidebar-nav">
                 <button onclick="window.tab('dashboard')" class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-grid"></i> <span>Dashboard</span></button>
-                <button onclick="window.tab('calendar')" class="nav-btn" data-tab="calendar"><i data-lucide="calendar"></i> <span>Full Calendar</span></button>
+                <button onclick="window.tab('calendar')" class="nav-btn" data-tab="calendar"><i data-lucide="calendar"></i> <span>Calendar</span></button>
                 <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog"><i data-lucide="clipboard-list"></i> <span>Driver Log</span></button>
                 <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks"><i data-lucide="truck"></i> <span>Truck Units</span></button>
                 <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan"><i data-lucide="maximize"></i> <span>AI Scanner</span></button>
@@ -35,57 +34,62 @@
                 <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai"><i data-lucide="bot"></i> <span>AI Auditor</span></button>
             </nav>
 
-            <div class="p-6 border-t border-white/5 bg-black/20 flex-shrink-0">
-                <p id="user-id-tag" class="text-[9px] font-mono text-blue-500 uppercase tracking-widest italic">NODE_SYNC_READY</p>
+            <div class="sidebar-footer">
+                <p id="user-id-tag">CONNECTING...</p>
             </div>
         </aside>
 
         <!-- VIEWPORT -->
         <main id="viewport">
-            <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-[#111827]/40 backdrop-blur-xl flex-shrink-0 z-50">
-                <h2 id="tab-title" class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">DASHBOARD</h2>
-                <div id="live-clock" class="text-[11px] font-mono text-slate-500">00:00:00</div>
+            <header id="main-header">
+                <h2 id="tab-title" class="uppercase">DASHBOARD</h2>
+                <div id="live-clock">00:00:00</div>
             </header>
 
-            <div class="flex-1 relative overflow-hidden">
-                <!-- 1. DASHBOARD -->
+            <div id="content-scroller">
+                
+                <!-- 1. DASHBOARD ROOM -->
                 <section id="dashboard-tab" class="tab-panel active">
                     <div class="p-10 space-y-10">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div onclick="window.tab('clients')" class="lg:col-span-2 balance-card">
-                                <p class="text-blue-200 text-[10px] font-black uppercase mb-2">Net Fleet Capital</p>
-                                <h2 id="total-display" class="text-6xl font-black">$0.00</h2>
+                                <p class="label">Operating Capital</p>
+                                <h2 id="total-display">$0.00</h2>
                             </div>
                             <div onclick="window.tab('trucks')" class="stat-card">
-                                <p class="text-slate-500 text-[10px] font-black uppercase">Fleet Integrity</p>
-                                <h3 id="dash-truck-count" class="text-7xl font-black mt-2">0</h3>
+                                <p class="label">Fleet Integrity</p>
+                                <h3 id="dash-truck-count">0</h3>
                             </div>
                         </div>
 
-                        <div class="bg-[#111827] rounded-[3.5rem] p-10 border border-white/10 shadow-2xl">
-                            <div class="flex justify-between items-center mb-8 px-2">
-                                <h3 class="text-xl font-black uppercase italic tracking-widest">Operational Schedule</h3>
-                                <button onclick="window.openEventModal()" class="bg-blue-600 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform">+ Add Job</button>
+                        <!-- GOOGLE STYLE CALENDAR -->
+                        <div class="calendar-card shadow-2xl">
+                            <div class="flex justify-between items-center mb-8">
+                                <h3 class="text-xl font-bold uppercase italic italic">Schedule</h3>
+                                <button onclick="window.openEventModal()" class="action-btn-sm">+ New Load</button>
                             </div>
                             <div id="dash-calendar"></div>
                         </div>
 
-                        <div class="bg-[#111827] rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl">
-                            <div class="p-8 border-b border-white/5 bg-white/[0.02] text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Activity Ledger</div>
+                        <!-- LEDGER FEED -->
+                        <div class="ledger-container shadow-2xl">
+                            <div class="p-8 border-b border-white/5 bg-white/[0.02] text-[10px] font-black uppercase">Live Updates</div>
                             <div id="ledger-stream" class="divide-y divide-white/5"></div>
                         </div>
                     </div>
                 </section>
 
-                <!-- SPREADSHEET ROOMS -->
-                <section id="calendar-tab" class="tab-panel"><div class="p-10 h-full"><div id="full-page-calendar" class="h-full bg-[#111827] rounded-[3.5rem] border border-white/10 shadow-2xl"></div></div></section>
-                <section id="driverlog-tab" class="tab-panel"><div class="p-10" id="driverlog-registry"></div></section>
-                <section id="trucks-tab" class="tab-panel"><div class="p-10" id="trucks-registry"></div></section>
-                <section id="clients-tab" class="tab-panel"><div class="p-10" id="clients-registry"></div></section>
-                <section id="dispatch-tab" class="tab-panel"><div class="p-10" id="dispatch-registry"></div></section>
-                <section id="inventory-tab" class="tab-panel"><div class="p-10" id="inventory-registry"></div></section>
-                <section id="scan-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-20 uppercase tracking-[0.5em]">AI Scanner Lens Ready</h4></section>
-                <section id="ai-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-10 uppercase tracking-[1em]">AI AUDITOR_LOCKED</h4></section>
+                <!-- SPREADSHEET MODULE ROOMS -->
+                <section id="calendar-tab" class="tab-panel"><div class="p-10 h-full"><div id="full-page-calendar" class="h-full bg-[#111827] rounded-[3.5rem] p-8 border border-white/10 shadow-2xl"></div></div></section>
+                <section id="driverlog-tab" class="tab-panel"><div class="p-10" id="driverlog-room"></div></section>
+                <section id="trucks-tab" class="tab-panel"><div class="p-10" id="trucks-room"></div></section>
+                <section id="inventory-tab" class="tab-panel"><div class="p-10" id="inventory-room"></div></section>
+                <section id="dispatch-tab" class="tab-panel"><div class="p-10" id="dispatch-room"></div></section>
+                <section id="clients-tab" class="tab-panel"><div class="p-10" id="clients-room"></div></section>
+                
+                <!-- PLACEHOLDERS -->
+                <section id="scan-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-20 uppercase tracking-[0.5em]">Scanner Ready</h4></section>
+                <section id="ai-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-10 uppercase tracking-[1em]">Auditor Locked</h4></section>
             </div>
         </main>
     </div>
@@ -93,16 +97,15 @@
     <!-- MODALS -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="text-2xl font-black italic mb-8 text-blue-400">Assignment</h3>
-            <input type="text" id="ev-title" class="modal-input" placeholder="Job/Task Name">
+            <h3 class="text-2xl font-black mb-8 italic">New Load Info</h3>
+            <input type="text" id="ev-title" class="modal-input" placeholder="Client / Load Details">
             <input type="date" id="ev-date" class="modal-input">
-            <button class="modal-save-btn" onclick="window.saveEvent()">Commit to Schedule</button>
-            <button class="w-full mt-4 text-[10px] font-black uppercase text-slate-500" onclick="window.closeModal()">Cancel</button>
+            <button class="save-btn" onclick="window.saveEvent()">Commit Assignment</button>
+            <button class="w-full mt-4 text-[10px] uppercase font-black text-slate-500" onclick="window.closeModal()">Cancel</button>
         </div>
     </div>
 
     <script src="script.js" type="module"></script>
 </body>
 </html>
-
 
