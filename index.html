@@ -5,27 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FleetPro | Master Command</title>
     
-    <!-- Utilities -->
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
-    <!-- The Paint -->
+    <!-- Project Files -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="app-shell">
-        <!-- SIDEBAR (Fixed Toolbar) -->
+        <!-- 1. SIDEBAR (The Command Column) -->
         <aside id="sidebar">
-            <div class="sidebar-brand">
-                <div class="logo-box"><i data-lucide="shield-check"></i></div>
+            <div class="sidebar-header">
+                <div class="logo-icon"><i data-lucide="shield-check"></i></div>
                 <span class="logo-text">FLEETPRO</span>
             </div>
             
             <nav class="sidebar-nav">
                 <button onclick="window.tab('dashboard')" class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-grid"></i> <span>Dashboard</span></button>
-                <button onclick="window.tab('calendar')" class="nav-btn" data-tab="calendar"><i data-lucide="calendar"></i> <span>Calendar</span></button>
+                <button onclick="window.tab('calendar')" class="nav-btn" data-tab="calendar"><i data-lucide="calendar"></i> <span>Full Calendar</span></button>
                 <button onclick="window.tab('driverlog')" class="nav-btn" data-tab="driverlog"><i data-lucide="clipboard-list"></i> <span>Driver Log</span></button>
                 <button onclick="window.tab('trucks')" class="nav-btn" data-tab="trucks"><i data-lucide="truck"></i> <span>Truck Units</span></button>
                 <button onclick="window.tab('scan')" class="nav-btn" data-tab="scan"><i data-lucide="maximize"></i> <span>AI Scanner</span></button>
@@ -35,12 +35,12 @@
                 <button onclick="window.tab('ai')" class="nav-btn" data-tab="ai"><i data-lucide="bot"></i> <span>AI Auditor</span></button>
             </nav>
 
-            <div class="sidebar-foot">
-                <p id="user-id-tag">NODE_LINKED</p>
+            <div class="sidebar-footer">
+                <p id="user-id-tag">TERMINAL_SYNCED</p>
             </div>
         </aside>
 
-        <!-- MAIN VIEWPORT -->
+        <!-- 2. MAIN VIEWPORT -->
         <main id="viewport">
             <header id="main-header">
                 <h2 id="tab-title">DASHBOARD</h2>
@@ -48,62 +48,61 @@
             </header>
 
             <div id="room-scroller">
-                <!-- 1. DASHBOARD ROOM -->
+                <!-- DASHBOARD ROOM -->
                 <section id="dashboard-tab" class="tab-panel active">
-                    <div class="p-8 space-y-10">
+                    <div class="room-content">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div onclick="window.tab('clients')" class="lg:col-span-2 balance-card">
-                                <p class="card-label">Revenue Capital</p>
+                                <p class="card-label">Operating Capital</p>
                                 <h2 id="total-display" class="font-mono">$0.00</h2>
                             </div>
                             <div onclick="window.tab('trucks')" class="stat-card">
-                                <p class="card-label">Fleet Status</p>
+                                <p class="card-label">Fleet Size</p>
                                 <h3 id="dash-truck-count">0</h3>
                             </div>
                         </div>
 
-                        <!-- THE CALENDAR ROOM -->
-                        <div class="calendar-card-wrap shadow-2xl">
+                        <!-- CALENDAR ROOM -->
+                        <div class="calendar-card">
                             <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-xl font-black uppercase italic tracking-widest">Master Schedule</h3>
-                                <button onclick="window.openEventModal()" class="action-btn-sm">+ New Task</button>
+                                <h3 class="text-xl font-bold uppercase italic">Operational Schedule</h3>
+                                <button onclick="window.openEventModal()" class="action-btn">+ Add Task</button>
                             </div>
-                            <div id="dash-calendar" class="calendar-render-zone"></div>
+                            <!-- PHYSICAL ANCHOR FOR CALENDAR -->
+                            <div id="dash-calendar" class="calendar-hook"></div>
                         </div>
 
                         <!-- LEDGER -->
-                        <div class="ledger-box shadow-2xl">
-                            <div class="p-6 border-b border-white/5 text-[10px] font-black uppercase tracking-widest opacity-50">Logistics Stream</div>
-                            <div id="ledger-stream" class="divide-y divide-white/5"></div>
+                        <div class="ledger-box">
+                            <div class="p-6 border-b border-white/5 uppercase text-[10px] font-black tracking-widest opacity-50">Recent Logs</div>
+                            <div id="ledger-stream"></div>
                         </div>
                     </div>
                 </section>
 
-                <!-- SPREADSHEET ROOMS (The Data Zones) -->
-                <section id="calendar-tab" class="tab-panel"><div class="p-8 h-full"><div id="full-page-calendar" class="h-full bg-[#111827] rounded-[3rem] p-8 border border-white/10"></div></div></section>
-                <section id="driverlog-tab" class="tab-panel"><div class="p-8" id="driverlog-registry"></div></section>
-                <section id="trucks-tab" class="tab-panel"><div class="p-8" id="trucks-registry"></div></section>
-                <section id="clients-tab" class="tab-panel"><div class="p-8" id="clients-registry"></div></section>
-                <section id="dispatch-tab" class="tab-panel"><div class="p-8" id="dispatch-registry"></div></section>
-                <section id="inventory-tab" class="tab-panel"><div class="p-8" id="inventory-registry"></div></section>
-                <section id="scan-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-20 uppercase">AI Scanner Node</h4></section>
-                <section id="ai-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-10">AI AUDITOR_LOCKED</h4></section>
+                <!-- MODULE SPREADSHEET ROOMS -->
+                <section id="calendar-tab" class="tab-panel"><div class="p-10 h-full"><div id="full-page-calendar" class="calendar-full"></div></div></section>
+                <section id="driverlog-tab" class="tab-panel"><div class="p-10" id="driverlog-registry"></div></section>
+                <section id="trucks-tab" class="tab-panel"><div class="p-10" id="trucks-registry"></div></section>
+                <section id="inventory-tab" class="tab-panel"><div class="p-10" id="inventory-registry"></div></section>
+                <section id="dispatch-tab" class="tab-panel"><div class="p-10" id="dispatch-registry"></div></section>
+                <section id="clients-tab" class="tab-panel"><div class="p-10" id="clients-registry"></div></section>
+                <section id="scan-tab" class="tab-panel flex items-center justify-center"><h4 class="text-2xl font-black opacity-20 uppercase tracking-[0.5em]">AI Scanner Lens Ready</h4></section>
             </div>
         </main>
     </div>
 
-    <!-- MODAL -->
+    <!-- MODALS -->
     <div id="event-modal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="text-2xl font-black italic mb-8">Log Assignment</h3>
+            <h3 class="text-2xl font-black italic mb-8">Schedule Assignment</h3>
             <input type="text" id="ev-title" class="form-input" placeholder="Task details">
             <input type="date" id="ev-date" class="form-input">
             <button class="save-btn" onclick="window.saveEvent()">Commit to Schedule</button>
-            <button class="w-full mt-4 text-[10px] uppercase font-black opacity-50" onclick="window.closeModal()">Discard</button>
+            <button class="w-full mt-4 text-[10px] uppercase font-black opacity-50" onclick="window.closeModal()">Cancel</button>
         </div>
     </div>
 
-    <!-- The Brain -->
     <script src="script.js" type="module"></script>
 </body>
 </html>
