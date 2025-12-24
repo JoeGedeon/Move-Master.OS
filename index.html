@@ -74,13 +74,11 @@
         <!-- MAIN VIEWPORT -->
         <main class="viewport">
             <header class="h-20 flex items-center justify-between px-10 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl">
-                <h2 id="tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500 flex items-center gap-2">
-                    <i data-lucide="chevron-right" size="14"></i> Fleet Hub
-                </h2>
+                <h2 id="tab-title" class="text-xs font-black uppercase tracking-[0.3em] text-blue-500">Fleet Hub</h2>
                 <div class="flex items-center gap-4">
                     <div id="live-clock" class="text-[11px] font-mono text-slate-500 mr-4">00:00:00</div>
                     <div class="px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase border border-green-500/20">
-                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> Terminal Ready
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse shadow-[0_0_8px_#10b981]"></span> AI Ready
                     </div>
                 </div>
             </header>
@@ -98,105 +96,93 @@
                     </aside>
                 </section>
 
-                <!-- 2. DASHBOARD -->
+                <!-- 2. DASHBOARD / LEDGER -->
                 <section id="dashboard-tab" class="tab-panel custom-scroll">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
                         <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden border border-white/10">
-                            <p class="text-blue-200 text-xs font-black uppercase mb-2">Net Fleet Revenue</p>
+                            <p class="text-blue-200 text-xs font-black uppercase mb-2 tracking-widest">Global Fleet Balance</p>
                             <h2 id="total-display" class="text-6xl font-black tracking-tighter mb-4">$0.00</h2>
                             <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
                         </div>
                         <div class="bg-[#111827] rounded-[3.5rem] p-10 flex flex-col justify-center text-center border border-white/5">
-                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Activity Logs</p>
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Unit Records</p>
                             <h3 id="stat-log-count" class="text-5xl font-black text-white">0</h3>
                         </div>
                     </div>
-                    <div id="ledger-stream" class="bg-[#111827] rounded-[3.5rem] border border-white/5 divide-y divide-white/5 overflow-hidden"></div>
+                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
+                        <div class="p-8 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                            <span class="text-xs font-black uppercase text-slate-500 tracking-widest italic">Central Ledger Script</span>
+                        </div>
+                        <div id="ledger-stream" class="divide-y divide-white/5"></div>
+                    </div>
                 </section>
 
-                <!-- 4. DRIVER'S LOG -->
-                <section id="driverlog-tab" class="tab-panel custom-scroll">
-                    <div class="flex justify-between items-center mb-10">
-                        <h3 class="text-2xl font-black tracking-tight">Daily Driver Logs</h3>
-                        <!-- UPDATED ONCLICK -->
-                        <button onclick="window.openLogModal()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20">New Entry</button>
-                    </div>
-                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-white/[0.02] border-b border-white/5">
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Date</th>
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Driver</th>
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Unit</th>
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Status</th>
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500">Miles</th>
-                                        <th class="p-6 text-[10px] font-black uppercase text-slate-500"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="driver-log-rows" class="divide-y divide-white/5"></tbody>
-                            </table>
+                <!-- 5. AI SCANNER (INTAKE ZONE) -->
+                <section id="scan-tab" class="tab-panel flex flex-col items-center justify-center min-h-[70vh]">
+                    <div id="scan-drop-zone" class="w-full max-w-lg aspect-[4/3] bg-[#111827] rounded-[4rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-16 shadow-2xl relative overflow-hidden">
+                        <div id="scan-ui-idle" class="text-center">
+                            <div class="w-24 h-24 bg-blue-600/10 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-10">
+                                <i data-lucide="scan-line" size="48"></i>
+                            </div>
+                            <h4 class="text-2xl font-black uppercase italic tracking-tighter text-white">Intake Terminal</h4>
+                            <p class="text-slate-500 text-sm mt-4 text-center px-10 leading-relaxed font-medium">Upload physical receipts for AI classification (Diesel, Hotel, Repair, Toll).</p>
+                        </div>
+                        <div id="scan-ui-loading" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-20">
+                            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 animate-pulse">Running_Auditor_AI...</p>
                         </div>
                     </div>
-                </section>
-
-                <!-- PLACEHOLDERS -->
-                <section id="generic-tab" class="tab-panel flex items-center justify-center">
-                    <div class="text-center opacity-30">
-                        <div class="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6"><i data-lucide="layers"></i></div>
-                        <h4 class="text-xl font-black uppercase">Module Encrypted</h4>
-                    </div>
+                    <input type="file" id="receipt-upload" accept="image/*" capture="environment" class="hidden" onchange="window.handleSmartIntake(event)">
+                    <button onclick="document.getElementById('receipt-upload').click()" class="mt-12 w-full max-w-lg bg-blue-600 py-6 rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Launch AI Lens</button>
                 </section>
 
             </div>
         </main>
     </div>
 
-    <!-- MODAL: DRIVER LOG -->
-    <div id="log-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6">
+    <!-- MODAL: AI VERIFICATION -->
+    <div id="audit-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[500] flex items-center justify-center p-6">
         <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
-            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-500">New Activity Log</h3>
+            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter text-blue-400">AI Verification</h3>
             <div class="space-y-5">
-                <input type="text" id="log-driver" class="form-input" placeholder="Driver Full Name">
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="log-truck" class="form-input font-black uppercase" placeholder="Truck ID">
-                    <input type="date" id="log-date" class="form-input">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">Truck ID</label>
+                        <input type="text" id="v-truck" class="form-input font-black" placeholder="UNIT-01">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">Total Cost</label>
+                        <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">Merchant/Source</label>
+                    <input type="text" id="v-vendor" class="form-input" placeholder="Vendor Name">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="log-odo-start" class="form-input" placeholder="Start Odo">
-                    <input type="number" id="log-odo-end" class="form-input" placeholder="End Odo">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">Category</label>
+                        <select id="v-cat" class="form-input font-bold uppercase text-[10px]">
+                            <option>Diesel</option>
+                            <option>Hotel</option>
+                            <option>Repair</option>
+                            <option>Toll</option>
+                            <option>Food</option>
+                            <option>Income</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">Date</label>
+                        <input type="date" id="v-date" class="form-input">
+                    </div>
                 </div>
-                <select id="log-status" class="form-input font-bold uppercase text-[10px]">
-                    <option>On Duty (Driving)</option>
-                    <option>On Duty (Not Driving)</option>
-                    <option>Off Duty</option>
-                    <option>Sleeper Berth</option>
-                </select>
-            </div>
-            <button onclick="window.saveDriverLog()" class="w-full mt-10 bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Commit Log</button>
-            <button onclick="window.closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase tracking-widest">Discard Entry</button>
-        </div>
-    </div>
-
-    <!-- MODAL: CALENDAR TASK -->
-    <div id="event-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl">
-            <h3 class="text-2xl font-black mb-10 uppercase italic tracking-tighter">Edit Fleet Task</h3>
-            <div class="space-y-5">
-                <input type="text" id="ev-title" class="form-input" placeholder="Work detail...">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="ev-truck" class="form-input text-blue-400 font-black uppercase" placeholder="Truck ID">
-                    <input type="date" id="ev-date" class="form-input">
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-500 ml-2 mb-1 block">AI Details</label>
+                    <input type="text" id="v-details" class="form-input text-xs" placeholder="Gallons, Room #, etc.">
                 </div>
-                <select id="ev-status" class="form-input font-bold uppercase text-[10px]">
-                    <option>Pending</option><option>Active</option><option>Completed</option>
-                </select>
             </div>
-            <div class="flex gap-4 mt-10">
-                <button id="modal-del-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Delete</button>
-                <button id="modal-save-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update</button>
-            </div>
-            <button onclick="window.closeModal()" class="w-full mt-6 text-slate-600 text-[10px] font-black uppercase">Cancel</button>
+            <button onclick="window.commitAuditLog()" class="w-full mt-10 bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20">Commit to Ledger</button>
+            <button onclick="window.closeModal()" class="w-full mt-4 text-slate-600 text-[10px] font-black uppercase">Cancel</button>
         </div>
     </div>
 
