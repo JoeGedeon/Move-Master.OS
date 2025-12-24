@@ -1,5 +1,4 @@
-/* --- THE PHYSICAL INTEGRITY LAYER --- */
-
+/* --- UI TOKENS --- */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
@@ -11,7 +10,6 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
-/* LAYOUT LOCK: Prevent the whole page from dragging on mobile */
 body, html {
     margin: 0; padding: 0;
     height: 100vh; width: 100vw;
@@ -31,44 +29,56 @@ body, html {
 .sidebar-brand { padding: 32px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
 .sidebar-nav {
     flex: 1; 
-    overflow-y: auto !important; /* ALLOWS TOOLBAR TO SCROLL UP/DOWN */
+    overflow-y: auto !important; /* FORCES SIDEBAR BUTTONS TO SCROLL */
     padding: 10px 0;
 }
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
 .sidebar-footer { padding: 24px; border-top: 1px solid var(--border); flex-shrink: 0; background: rgba(0,0,0,0.2); }
 
-/* 2. VIEWPORT (THE SCROLL FIX) */
+/* 2. VIEWPORT (THE CONTENT SCROLL FIX) */
 #viewport { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #main-header { height: 80px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--border); background: rgba(17, 24, 39, 0.4); backdrop-filter: blur(20px); flex-shrink: 0; }
-#content-scroller { flex: 1; position: relative; overflow: hidden; }
+#room-scroller { flex: 1; position: relative; overflow: hidden; }
 
 .tab-panel {
     display: none; height: 100%; width: 100%;
-    overflow-y: auto !important; /* ALLOWS DASHBOARD & PAGES TO SCROLL */
+    overflow-y: auto !important; /* FORCES DASHBOARD AND REGISTRIES TO SCROLL */
     padding-bottom: 150px;
 }
 .tab-panel.active { display: block !important; }
 
-/* 3. CALENDAR DIMENSIONS (The Void Fix) */
+/* 3. CALENDAR VOID FIX (PHYSICAL HEIGHT) */
 #dash-calendar {
-    min-height: 650px !important; /* Forces the room to exist physically */
+    min-height: 650px !important; /* Prevents 0-pixel collapse */
     background: rgba(0,0,0,0.1); border-radius: 24px; padding: 15px; border: 1px solid var(--border);
 }
 .full-cal-room { background: var(--card); border-radius: 3rem; padding: 30px; height: 100%; border: 1px solid var(--border); }
 
-/* UI ELEMENTS */
-.nav-btn { display: flex; align-items: center; gap: 14px; width: 90%; margin: 4px auto; padding: 14px 20px; border-radius: 12px; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; border: none; background: transparent; cursor: pointer; text-align: left; transition: 0.2s; }
+/* 4. SPREADSHEET ENGINE STYLE */
+.spreadsheet-box { background: var(--card); border: 1px solid var(--border); border-radius: 32px; overflow: hidden; margin-top: 24px; }
+.fleet-table { width: 100%; border-collapse: collapse; text-align: left; }
+.fleet-table th { padding: 20px 24px; font-size: 10px; color: #64748b; text-transform: uppercase; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
+.fleet-table td { padding: 20px 24px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.fleet-table tr:hover td { background: rgba(255,255,255,0.03); color: var(--blue); cursor: pointer; }
+
+/* ELEMENTS */
+.nav-btn { display: flex; align-items: center; gap: 14px; width: 90%; margin: 4px auto; padding: 14px 20px; border-radius: 16px; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; border: none; background: transparent; cursor: pointer; text-align: left; }
 .nav-btn.active { color: white !important; background: var(--blue) !important; box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-.balance-card, .stat-card { cursor: pointer; transition: 0.3s; padding: 48px; border-radius: 40px; }
+.balance-card, .stat-card { cursor: pointer; transition: 0.3s; padding: 50px; border-radius: 50px; }
 .balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); }
 .stat-card { background: var(--card); border: 1px solid var(--border); text-align: center; }
 
+.calendar-card { background: var(--card); border: 1px solid var(--border); padding: 30px; border-radius: 50px; }
+.ledger-box { background: var(--card); border: 1px solid var(--border); border-radius: 50px; overflow: hidden; }
+
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 2000; display: flex; align-items: center; justify-content: center; }
-.modal-box { background: var(--card); border: 1px solid var(--border); padding: 40px; border-radius: 40px; width: 440px; }
+.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 40px; padding: 40px; }
 .form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 16px; border-radius: 12px; color: white; margin-bottom: 12px; }
 .save-btn { width: 100%; background: var(--blue); color: white; padding: 20px; border-radius: 20px; font-weight: 900; border: none; cursor: pointer; }
 
 .hidden { display: none !important; }
+.pulse { display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; margin-right: 6px; animation: p-anim 2s infinite; }
+@keyframes p-anim { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
