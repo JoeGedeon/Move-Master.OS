@@ -1,106 +1,100 @@
-/* --- DARK COMMAND CENTER CSS --- */
+/* --- PREMIUM COMMAND CENTER CSS --- */
 
 :root {
-    --primary-blue: #3b82f6;
+    --primary: #3b82f6;
     --dark-bg: #0b0f1a;
-    --card-bg: #111827;
+    --sidebar-bg: #111827;
 }
 
-/* Custom Background */
-.bg-radial-gradient {
-    background: radial-gradient(circle at 50% 50%, #111827 0%, #0b0f1a 100%);
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--dark-bg);
 }
 
-/* Sidebar Styling */
+body { 
+    font-family: 'Plus Jakarta Sans', sans-serif; 
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Force Sidebar Persistence */
 .nav-btn-sidebar {
     display: flex;
     align-items: center;
     gap: 16px;
     width: 100%;
-    padding: 18px 20px;
-    border-radius: 18px;
-    font-size: 13px;
+    padding: 18px 22px;
+    border-radius: 20px;
+    font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     color: #4b5563;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
 }
 
 .nav-btn-sidebar:hover {
     color: white;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .nav-btn-sidebar.active {
     color: white;
-    background: var(--primary-blue);
-    box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.3);
+    background: var(--primary);
+    box-shadow: 0 10px 30px -5px rgba(59, 130, 246, 0.5);
 }
 
-/* Mobile Nav Bar */
-.nav-btn-mob {
-    color: #4b5563;
-    padding: 12px;
-    border-radius: 16px;
-    transition: all 0.3s;
-}
+/* Calendar (Professional Customization) */
+.fc { background: transparent; color: white; border: none !important; font-family: inherit; }
+.fc-header-toolbar { padding: 10px 0 !important; }
+.fc-toolbar-title { font-weight: 900 !important; text-transform: uppercase; font-size: 1.1rem !important; color: var(--primary); letter-spacing: 0.1em; }
+.fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255, 255, 255, 0.03) !important; }
+.fc-day-today { background: rgba(59, 130, 246, 0.1) !important; }
+.fc-button-primary { background: #0b0f1a !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; font-weight: 800 !important; font-size: 9px !important; text-transform: uppercase !important; border-radius: 12px !important; }
+.fc-event { background: var(--primary) !important; border: none !important; border-radius: 10px !important; padding: 6px 14px !important; font-weight: 900 !important; font-size: 10px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
 
-.nav-btn-mob.active {
-    color: var(--primary-blue);
-    background: rgba(59, 130, 246, 0.1);
-}
+/* Custom Component Containers */
+.tab-content { display: none; height: 100%; width: 100%; overflow: hidden; }
+.tab-content.active { display: block; }
+#calendar-tab.active { display: flex; }
 
-/* Input Fields */
 .form-input {
     width: 100%;
     background: #0b0f1a;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 20px;
+    padding: 18px;
     color: white;
     font-weight: 700;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.3s;
 }
+.form-input:focus { border-color: var(--primary); }
 
-.form-input:focus {
-    border-color: var(--primary-blue);
-}
-
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar { width: 5px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
-
-/* Loader */
 .loader-circle {
-    border: 3px solid rgba(255, 255, 255, 0.05);
-    border-top: 3px solid var(--primary-blue);
+    border: 4px solid rgba(255, 255, 255, 0.05);
+    border-top: 4px solid var(--primary);
     border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    animation: spin 0.8s linear infinite;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Animations */
-.animate-in {
-    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+/* Scrollbars */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Table Item Interaction */
-.audit-row {
-    transition: all 0.2s;
-}
-
-.audit-row:hover {
+/* Dashboard Card Animations */
+#logs-container > div:hover {
     background: rgba(255, 255, 255, 0.02);
+    transform: translateX(4px);
 }
+
+.animate-in { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
