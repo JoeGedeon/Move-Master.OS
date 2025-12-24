@@ -1,26 +1,25 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-// --- SYSTEM CONSTANTS & STATE ---
-const apiKey = ""; // Terminal Injected Key
+// --- SYSTEM STATE ---
 let auth, db, user, appId, dashCal, fullCal;
-let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [], inventory: [] };
+let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [], clients: [] };
 
-// --- 1. PROACTIVE NAVIGATION ---
+// --- 1. NAVIGATION & AUTO-RENDER ---
 window.tab = (id) => {
     const panels = document.querySelectorAll('.tab-panel');
     panels.forEach(p => p.classList.remove('active'));
     
-    const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
+    const target = document.getElementById(`${id}-tab`);
     if (target) {
         target.classList.add('active');
-        // FORCE RENDER: Essential for FullCalendar to appear in hidden containers
         if(id === 'dashboard' && dashCal) { setTimeout(() => { dashCal.render(); dashCal.updateSize(); }, 50); }
-        if(id === 'calendar' && fullCal) { setTimeout(() => { fullCal.render(); fullCal.updateSize(); }, 50); }
         
-        // INTELLIGENCE TRIGGER: Re-calculate metrics on every tab swap
-        runSystemDiagnostics();
+        // Intelligence Triggers
+        if(id === 'dashboard') renderDashboard();
+        if(id === 'trucks') renderTrucks();
+        if(id === 'driverlog') renderLogs();
     }
     
     document.querySelectorAll('.nav-btn').forEach(b => {
@@ -28,203 +27,128 @@ window.tab = (id) => {
     });
 
     const titleEl = document.getElementById('tab-title');
-    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_OPERATIONS_MODE`;
+    if (titleEl) titleEl.innerText = `${id.toUpperCase()}_MISSION_CONTROL`;
     lucide.createIcons();
 };
 
 window.closeModal = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
-
-// --- 2. AI AUDITOR: VISION OCR ENGINE ---
-window.handleSmartIntake = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const loader = document.getElementById('scan-loading');
-    if (loader) loader.classList.remove('hidden');
-
-    try {
-        const base64 = await new Promise(res => {
-            const r = new FileReader(); r.readAsDataURL(file);
-            r.onload = () => res(r.result.split(',')[1]);
-        });
-        
-        const prompt = `Act as an elite logistics auditor. Analyze this receipt/document. 
-        Identify: Merchant Name, Date (YYYY-MM-DD), Total Amount, Truck ID (if present), and Category (Diesel, Repair, Hotel, Toll, or Inflow/Funding). 
-        CRITICAL: If it's a repair, list items like "Tires" or "Oil".
-        Return ONLY valid JSON: {"vendor":string, "amount":number, "date":"string", "category":string, "truckId":string, "parts":string[]}`;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                contents: [{role: "user", parts: [{text: prompt}, {inlineData: {mimeType: "image/png", data: base64}}]}],
-                generationConfig: { responseMimeType: "application/json" }
-            })
-        });
-
-        const result = await response.json();
-        const aiData = JSON.parse(result.candidates[0].content.parts[0].text);
-
-        // Map AI Data to Audit Modal
-        document.getElementById('v-vendor').value = aiData.vendor || '';
-        document.getElementById('v-amount').value = aiData.amount || 0;
-        document.getElementById('v-cat').value = aiData.category || 'Diesel';
-        document.getElementById('v-truck').value = aiData.truckId || '';
-        if(document.getElementById('v-items')) document.getElementById('v-items').value = aiData.parts?.join(', ') || '';
-        
-        document.getElementById('audit-modal').classList.remove('hidden');
-    } catch (err) {
-        console.error("AI Error:", err);
-        document.getElementById('audit-modal').classList.remove('hidden'); // Fallback to manual
-    } finally {
-        if (loader) loader.classList.add('hidden');
-    }
+window.openTruckModal = () => {
+    // Ensure "In Transit" is an option in your HTML select if possible, 
+    // otherwise the JS will handle the data entry.
+    document.getElementById('truck-modal').classList.remove('hidden');
 };
 
-window.commitAudit = async () => {
-    const val = {
-        amount: parseFloat(document.getElementById('v-amount').value) || 0,
-        vendor: document.getElementById('v-vendor').value,
-        category: document.getElementById('v-cat').value,
-        truckId: document.getElementById('v-truck').value.toUpperCase(),
-        date: document.getElementById('v-date')?.value || new Date().toISOString().split('T')[0],
-        timestamp: Date.now()
-    };
+// --- 2. TRUCK INTELLIGENCE ENGINE ---
 
-    // INSTANT FEEDBACK
-    fleetData.receipts.push({ ...val, id: "temp_" + Date.now() });
-    runSystemDiagnostics();
-    window.closeModal();
-    window.tab('dashboard');
+function renderTrucks() {
+    const grid = document.getElementById('trucks-grid');
+    if (!grid) return;
 
-    // PERSISTENCE (Rule 3)
-    if (user && db) {
-        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts'), { ...val, timestamp: Timestamp.now() });
-    }
-};
+    // Calculate Fleet Vitals
+    const total = fleetData.trucks.length;
+    const active = fleetData.trucks.filter(t => t.status === 'Active').length;
+    const transit = fleetData.trucks.filter(t => t.status === 'In Transit').length;
+    const shop = fleetData.trucks.filter(t => t.status === 'In Shop' || t.status === 'Down').length;
 
-// --- 3. SYSTEM DIAGNOSTICS (THE "SMART" PART) ---
-function runSystemDiagnostics() {
-    renderDashboard();
-    renderLogs();
-    renderTrucks();
-    renderClients();
-    syncCals();
-}
+    // Create Intelligence Header
+    const summaryHtml = `
+        <div class="col-span-full mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div class="bg-white/5 border border-white/5 p-6 rounded-3xl text-center">
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Fleet</p>
+                <h4 class="text-3xl font-black text-white mt-1">${total}</h4>
+            </div>
+            <div class="bg-green-500/5 border border-green-500/10 p-6 rounded-3xl text-center">
+                <p class="text-[9px] font-black text-green-500 uppercase tracking-widest text-opacity-70">Active Units</p>
+                <h4 class="text-3xl font-black text-green-500 mt-1">${active}</h4>
+            </div>
+            <div class="bg-blue-500/5 border border-blue-500/10 p-6 rounded-3xl text-center">
+                <p class="text-[9px] font-black text-blue-500 uppercase tracking-widest text-opacity-70">In Transit</p>
+                <h4 class="text-3xl font-black text-blue-500 mt-1">${transit}</h4>
+            </div>
+            <div class="bg-red-500/5 border border-red-500/10 p-6 rounded-3xl text-center">
+                <p class="text-[9px] font-black text-red-500 uppercase tracking-widest text-opacity-70">In Maintenance</p>
+                <h4 class="text-3xl font-black text-red-500 mt-1">${shop}</h4>
+            </div>
+        </div>
+    `;
 
-function renderDashboard() {
-    let balance = 0; let burn = 0;
-    const stream = document.getElementById('ledger-stream');
-    if (!stream) return;
-    stream.innerHTML = '';
+    // Render Grid Items
+    const truckCardsHtml = fleetData.trucks.map(t => {
+        let statusColor = "text-green-500 bg-green-500/10";
+        if(t.status === 'In Transit') statusColor = "text-blue-400 bg-blue-500/10";
+        if(t.status === 'In Shop' || t.status === 'Down') statusColor = "text-red-500 bg-red-500/10";
 
-    // Calculate Cashflow
-    fleetData.receipts.sort((a,b) => b.date?.localeCompare(a.date)).forEach(r => {
-        const isIn = r.category === 'Inflow' || r.category === 'Funding';
-        balance += isIn ? r.amount : -r.amount;
-        if(!isIn) burn += r.amount;
-
-        const row = document.createElement('div');
-        row.className = "p-8 flex justify-between items-center group hover:bg-white/[0.01]";
-        row.innerHTML = `
-            <div class="flex items-center gap-6">
-                <div class="w-10 h-10 rounded-full ${isIn ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'} flex items-center justify-center">
-                    <i data-lucide="${isIn ? 'trending-up' : 'trending-down'}" size="16"></i>
+        return `
+            <div class="truck-card group animate-in zoom-in-95 duration-300">
+                <div class="flex justify-between items-start mb-6">
+                    <div class="p-3 bg-white/5 rounded-2xl group-hover:bg-blue-600 transition-all duration-500">
+                        <i data-lucide="truck" size="20"></i>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${statusColor}">
+                        ${t.status}
+                    </span>
                 </div>
-                <div>
-                    <h4 class="font-black text-xl text-white">$${r.amount.toFixed(2)}</h4>
-                    <p class="text-[9px] uppercase font-black text-slate-500 tracking-tighter">${r.vendor} • ${r.truckId || 'FLT'}</p>
+                <h4 class="text-2xl font-black italic tracking-tighter text-white uppercase">${t.truckId}</h4>
+                <p class="text-[10px] font-bold text-slate-500 uppercase mt-1">${t.make || 'Generic Unit'} • ${Number(t.miles).toLocaleString()} mi</p>
+                
+                <div class="mt-8 pt-6 border-t border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="text-[9px] font-black text-slate-500 uppercase">Operational Status</p>
+                        <p class="text-xs font-bold text-slate-300">${t.status === 'Active' ? 'Verified Ready' : (t.status === 'In Transit' ? 'On Assignment' : 'Service Required')}</p>
+                    </div>
+                    <button onclick="window.delTruck('${t.id}')" class="p-2 text-slate-800 hover:text-red-500 transition-colors">
+                        <i data-lucide="trash-2" size="14"></i>
+                    </button>
                 </div>
             </div>
-            <p class="text-[10px] font-mono text-slate-600">${r.date}</p>
         `;
-        stream.appendChild(row);
-    });
+    }).join('');
 
-    document.getElementById('total-display').innerText = `$${balance.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    if(document.getElementById('burn-display')) document.getElementById('burn-display').innerText = `$${burn.toLocaleString()}`;
+    grid.innerHTML = summaryHtml + truckCardsHtml;
     lucide.createIcons();
 }
 
-function renderLogs() {
-    const rows = document.getElementById('log-rows');
-    if (!rows) return;
-    rows.innerHTML = '';
+window.saveTruckUnit = async () => {
+    const val = {
+        truckId: document.getElementById('t-id').value.toUpperCase(),
+        make: document.getElementById('t-make').value,
+        miles: document.getElementById('t-miles').value,
+        status: document.getElementById('t-status').value, // Matches the new status options
+        timestamp: Date.now()
+    };
+    if (!val.truckId) return;
 
-    fleetData.driverLogs.forEach(l => {
-        // INTELLIGENCE: Auto-match expenses to this specific log (Accountability)
-        const dayExp = fleetData.receipts
-            .filter(r => r.truckId === l.truckId && r.date === l.date && r.category !== 'Inflow')
-            .reduce((s, r) => s + r.amount, 0);
-        
-        const dayFund = fleetData.receipts
-            .filter(r => r.truckId === l.truckId && r.date === l.date && r.category === 'Inflow')
-            .reduce((s, r) => s + r.amount, 0);
+    // Instant local push
+    fleetData.trucks.push({ ...val, id: "cl_" + Date.now() });
+    renderTrucks();
+    window.closeModal();
 
-        const net = dayFund - dayExp;
+    if (user && db) {
+        try { await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), { ...val, timestamp: Timestamp.now() }); } catch(e){}
+    }
+};
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="p-8 text-xs font-mono text-slate-400">${l.date}</td>
-            <td class="p-8 text-xs font-black uppercase text-white">${l.driver}</td>
-            <td class="p-8 text-xs font-bold text-blue-500">${l.truckId}</td>
-            <td class="p-8 text-xs text-red-400">$${dayExp.toFixed(2)}</td>
-            <td class="p-8 text-xs ${net < 0 ? 'text-red-400' : 'text-green-400'} font-black">$${net.toFixed(2)}</td>
-            <td class="p-8 text-right"><button onclick="window.delLog('${l.id}')" class="text-slate-800 hover:text-red-500"><i data-lucide="trash-2" size="14"></i></button></td>
-        `;
-        rows.appendChild(tr);
-    });
-    lucide.createIcons();
+// --- 3. DASHBOARD & MISC ---
+function renderDashboard() {
+    let bal = 0;
+    fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
+    document.getElementById('total-display').innerText = `$${bal.toLocaleString()}`;
 }
 
-// --- 4. DATA COMMITS (HYBRID) ---
-window.saveDriverLog = async () => {
-    const val = { driver: document.getElementById('l-driver').value, truckId: document.getElementById('l-truck').value.toUpperCase(), date: document.getElementById('l-date').value, timestamp: Date.now() };
-    if(!val.driver) return;
-    fleetData.driverLogs.push({ ...val, id: "local_" + Date.now() });
-    runSystemDiagnostics(); window.closeModal();
-    if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs'), { ...val, timestamp: Timestamp.now() });
+window.delTruck = async (id) => {
+    if(confirm("Purge unit record?")) {
+        fleetData.trucks = fleetData.trucks.filter(t => t.id !== id);
+        renderTrucks();
+        // Cloud delete would happen here
+    }
 };
 
-window.saveClient = async () => {
-    const val = { name: document.getElementById('c-name').value, contact: document.getElementById('c-contact').value, location: document.getElementById('c-location').value, rate: document.getElementById('c-rate').value, timestamp: Date.now() };
-    if(!val.name) return;
-    fleetData.clients.push({ ...val, id: "cl_" + Date.now() });
-    runSystemDiagnostics(); window.closeModal();
-    if (user && db) await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'clients'), { ...val, timestamp: Timestamp.now() });
-};
-
-// --- 5. INITIALIZATION ---
+// --- 4. BOOT SEQUENCE ---
 window.addEventListener('load', () => {
-    initCalendars();
-    connectTerminal();
+    lucide.createIcons();
     setInterval(() => {
-        const el = document.getElementById('live-clock');
-        if(el) el.innerText = new Date().toLocaleTimeString();
+        const cl = document.getElementById('live-clock');
+        if(cl) cl.innerText = new Date().toLocaleTimeString();
     }, 1000);
 });
-
-function initCalendars() {
-    const cfg = { initialView: 'dayGridMonth', height: '100%', dateClick: (i) => { document.getElementById('ev-date').value = i.dateStr; document.getElementById('event-modal').classList.remove('hidden'); } };
-    const dEl = document.getElementById('dash-calendar');
-    const fEl = document.getElementById('full-calendar-render');
-    if (dEl) { dashCal = new FullCalendar.Calendar(dEl, cfg); dashCal.render(); }
-    if (fEl) { fullCal = new FullCalendar.Calendar(fEl, cfg); fullCal.render(); }
-}
-
-function syncCals() { [dashCal, fullCal].forEach(c => { if(c){ c.removeAllEvents(); fleetData.jobs.forEach(j => c.addEvent({ title: j.title, start: j.date, color: '#3b82f6' })); } }); }
-
-async function connectTerminal() {
-    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-    if(!configStr) return;
-    const app = initializeApp(JSON.parse(configStr));
-    auth = getAuth(app); db = getFirestore(app);
-    appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-final-v30';
-    onAuthStateChanged(auth, u => { if(u){ user = u; document.getElementById('user-id-tag').innerText = `ID_${u.uid.slice(0,6)}`; startListeners(); } else { signInAnonymously(auth); }});
-}
-
-function startListeners() {
-    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), s => { fleetData.receipts = s.docs.map(d => ({ id: d.id, ...d.data() })); runSystemDiagnostics(); });
-    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'driverLogs')), s => { fleetData.driverLogs = s.docs.map(d => ({ id: d.id, ...d.data() })); runSystemDiagnostics(); });
-}
 
