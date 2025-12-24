@@ -3,188 +3,351 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fleet Command Master</title>
+    <title>Fleet Hub | Command Center</title>
     
-    <!-- CSS & UI Frameworks -->
+    <!-- UI Essentials -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <!-- Professional Calendar Engine -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-[#0b0f1a] text-white overflow-hidden">
 
-    <!-- The Master Layout -->
-    <div id="app-root" class="flex w-screen h-screen">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         
-        <!-- PERSISTENT SIDEBAR (The 9-Button Toolbar) -->
-        <aside id="main-sidebar" class="flex-shrink-0 w-20 lg:w-64 bg-[#111827] border-r border-white/5 flex flex-col h-full shadow-2xl z-50">
+        :root {
+            --primary: #3b82f6;
+            --dark-bg: #0b0f1a;
+            --sidebar-bg: #111827;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--dark-bg);
+            color: white;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* Sidebar Persistence */
+        #sidebar {
+            width: 80px; /* Mobile width */
+            transition: width 0.3s ease;
+        }
+        @media (min-width: 1024px) {
+            #sidebar { width: 280px; }
+        }
+
+        .nav-btn-sidebar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            width: 100%;
+            padding: 18px;
+            border-radius: 16px;
+            color: #64748b;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        @media (min-width: 1024px) {
+            .nav-btn-sidebar { justify-content: flex-start; padding: 16px 24px; }
+        }
+
+        .nav-btn-sidebar:hover { color: white; background: rgba(255, 255, 255, 0.05); }
+        .nav-btn-sidebar.active {
+            color: white;
+            background: var(--primary);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Calendar Styling */
+        .fc { background: transparent; color: white; border: none !important; font-family: inherit; font-size: 13px; }
+        .fc-toolbar-title { font-weight: 900 !important; text-transform: uppercase; color: var(--primary); font-size: 1.1rem !important; }
+        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255, 255, 255, 0.05) !important; }
+        .fc-button-primary { background: #1e293b !important; border: 1px solid rgba(255,255,255,0.1) !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 9px !important; }
+        .fc-event { background: var(--primary) !important; border: none !important; border-radius: 6px !important; padding: 4px 8px !important; cursor: pointer; }
+
+        /* Scrollbars */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        /* Tabs */
+        .tab-content { display: none; height: 100%; width: 100%; }
+        .tab-content.active { display: block; }
+        #calendar-tab.active { display: flex; }
+
+        .form-input {
+            width: 100%; background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 14px; color: white; font-weight: 600; outline: none;
+        }
+        .form-input:focus { border-color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div class="flex h-screen w-full overflow-hidden">
+        
+        <!-- SIDEBAR: The 9-Button Toolbar -->
+        <aside id="sidebar" class="flex-shrink-0 bg-[#111827] border-r border-white/5 flex flex-col h-full z-50">
             <div class="p-6 flex items-center justify-center lg:justify-start gap-3">
-                <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20">
-                    <i data-lucide="shield-check" class="text-white"></i>
-                </div>
-                <span class="hidden lg:block text-lg font-black uppercase tracking-tighter">FleetHub</span>
+                <div class="bg-blue-600 p-2 rounded-xl"><i data-lucide="shield-check"></i></div>
+                <span class="hidden lg:block font-black text-xl tracking-tighter italic">FLEETPRO</span>
             </div>
             
-            <nav class="flex-1 px-2 lg:px-4 space-y-1 mt-6 overflow-y-auto custom-scrollbar">
+            <nav class="flex-1 px-2 lg:px-4 space-y-1 mt-4 overflow-y-auto custom-scrollbar">
                 <button onclick="setTab('calendar')" class="nav-btn-sidebar active" data-tab="calendar">
-                    <i data-lucide="calendar"></i> <span class="hidden lg:block">Calendar</span>
+                    <i data-lucide="calendar"></i><span class="hidden lg:block">Calendar</span>
                 </button>
                 <button onclick="setTab('dashboard')" class="nav-btn-sidebar" data-tab="dashboard">
-                    <i data-lucide="layout-grid"></i> <span class="hidden lg:block">Dashboard</span>
+                    <i data-lucide="layout-grid"></i><span class="hidden lg:block">Dashboard</span>
                 </button>
                 <button onclick="setTab('jobs')" class="nav-btn-sidebar" data-tab="jobs">
-                    <i data-lucide="briefcase"></i> <span class="hidden lg:block">Active Jobs</span>
+                    <i data-lucide="briefcase"></i><span class="hidden lg:block">Active Jobs</span>
                 </button>
                 <button onclick="setTab('scan')" class="nav-btn-sidebar" data-tab="scan">
-                    <i data-lucide="maximize"></i> <span class="hidden lg:block">AI Scanner</span>
+                    <i data-lucide="maximize"></i><span class="hidden lg:block">AI Scanner</span>
                 </button>
                 <button onclick="setTab('inventory')" class="nav-btn-sidebar" data-tab="inventory">
-                    <i data-lucide="package"></i> <span class="hidden lg:block">Inventory</span>
+                    <i data-lucide="package"></i><span class="hidden lg:block">Inventory</span>
                 </button>
                 <button onclick="setTab('trucks')" class="nav-btn-sidebar" data-tab="trucks">
-                    <i data-lucide="truck"></i> <span class="hidden lg:block">Truck Units</span>
+                    <i data-lucide="truck"></i><span class="hidden lg:block">Truck Units</span>
                 </button>
                 <button onclick="setTab('calc')" class="nav-btn-sidebar" data-tab="calc">
-                    <i data-lucide="calculator"></i> <span class="hidden lg:block">Estimator</span>
+                    <i data-lucide="calculator"></i><span class="hidden lg:block">Estimator</span>
                 </button>
                 <button onclick="setTab('ai')" class="nav-btn-sidebar" data-tab="ai">
-                    <i data-lucide="bot"></i> <span class="hidden lg:block">AI Auditor</span>
+                    <i data-lucide="bot"></i><span class="hidden lg:block">AI Auditor</span>
                 </button>
-                <button onclick="exportFullReport()" class="nav-btn-sidebar text-slate-500 hover:text-white mt-10">
-                    <i data-lucide="download"></i> <span class="hidden lg:block">Master Dump</span>
+                <button onclick="exportData()" class="nav-btn-sidebar" data-tab="reports">
+                    <i data-lucide="file-spreadsheet"></i><span class="hidden lg:block">Export</span>
                 </button>
             </nav>
-
-            <div class="p-4 border-t border-white/5 bg-[#0b0f1a]/50">
-                <div class="flex items-center justify-center lg:justify-start gap-3">
-                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">A</div>
-                    <div class="hidden lg:block truncate"><p id="user-id" class="text-[9px] font-mono text-blue-400">...</p></div>
-                </div>
-            </div>
         </aside>
 
-        <!-- CONTENT VIEWPORT -->
-        <main class="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-[#0b0f1a]">
+        <!-- MAIN VIEWPORT -->
+        <div class="flex-1 flex flex-col min-w-0 bg-[#0b0f1a] relative">
             
-            <!-- Global Header -->
-            <header class="flex-shrink-0 h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#111827]/80 backdrop-blur-md z-40">
+            <header class="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#111827]/50 backdrop-blur-md">
+                <h2 id="active-title" class="text-sm font-black uppercase tracking-widest text-blue-500">Fleet Calendar</h2>
                 <div class="flex items-center gap-4">
-                    <h2 id="active-title" class="text-sm font-black uppercase tracking-[0.2em] text-blue-500">Fleet Calendar</h2>
-                </div>
-                <div class="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
-                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block mr-2 animate-pulse"></span> Terminal Live
+                    <div class="px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-green-500/20">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Terminal Connected
+                    </div>
                 </div>
             </header>
 
-            <!-- Pages Area -->
-            <div id="tab-container" class="flex-1 overflow-hidden relative">
+            <main class="flex-1 overflow-hidden relative">
                 
-                <!-- 1. CALENDAR VIEW (THE DEFAULT FRONT WINDOW) -->
-                <section id="calendar-tab" class="tab-content active flex flex-row h-full">
-                    <div class="flex-1 p-4 lg:p-8 h-full">
-                        <div class="bg-[#111827] rounded-[2.5rem] border border-white/5 shadow-2xl p-6 h-full flex flex-col relative overflow-hidden">
-                            <div id="fleet-calendar" class="h-full w-full"></div>
+                <!-- 1. CALENDAR (FRONT WINDOW) -->
+                <section id="calendar-tab" class="tab-content active h-full flex flex-row">
+                    <div class="flex-1 p-4 lg:p-8 h-full flex flex-col">
+                        <div class="bg-[#111827] rounded-[2.5rem] border border-white/5 p-6 h-full shadow-2xl flex flex-col overflow-hidden">
+                            <div id="fleet-calendar" class="flex-1"></div>
                         </div>
                     </div>
-                    <!-- Today's Agenda Side Panel -->
-                    <aside id="agenda-panel" class="hidden xl:flex w-80 bg-[#111827] border-l border-white/5 flex-col p-8 overflow-y-auto custom-scrollbar">
-                        <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-6">Today's Dispatch</h3>
-                        <div id="agenda-list" class="space-y-4">
-                            <p class="text-[10px] text-slate-600 italic">No events scheduled.</p>
-                        </div>
+                    <!-- Agenda Side Panel -->
+                    <aside class="hidden xl:flex w-80 bg-[#111827] border-l border-white/5 flex-col p-8 overflow-y-auto custom-scrollbar">
+                        <h3 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-6">Today's Agenda</h3>
+                        <div id="agenda-list" class="space-y-4"></div>
                     </aside>
                 </section>
 
-                <!-- 2. DASHBOARD VIEW (SCROLLABLE) -->
-                <section id="dashboard-tab" class="tab-content h-full p-6 lg:p-10 overflow-y-auto custom-scrollbar space-y-8">
+                <!-- 2. DASHBOARD (SCROLLABLE) -->
+                <section id="dashboard-tab" class="tab-content h-full p-8 overflow-y-auto custom-scrollbar space-y-8">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 bg-gradient-to-br from-blue-700 to-indigo-950 rounded-[3rem] p-10 relative overflow-hidden shadow-2xl border border-white/5">
-                            <p class="text-blue-100/60 text-xs font-black uppercase tracking-widest mb-1">Total Revenue Balance</p>
-                            <h2 id="total-display" class="text-6xl font-black tracking-tighter mb-4">$0.00</h2>
-                            <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/5"></i>
+                        <div class="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-[3rem] p-10 relative overflow-hidden shadow-2xl">
+                            <p class="text-blue-100/60 text-[10px] font-black uppercase tracking-widest mb-1">Global Revenue</p>
+                            <h2 id="total-display" class="text-6xl font-black tracking-tighter">$0.00</h2>
+                            <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-48 h-48 text-white/10"></i>
                         </div>
-                        <div class="bg-[#111827] border border-white/5 rounded-[3rem] p-10 flex flex-col justify-center shadow-xl">
-                            <p class="text-slate-500 text-[10px] font-black uppercase mb-4">Unit Health</p>
+                        <div class="bg-[#111827] border border-white/5 rounded-[3rem] p-10 flex flex-col justify-center shadow-xl text-center">
+                            <p class="text-slate-500 text-[10px] font-black uppercase mb-2">Fleet Units</p>
                             <h3 id="truck-count" class="text-4xl font-black">0</h3>
                         </div>
                     </div>
-                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl pb-10">
-                        <div class="p-8 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                            <span class="text-xs font-black uppercase tracking-widest text-slate-400 font-mono">Ledger_Stream_v4</span>
-                        </div>
+                    <div class="bg-[#111827] rounded-[3rem] border border-white/5 overflow-hidden shadow-2xl">
                         <div id="logs-container" class="divide-y divide-white/5"></div>
                     </div>
                 </section>
 
-                <!-- 3. SCANNER VIEW -->
+                <!-- 4. SCANNER -->
                 <section id="scan-tab" class="tab-content h-full flex flex-col items-center justify-center p-8">
-                    <div id="scan-frame" class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[3rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-12 relative shadow-2xl">
+                    <div class="w-full max-w-md aspect-[3/4] bg-[#111827] rounded-[3.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-12 relative shadow-2xl">
                         <div id="scan-init" class="text-center">
-                            <div class="w-20 h-20 bg-blue-600/10 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner border border-blue-600/20">
+                            <div class="w-20 h-20 bg-blue-600/10 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
                                 <i data-lucide="scan" size="48"></i>
                             </div>
-                            <h4 class="text-2xl font-black uppercase tracking-tight">AI Intake</h4>
-                            <p class="text-slate-500 text-sm mt-4 px-6 leading-relaxed">Decrypting physical receipts into terminal data.</p>
+                            <h4 class="text-2xl font-black uppercase">AI Intake</h4>
                         </div>
                         <div id="scan-loading" class="hidden absolute inset-0 bg-[#0b0f1a]/95 flex flex-col items-center justify-center z-10">
-                            <div class="loader-circle mb-4"></div>
-                            <p class="text-xs font-black uppercase tracking-widest text-blue-500">Processing Data...</p>
+                            <p class="text-xs font-black uppercase text-blue-500 animate-pulse">Scanning...</p>
                         </div>
                     </div>
                     <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" onchange="processOCR(event)">
-                    <button onclick="document.getElementById('camera-input').click()" class="mt-8 w-full max-w-md bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Launch Scanner</button>
+                    <button onclick="document.getElementById('camera-input').click()" class="mt-8 w-full max-w-md bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Launch Scanner</button>
                 </section>
 
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
 
-    <!-- MODAL: GOOGLE CALENDAR ENTRY -->
+    <!-- MODAL: CALENDAR ENTRY -->
     <div id="event-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-10 shadow-2xl animate-in">
-            <div class="flex justify-between items-center mb-8">
-                <h3 class="text-2xl font-black tracking-tight uppercase italic">Schedule Job</h3>
-                <button onclick="closeEventModal()" class="text-slate-500 hover:text-white"><i data-lucide="x"></i></button>
-            </div>
+        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3rem] p-10 shadow-2xl">
+            <h3 class="text-2xl font-black mb-8 uppercase">Schedule Job</h3>
             <div class="space-y-4">
-                <input type="text" id="ev-title" class="form-input" placeholder="Work Order Detail">
+                <input type="text" id="ev-title" class="form-input" placeholder="Work Title">
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="ev-truck" class="form-input text-blue-400 font-bold" placeholder="Truck ID">
+                    <input type="text" id="ev-truck" class="form-input" placeholder="Truck ID">
                     <input type="date" id="ev-date" class="form-input">
                 </div>
-                <select id="ev-status" class="form-input font-bold">
+                <select id="ev-status" class="form-input">
                     <option>Pending</option><option>Active</option><option>Completed</option>
                 </select>
             </div>
-            <div class="flex gap-4 mt-8">
+            <div class="flex gap-4 mt-10">
                 <button id="del-event-btn" class="hidden flex-1 bg-red-500/10 text-red-500 py-5 rounded-3xl font-black uppercase text-xs">Delete</button>
-                <button id="save-event-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update Fleet</button>
+                <button id="save-event-btn" class="flex-[2] bg-blue-600 py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Update</button>
             </div>
+            <button onclick="closeEventModal()" class="w-full mt-4 text-slate-500 text-[10px] font-bold uppercase">Cancel</button>
         </div>
     </div>
 
-    <!-- MODAL: AUDIT VERIFY -->
-    <div id="audit-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-        <div class="bg-[#111827] border border-white/10 w-full max-w-md rounded-[3.5rem] p-10 shadow-2xl animate-in">
-            <h3 class="text-2xl font-black mb-10 uppercase italic">Confirm Transaction</h3>
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="v-truck" class="form-input text-blue-400 font-black" placeholder="Truck ID">
-                    <input type="number" id="v-amount" class="form-input font-black text-xl" placeholder="0.00">
-                </div>
-                <select id="v-cat" class="form-input font-black uppercase text-xs tracking-widest">
-                    <option>Fuel</option><option>Income</option><option>Repair</option><option>Toll</option>
-                </select>
-                <input type="text" id="v-loc" class="form-input" placeholder="Resource Location">
-            </div>
-            <button id="save-audit-btn" class="w-full mt-10 bg-blue-600 py-6 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl">Commit Ledger</button>
-        </div>
-    </div>
+    <!-- Firebase & Logic (Bundled) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-    <script src="script.js" type="module"></script>
+        // CONFIG
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-hub-v6';
+        const apiKey = ""; 
+
+        let user = null, receipts = [], jobs = [], calendar = null, selectedId = null;
+
+        // AUTH
+        onAuthStateChanged(auth, async (u) => {
+            if (!u) { await signInAnonymously(auth); } else {
+                user = u;
+                document.getElementById('user-id').innerText = user.uid.slice(0, 12);
+                
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), (snap) => {
+                    receipts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderDashboard();
+                });
+                
+                onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), (snap) => {
+                    jobs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    syncCalendar();
+                    renderAgenda();
+                });
+            }
+        });
+
+        // CALENDAR
+        function initCalendar() {
+            const el = document.getElementById('fleet-calendar');
+            calendar = new FullCalendar.Calendar(el, {
+                initialView: 'dayGridMonth',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+                height: '100%',
+                dateClick: (info) => openEventModal(null, info.dateStr),
+                eventClick: (info) => openEventModal(info.event.id)
+            });
+            calendar.render();
+        }
+
+        function syncCalendar() {
+            if (!calendar) return;
+            calendar.removeAllEvents();
+            jobs.forEach(j => {
+                calendar.addEvent({ id: j.id, title: `${j.truckId || 'GEN'}: ${j.title}`, start: j.date, color: j.status === 'Completed' ? '#10b981' : '#3b82f6' });
+            });
+        }
+
+        // TABS
+        window.setTab = (id) => {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(id + '-tab').classList.add('active');
+            document.querySelectorAll('.nav-btn-sidebar').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+            document.getElementById('active-title').innerText = id.toUpperCase();
+            if (id === 'calendar' && calendar) { setTimeout(() => calendar.updateSize(), 50); }
+            lucide.createIcons();
+        };
+
+        // DASHBOARD
+        function renderDashboard() {
+            const container = document.getElementById('logs-container');
+            let bal = 0; container.innerHTML = '';
+            receipts.forEach(r => {
+                const isInc = r.category?.toLowerCase().includes('income');
+                bal = isInc ? bal + r.amount : bal - r.amount;
+                const row = document.createElement('div');
+                row.className = "p-8 flex justify-between items-center";
+                row.innerHTML = `<h4 class="font-black">$${r.amount.toFixed(2)} <span class="text-[10px] ml-2 text-slate-500 uppercase">${r.truckId}</span></h4><button onclick="delRec('${r.id}')"><i data-lucide="trash-2" size="16"></i></button>`;
+                container.appendChild(row);
+            });
+            document.getElementById('total-display').innerText = `$${bal.toLocaleString()}`;
+            document.getElementById('truck-count').innerText = new Set(receipts.map(r => r.truckId)).size;
+            lucide.createIcons();
+        }
+
+        function renderAgenda() {
+            const container = document.getElementById('agenda-list');
+            const today = new Date().toISOString().split('T')[0];
+            const list = jobs.filter(j => j.date === today);
+            container.innerHTML = list.length ? '' : '<p class="text-[10px] text-slate-600">Empty.</p>';
+            list.forEach(j => {
+                const div = document.createElement('div');
+                div.className = "p-4 bg-white/[0.02] border border-white/5 rounded-xl";
+                div.innerHTML = `<p class="text-[10px] font-black uppercase text-blue-500">${j.truckId}</p><p class="text-xs font-bold">${j.title}</p>`;
+                container.appendChild(div);
+            });
+        }
+
+        // MODALS
+        function openEventModal(id = null, date = null) {
+            selectedId = id;
+            if(id) {
+                const j = jobs.find(x => x.id === id);
+                document.getElementById('ev-title').value = j.title;
+                document.getElementById('ev-truck').value = j.truckId;
+                document.getElementById('ev-date').value = j.date;
+                document.getElementById('ev-status').value = j.status;
+                document.getElementById('del-event-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('ev-title').value = '';
+                document.getElementById('ev-date').value = date;
+                document.getElementById('del-event-btn').classList.add('hidden');
+            }
+            document.getElementById('event-modal').classList.remove('hidden');
+        }
+
+        window.closeEventModal = () => document.getElementById('event-modal').classList.add('hidden');
+
+        document.getElementById('save-event-btn').onclick = async () => {
+            const data = { title: document.getElementById('ev-title').value, truckId: document.getElementById('ev-truck').value, date: document.getElementById('ev-date').value, status: document.getElementById('ev-status').value };
+            if(selectedId) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', selectedId), data);
+            else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs'), { ...data, timestamp: Timestamp.now() });
+            closeEventModal();
+        };
+
+        document.getElementById('del-event-btn').onclick = async () => {
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'jobs', selectedId));
+            closeEventModal();
+        };
+
+        window.onload = () => { initCalendar(); lucide.createIcons(); };
+    </script>
 </body>
 </html>
 
