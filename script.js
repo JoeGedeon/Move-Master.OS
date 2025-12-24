@@ -1,172 +1,77 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+/* --- FULL-BLEED TERMINAL STYLES --- */
 
-// --- SYSTEM STATE ---
-let auth, db, user, appId, calendar;
-let fleetData = { receipts: [], jobs: [], driverLogs: [], trucks: [] };
-let activeId = null;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
-// --- 1. BOOT SEQUENCE ---
-window.addEventListener('load', () => {
-    initUIEngine();
-    initTerminalCalendar();
-    connectToTerminal();
-    
-    setInterval(() => {
-        const el = document.getElementById('live-clock');
-        if (el) el.innerText = new Date().toLocaleTimeString();
-    }, 1000);
-});
-
-// --- 2. THE BRAINS: NAVIGATION & TRUCKS UI ---
-function initUIEngine() {
-    window.tab = (id) => {
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        const target = document.getElementById(`${id}-tab`) || document.getElementById('generic-tab');
-        if (target) target.classList.add('active');
-        
-        document.querySelectorAll('.nav-btn').forEach(b => {
-            b.classList.toggle('active', b.getAttribute('data-tab') === id);
-        });
-
-        document.getElementById('tab-title').innerText = `FLEET_${id.toUpperCase()}`;
-        if (id === 'calendar' && calendar) setTimeout(() => calendar.updateSize(), 50);
-        lucide.createIcons();
-    };
-
-    window.closeModal = () => {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
-        activeId = null;
-    };
-
-    window.openTruckModal = () => {
-        document.getElementById('truck-modal').classList.remove('hidden');
-    };
-
-    window.openLogModal = () => {
-        const modal = document.getElementById('log-modal');
-        modal.classList.remove('hidden');
-        document.getElementById('l-date').value = new Date().toISOString().split('T')[0];
-    };
+:root {
+    --blue: #3b82f6;
+    --bg: #0b0f1a;
+    --card: #111827;
+    --border: rgba(255, 255, 255, 0.08);
 }
 
-// --- 3. THE BRAINS: CLOUD SYNC & TRUCK ENGINE ---
-async function connectToTerminal() {
-    try {
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        if (!configStr) return;
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-        const app = initializeApp(JSON.parse(configStr));
-        auth = getAuth(app);
-        db = getFirestore(app);
-        appId = typeof __app_id !== 'undefined' ? __app_id : 'fleet-v25-units';
-
-        onAuthStateChanged(auth, async (u) => {
-            if (u) {
-                user = u;
-                document.getElementById('user-id-tag').innerText = `ID_${user.uid.slice(0, 8)}`;
-                runLiveSync();
-            } else { await signInAnonymously(auth); }
-        });
-    } catch (err) { console.error("Cloud Connection Failure"); }
+body, html {
+    margin: 0; padding: 0;
+    height: 100vh; width: 100vw;
+    background-color: var(--bg);
+    color: white; overflow: hidden;
 }
 
-function runLiveSync() {
-    // Sync Units
-    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks')), snap => {
-        fleetData.trucks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderTruckUnits();
-    });
-    // Sync Receipts (for cost attribution)
-    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'receipts')), snap => {
-        fleetData.receipts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderTruckUnits(); renderDashboard();
-    });
-    // Sync Calendar
-    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'jobs')), snap => {
-        fleetData.jobs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        syncCalendarData();
-    });
+.nav-btn {
+    display: flex; align-items: center; gap: 14px;
+    width: 90%; margin: 4px auto; padding: 14px 18px;
+    border-radius: 16px; color: #64748b;
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; transition: all 0.2s;
+    background: transparent; border: none; cursor: pointer;
 }
+.nav-btn:hover { color: white; background: rgba(255,255,255,0.03); }
+.nav-btn.active { color: white; background: var(--blue); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
 
-// --- 4. THE BRAINS: TRUCK RENDERER & ACTIONS ---
-function renderTruckUnits() {
-    const grid = document.getElementById('trucks-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+/* LAYOUT */
+.tab-panel { display: none; height: 100%; width: 100%; padding: 40px; }
+.tab-panel.active { display: flex; flex-direction: column; }
+#calendar-tab.active { flex-direction: row; }
 
-    fleetData.trucks.forEach(t => {
-        // Intelligence: Calculate lifetime cost for THIS truck
-        const truckExpenses = fleetData.receipts
-            .filter(r => r.truckId === t.truckId && r.category !== 'Inflow')
-            .reduce((sum, r) => sum + r.amount, 0);
+/* TRUCK CARDS */
+.truck-card { background: var(--card); border: 1px solid var(--border); border-radius: 32px; padding: 32px; transition: all 0.3s ease; }
+.truck-card:hover { border-color: var(--blue); transform: translateY(-4px); }
+.status-pill { padding: 4px 10px; border-radius: 8px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
 
-        const card = document.createElement('div');
-        card.className = "truck-card group";
-        
-        const statusColor = t.status === 'Active' ? 'bg-green-500/10 text-green-500' : (t.status === 'In Shop' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500');
+/* DASHBOARD */
+.stats-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; margin-bottom: 32px; }
+.balance-card { background: linear-gradient(135deg, #3b82f6, #1e3a8a); padding: 48px; border-radius: 40px; position: relative; overflow: hidden; }
+.balance-text { font-size: 64px; font-weight: 800; letter-spacing: -3px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 40px; padding: 40px; text-align: center; }
+.stat-text { font-size: 42px; font-weight: 800; }
 
-        card.innerHTML = `
-            <div class="status-ring ${statusColor}">
-                <i data-lucide="truck" size="20"></i>
-            </div>
-            <h4 class="truck-id">${t.truckId}</h4>
-            <p class="truck-meta">${t.make} • ${t.miles} mi</p>
-            <div class="cost-pill">
-                <span class="cost-label">MAINTENANCE BURN</span>
-                <span class="cost-value">$${truckExpenses.toFixed(2)}</span>
-            </div>
-            <div class="mt-6 flex justify-between">
-                <span class="text-[9px] font-black uppercase text-slate-500">${t.status}</span>
-                <button onclick="window.delTruck('${t.id}')" class="text-slate-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                    <i data-lucide="trash-2" size="14"></i>
-                </button>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-    
-    document.getElementById('active-truck-count').innerText = fleetData.trucks.filter(t => t.status === 'Active').length;
-    lucide.createIcons();
-}
+.ledger-container { background: var(--card); border: 1px solid var(--border); border-radius: 32px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.ledger-head { padding: 20px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); font-size: 10px; font-weight: 900; color: #64748b; }
 
-window.saveTruckUnit = async () => {
-    const val = {
-        truckId: document.getElementById('t-id').value.toUpperCase(),
-        make: document.getElementById('t-make').value,
-        miles: document.getElementById('t-miles').value,
-        status: document.getElementById('t-status').value,
-        timestamp: Timestamp.now()
-    };
+/* CALENDAR */
+.calendar-card { flex: 1; background: var(--card); border-radius: 32px; padding: 24px; border: 1px solid var(--border); height: 100%; }
+.agenda-sidebar { width: 340px; margin-left: 32px; background: var(--card); border-radius: 32px; padding: 32px; border: 1px solid var(--border); height: 100%; overflow-y: auto; }
 
-    if (!val.truckId) return alert("Enter Unit ID");
+/* MODALS */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(15px); z-index: 500; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: var(--card); border: 1px solid var(--border); width: 440px; border-radius: 40px; padding: 48px; }
+.modal-title { font-size: 24px; font-weight: 800; font-style: italic; margin-bottom: 32px; }
+.form-input { width: 100%; background: #1e293b; border: 1px solid var(--border); padding: 18px; border-radius: 18px; color: white; font-weight: 700; margin-bottom: 14px; outline: none; }
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.action-btn { background: var(--blue); color: white; padding: 16px 24px; border-radius: 16px; font-weight: 900; font-size: 10px; border: none; cursor: pointer; }
+.save-btn { background: var(--blue); color: white; padding: 20px; border-radius: 20px; font-weight: 900; font-size: 11px; border: none; cursor: pointer; }
+.cancel-btn { width: 100%; color: #64748b; font-size: 9px; font-weight: 900; text-transform: uppercase; border: none; background: none; cursor: pointer; }
 
-    if (user && db) {
-        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'trucks'), val);
-    }
-    window.closeModal();
-};
+/* TABLES */
+.table-card { background: var(--card); border: 1px solid var(--border); border-radius: 32px; overflow: hidden; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { padding: 24px; text-align: left; font-size: 10px; color: #64748b; background: rgba(255,255,255,0.02); }
+.data-table td { padding: 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
 
-window.delTruck = async (id) => {
-    if (confirm("Delete this vehicle unit?")) {
-        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'trucks', id));
-    }
-};
-
-// --- 5. DASHBOARD & UTILS ---
-function renderDashboard() {
-    const display = document.getElementById('total-display');
-    if (!display) return;
-    let bal = 0;
-    fleetData.receipts.forEach(r => bal += (r.category === 'Inflow' ? r.amount : -r.amount));
-    display.innerText = `$${bal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-}
-
-function initTerminalCalendar() {
-    calendar = new FullCalendar.Calendar(document.getElementById('calendar-render'), { initialView: 'dayGridMonth', height: '100%', dateClick: (i) => window.openTaskModal(null, i.dateStr) });
-    calendar.render();
-}
-
-function syncCalendarData() { if (calendar) { calendar.removeAllEvents(); fleetData.jobs.forEach(j => calendar.addEvent({ id: j.id, title: j.title, start: j.date, color: '#3b82f6' })); } }
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+.hidden { display: none !important; }
+.fc { height: 100% !important; border: none !important; }
+.fc-toolbar-title { font-weight: 800 !important; color: var(--blue) !important; font-size: 1rem !important; }
 
