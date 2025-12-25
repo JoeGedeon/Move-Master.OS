@@ -700,3 +700,51 @@ body {
 #calendarGrid .day.is-pad{
   opacity: 0.35;
 }
+/* ===== Full Month Calendar: FORCE proper 7-col grid ===== */
+
+/* The month calendar wrapper (safe) */
+#monthCalendar,
+.calendar-month {
+  width: 100%;
+}
+
+/* The actual grid that holds weekday headers + day cells */
+#calendarGrid,
+#calendarGrid.calendar-grid,
+.calendar-grid.full {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(36px, 1fr)) !important;
+  gap: 10px !important;
+
+  width: 100%;
+  align-items: stretch;
+}
+
+/* If your JS adds weekday header cells (Sun/Mon/...) */
+#calendarGrid .dow,
+#calendarGrid .weekday,
+#calendarGrid .week-day,
+.calendar-grid .dow,
+.calendar-grid .weekday {
+  font-weight: 700;
+  text-align: center;
+  opacity: 0.85;
+}
+
+/* Day cells (the “pills”) */
+#calendarGrid .day,
+#calendarGrid .cell,
+#calendarGrid button,
+#calendarGrid .pill,
+.calendar-grid .day,
+.calendar-grid .cell {
+  width: 100%;
+  box-sizing: border-box;
+  justify-self: stretch;
+}
+
+/* Prevent “inline” weirdness if weekday labels are spans */
+#calendarGrid span {
+  display: block;
+  text-align: center;
+}
