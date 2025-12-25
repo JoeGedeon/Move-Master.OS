@@ -349,3 +349,49 @@ html, body {
 .sheet th {
   overflow: visible;
 }
+/* ===== iPad + Flexbox + Table horizontal scroll hard-fix ===== */
+
+/* In flex layouts, children default to min-width:auto which blocks scrolling.
+   This is the #1 reason tables "hit a wall" on the right. */
+.main,
+.content,
+.workspace,
+.view,
+.pane,
+.card {
+  min-width: 0;
+}
+
+/* Force the actual table area to allow horizontal pan */
+.table-wrap,
+.sheet-wrap,
+.sheet-container,
+.pane,
+.pane.active,
+.pane .card,
+.pane .card .body,
+.pane .card-content {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+/* Make the table take the width it needs so scrolling actually has something to scroll */
+.sheet {
+  width: max-content !important;
+  min-width: 100% !important;
+  table-layout: fixed;
+}
+
+/* Prevent the table from being clipped by some ancestor */
+.sheet,
+.sheet * {
+  max-width: none !important;
+}
+
+/* Cell behavior: wrap long text instead of running off-screen */
+.sheet td[contenteditable="true"]{
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
