@@ -641,3 +641,18 @@ html, body { height: 100%; }
 .view {
   display: block;
 }
+/* --- View system: one visible at a time --- */
+.views { min-height: 0; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* --- Make scrolling work in the right places --- */
+html, body { height: 100%; }
+.app-shell { height: 100vh; }
+
+/* Main content scrolls */
+.main { min-height: 0; overflow: auto; }
+
+/* Sidebar nav scrolls (the list of buttons) */
+.sidebar { min-height: 0; overflow: hidden; }
+.sidebar nav { overflow: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
