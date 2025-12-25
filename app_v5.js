@@ -1,3 +1,35 @@
+function setJSPill(text) {
+  const pill = document.getElementById("jsPill");
+  if (pill) pill.textContent = text;
+}
+
+function showDashboardFallback(err) {
+  const dash = document.getElementById("view-dashboard");
+  if (dash) {
+    dash.hidden = false;
+    dash.innerHTML = `
+      <div style="padding:16px;">
+        <h2 style="margin:0 0 8px 0;">Dashboard failed to render</h2>
+        <div style="opacity:.8; font-size:14px;">
+          JS crashed before rendering. This usually means a missing ID or container in HTML.
+        </div>
+        <pre style="white-space:pre-wrap; opacity:.8; margin-top:12px;">${String(err)}</pre>
+      </div>
+    `;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    // If init() exists, run it
+    if (typeof init === "function") init();
+    setJSPill("JS: loaded");
+  } catch (err) {
+    console.error(err);
+    setJSPill("JS: error");
+    showDashboardFallback(err);
+  }
+});
 /* FleetPro / Move-Master.OS — app_v5.js
    - Stable view switching (sidebar + toolbar)
    - Dashboard quick calendar + full month calendar
