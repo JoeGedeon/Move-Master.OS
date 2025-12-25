@@ -204,5 +204,47 @@
       </section>
     </main>
   </div>
+
+  <!-- JOB MODAL (paste right before </body>) -->
+<div class="modal-overlay" id="jobModal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="jobModalTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="jobModalTitle">Add Job</div>
+      <button class="icon-btn" id="jobModalCloseBtn" type="button" aria-label="Close">✕</button>
+    </div>
+
+    <form class="modal-body" id="jobForm">
+      <div class="field">
+        <label for="jobDate">Date</label>
+        <input id="jobDate" name="date" type="date" required />
+      </div>
+
+      <div class="field">
+        <label for="jobCustomer">Customer</label>
+        <input id="jobCustomer" name="customer" type="text" placeholder="Customer name" required />
+      </div>
+
+      <div class="field">
+        <label for="jobPickup">Pickup</label>
+        <input id="jobPickup" name="pickup" type="text" placeholder="Pickup address" required />
+      </div>
+
+      <div class="field">
+        <label for="jobDropoff">Dropoff</label>
+        <input id="jobDropoff" name="dropoff" type="text" placeholder="Dropoff address" required />
+      </div>
+
+      <div class="field">
+        <label for="jobNotes">Notes</label>
+        <textarea id="jobNotes" name="notes" rows="3" placeholder="Optional notes"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" type="button" id="jobCancelBtn">Cancel</button>
+        <button class="btn primary" type="submit">Save Job</button>
+      </div>
+    </form>
+  </div>
+</div>
 </body>
 </html>
