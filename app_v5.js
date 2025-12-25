@@ -348,8 +348,10 @@
       if (counts.total > 0) btn.classList.add("has-jobs");
 
       btn.addEventListener("click", () => {
-        state.currentDate = startOfDay(d);
-        updateContextLine();
+  state.currentDate = startOfDay(d);
+  state.monthCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+  setActiveView("calendar");
+});
         // Clicking a day should take you to Day Workspace (useful)
         setActiveView("day");
       });
