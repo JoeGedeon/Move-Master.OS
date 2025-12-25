@@ -69,3 +69,4 @@ function toggleBooking(day, el) {
 renderDrivers();
 renderTrucks();
 renderCalendar();
+
