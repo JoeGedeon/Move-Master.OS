@@ -2,26 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1020" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>FleetPro</title>
 
-  <!-- Cache-bust params: change the number any time you want to force refresh -->
-<link rel="stylesheet" href="styles.css?v=20251224_2335">
-<script src="app.js?v=20251224_2335" defer></script>
+  <!-- Cache-bust: change this number any time you edit CSS/JS -->
+  <link rel="stylesheet" href="styles.css?v=20251224_2359" />
 </head>
 
 <body>
-  <div class="app">
-    <!-- LEFT SIDEBAR -->
+  <div class="app-shell">
+    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark"></div>
-        <div class="brand-text">
-          <div class="brand-name">FLEETPRO</div>
-          <div class="brand-sub">Local Storage: <span class="pill">ON</span></div>
-          <div class="brand-sub muted">Foundation build</div>
-        </div>
+        <div class="brand-title">FLEETPRO</div>
       </div>
 
       <nav class="nav">
@@ -32,12 +26,17 @@
         <div class="nav-sep"></div>
 
         <button class="navbtn" data-view="drivers" type="button">Drivers</button>
-<button class="navbtn" data-view="trucks" type="button">Trucks</button>
-<button class="navbtn" data-view="dispatch" type="button">Dispatch</button>
-<button class="navbtn" data-view="finance" type="button">Finance</button>
-<button class="navbtn" data-view="inventory" type="button">Inventory</button>
-<button class="navbtn" data-view="scanner" type="button">AI Scanner</button>
+        <button class="navbtn" data-view="trucks" type="button">Trucks</button>
+        <button class="navbtn" data-view="dispatch" type="button">Dispatch</button>
+        <button class="navbtn" data-view="finance" type="button">Finance</button>
+        <button class="navbtn" data-view="inventory" type="button">Inventory</button>
+        <button class="navbtn" data-view="scanner" type="button">AI Scanner</button>
       </nav>
+
+      <div class="sidebar-footer">
+        <div class="pill">Local Storage: <b>ON</b></div>
+        <div class="pill subtle">Foundation build</div>
+      </div>
     </aside>
 
     <!-- MAIN -->
@@ -46,7 +45,7 @@
       <header class="topbar">
         <div class="topbar-left">
           <div class="page-title">Operations</div>
-          <div class="page-sub muted" id="activeContext">Foundation mode (Smart)</div>
+          <div id="activeContext" class="page-subtitle">Foundation mode (Smart)</div>
         </div>
 
         <div class="topbar-right">
@@ -55,15 +54,18 @@
             <span class="dot"></span>
             <span>SYSTEM LIVE</span>
           </div>
+
+          <!-- JS load indicator: turns green only if app.js actually runs -->
+          <div class="js-indicator" id="jsIndicator">JS: not loaded</div>
         </div>
       </header>
 
-      <!-- TOOLBAR (scrollable handled by CSS if you added it) -->
+      <!-- TOOLBAR -->
       <section class="toolbar">
         <div class="toolbar-inner">
           <button class="btn" id="btnToday" type="button">Today</button>
-          <button class="btn" id="btnPrev" type="button">◀</button>
-          <button class="btn" id="btnNext" type="button">▶</button>
+          <button class="btn icon" id="btnPrev" type="button">◀</button>
+          <button class="btn icon" id="btnNext" type="button">▶</button>
 
           <div class="tool-sep"></div>
 
@@ -79,91 +81,82 @@
       </section>
 
       <!-- VIEWS -->
-      <section class="content">
+      <section class="views">
+
         <!-- DASHBOARD -->
         <div class="view active" id="view-dashboard">
-          <div class="grid">
-            <div class="card wide">
-              <div class="card-title">Today</div>
-              <div class="h1" id="todayDate">--</div>
-              <div class="muted" id="todaySummary">--</div>
-              <div class="row">
-                <button class="btn primary" id="openToday" type="button">Open Today</button>
-                <button class="btn" id="openCalendar" type="button">Open Calendar</button>
-              </div>
+          <div class="card wide">
+            <div class="card-title">Today</div>
+            <div class="bigdate" id="todayDate">—</div>
+            <div class="muted" id="todaySummary">Loading…</div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" id="openToday" type="button">Open Today</button>
+              <button class="btn" id="openCalendar" type="button">Open Calendar</button>
             </div>
+          </div>
 
-            <div class="card wide">
-              <div class="card-title">Pressure Points (placeholder)</div>
-              <ul class="list">
-                <li class="muted">Overbooked drivers: AI later</li>
-                <li class="muted">Truck maintenance conflicts: rules later</li>
-                <li class="muted">Receipts missing: driver app later</li>
-              </ul>
-            </div>
+          <div class="card wide">
+            <div class="card-title">Pressure Points (placeholder)</div>
+            <ul class="bullets">
+              <li>Overbooked drivers: <span class="muted">AI later</span></li>
+              <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
+              <li>Receipts missing: <span class="muted">driver app later</span></li>
+            </ul>
+          </div>
 
-            <div class="card wide">
-              <div class="card-title">This Month Snapshot</div>
-              <div class="stats" id="monthStats">
-                <!-- JS fills -->
-              </div>
-            </div>
+          <div class="card wide">
+            <div class="card-title">This Month Snapshot</div>
+            <div class="stats" id="monthStats"></div>
           </div>
         </div>
 
         <!-- CALENDAR -->
         <div class="view" id="view-calendar">
           <div class="card wide">
-            <div class="card-title" id="monthLabel">Month</div>
-            <div class="muted">Click any day tile to enter the Day Workspace.</div>
-
-            <div class="cal-head">
-              <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
-              <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div>
-              <div class="cal-dow">Sat</div>
+            <div class="row spread">
+              <div>
+                <div class="card-title" id="monthLabel">Month</div>
+                <div class="muted">Click any day tile to enter the Day Workspace.</div>
+              </div>
             </div>
 
-            <div class="calendar-grid" id="calendarGrid">
-              <!-- JS fills -->
+            <div class="calendar-head">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
             </div>
+
+            <div class="calendar-grid" id="calendarGrid"></div>
           </div>
         </div>
 
         <!-- DAY WORKSPACE -->
         <div class="view" id="view-day">
-          <div class="day-head">
-            <div class="day-head-left">
-              <div class="card-title">Day Workspace</div>
-              <div class="h1" id="dayLabel">--</div>
-              <div class="muted" id="dayMeta">--</div>
-            </div>
-
-            <div class="day-head-right" id="dayTotals">
-              <!-- JS fills pills -->
-            </div>
-          </div>
-
-          <!-- warnings panel is injected by JS (smartWarningsPanel) -->
-
-          <!-- Tabs -->
-          <div class="tabs" id="tabs">
-            <button class="tab active" data-tab="jobs" type="button">Jobs</button>
-            <button class="tab" data-tab="drivers" type="button">Drivers</button>
-            <button class="tab" data-tab="trucks" type="button">Trucks</button>
-            <button class="tab" data-tab="records" type="button">Records</button>
-            <button class="tab" data-tab="media" type="button">Media</button>
-            <button class="tab" data-tab="ai" type="button">AI Notes</button>
-          </div>
-
-          <!-- PANES -->
-          <div class="panes">
-            <!-- JOBS -->
-            <div class="pane active" id="pane-jobs">
-              <div class="pane-bar">
-                <button class="btn primary" id="addJobRow" type="button">+ Add Job</button>
-                <div class="muted">Edit cells directly.</div>
+          <div class="card wide day-head">
+            <div class="row spread">
+              <div>
+                <div class="card-title">Day Workspace</div>
+                <div class="bigdate" id="dayLabel">—</div>
+                <div class="muted" id="dayMeta">—</div>
               </div>
+              <div class="totals" id="dayTotals"></div>
+            </div>
+          </div>
 
+          <div class="card wide">
+            <div class="tabs" id="tabs">
+              <button class="tab active" type="button" data-tab="jobs">Jobs</button>
+              <button class="tab" type="button" data-tab="drivers">Drivers</button>
+              <button class="tab" type="button" data-tab="trucks">Trucks</button>
+              <button class="tab" type="button" data-tab="records">Records</button>
+              <button class="tab" type="button" data-tab="media">Media</button>
+              <button class="tab" type="button" data-tab="ai">AI Notes</button>
+            </div>
+
+            <!-- PANE: JOBS -->
+            <div class="pane active" id="pane-jobs">
+              <div class="row">
+                <button class="btn primary" id="addJobRow" type="button">+ Add Job</button>
+                <div class="muted">Edit cells directly. Tab/Enter moves between cells.</div>
+              </div>
               <div class="table-wrap">
                 <table class="sheet">
                   <thead>
@@ -174,141 +167,123 @@
                       <th>Dropoff</th>
                       <th>Volume</th>
                       <th>Status</th>
+                      <th>Driver</th>
+                      <th>Truck</th>
                     </tr>
                   </thead>
                   <tbody id="jobsBody"></tbody>
                 </table>
               </div>
-
-              <div class="help muted">
-                Pickup = where items start (origin). Dropoff = where items end (destination).
-              </div>
             </div>
 
-            <!-- DRIVERS -->
+            <!-- PANE: DRIVERS -->
             <div class="pane" id="pane-drivers">
-              <div class="pane-bar">
-                <button class="btn primary" id="addDriverRow" type="button">+ Add Driver</button>
-                <div class="muted">Day-specific roster (v1 foundation).</div>
+              <div class="row">
+                <button class="btn primary" id="addDriverRow" type="button">+ Add Driver (Day)</button>
+                <div class="muted">This is day-level notes, not the master directory.</div>
               </div>
-
               <div class="table-wrap">
                 <table class="sheet">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Status</th>
-                      <th>Hours</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>Name</th><th>Status</th><th>Hours</th><th>Notes</th></tr></thead>
                   <tbody id="driversBody"></tbody>
                 </table>
               </div>
             </div>
 
-            <!-- TRUCKS -->
+            <!-- PANE: TRUCKS -->
             <div class="pane" id="pane-trucks">
-              <div class="pane-bar">
-                <button class="btn primary" id="addTruckRow" type="button">+ Add Truck</button>
-                <div class="muted">Capacity drives volume warnings.</div>
+              <div class="row">
+                <button class="btn primary" id="addTruckRow" type="button">+ Add Truck (Day)</button>
+                <div class="muted">This is day-level notes, not the master directory.</div>
               </div>
-
               <div class="table-wrap">
                 <table class="sheet">
-                  <thead>
-                    <tr>
-                      <th>Truck ID</th>
-                      <th>Status</th>
-                      <th>Capacity</th>
-                      <th>Mileage</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>ID</th><th>Status</th><th>Capacity</th><th>Mileage</th></tr></thead>
                   <tbody id="trucksBody"></tbody>
                 </table>
               </div>
             </div>
 
-            <!-- RECORDS -->
+            <!-- PANE: RECORDS -->
             <div class="pane" id="pane-records">
-              <div class="pane-bar">
+              <div class="row">
                 <button class="btn primary" id="addRecordRow" type="button">+ Add Record</button>
-                <div class="muted">Receipts/notes live here (AI later).</div>
+                <div class="muted">Use Type=receipt with Amount= to track expenses.</div>
               </div>
-
               <div class="table-wrap">
                 <table class="sheet">
                   <thead>
                     <tr>
-                      <th>Type</th>
-                      <th>Source</th>
-                      <th>Linked Entity</th>
-                      <th>Raw Data</th>
-                      <th>Approved</th>
-                      <th>Created</th>
+                      <th>Type</th><th>Source</th><th>Linked</th><th>Raw Data</th><th>Approved</th><th>Created</th>
                     </tr>
                   </thead>
                   <tbody id="recordsBody"></tbody>
                 </table>
               </div>
-
-              <div class="help muted">
-                Receipt format example: <code>Vendor=Shell, Amount=52.19, Category=Fuel</code>
-              </div>
             </div>
 
-            <!-- MEDIA -->
+            <!-- PANE: MEDIA -->
             <div class="pane" id="pane-media">
-              <div class="card wide">
-                <div class="card-title">Media</div>
-                <div class="muted">Placeholder. (Customer photo intake + driver receipts capture later.)</div>
-                <div class="row">
-                  <button class="btn ghost" id="addMediaPlaceholder" type="button" disabled>Add Media (later)</button>
-                </div>
-              </div>
+              <div class="muted">Media intake is coming next (uploads + AI).</div>
             </div>
 
-            <!-- AI NOTES -->
+            <!-- PANE: AI -->
             <div class="pane" id="pane-ai">
-              <div class="card wide">
-                <div class="card-title">AI Notes</div>
-                <div class="muted">Annotation-only. No mutation.</div>
-                <div class="table-wrap">
-                  <table class="sheet">
-                    <thead>
-                      <tr>
-                        <th>Model</th>
-                        <th>Confidence</th>
-                        <th>Summary</th>
-                        <th>Warnings</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td class="muted">—</td>
-                        <td class="muted">—</td>
-                        <td class="muted">—</td>
-                        <td class="muted">—</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <div class="muted">AI Notes placeholder. No mutation. Annotation-only.</div>
             </div>
+          </div>
+        </div>
 
-          </div><!-- /panes -->
-        </div><!-- /view-day -->
-
-        <!-- Placeholder views for future nav (kept so sidebar clicks don't explode if you enable them later) -->
+        <!-- DRIVERS DIRECTORY -->
         <div class="view" id="view-drivers"></div>
+
+        <!-- TRUCKS DIRECTORY -->
         <div class="view" id="view-trucks"></div>
+
+        <!-- DISPATCH -->
         <div class="view" id="view-dispatch"></div>
+
+        <!-- FINANCE / INVENTORY / SCANNER placeholders -->
         <div class="view" id="view-finance"></div>
         <div class="view" id="view-inventory"></div>
         <div class="view" id="view-scanner"></div>
 
-      </section><!-- /content -->
-    </main><!-- /main -->
-  </div><!-- /app -->
+      </section>
+    </main>
+  </div>
+
+  <!-- JS: keep defer, do NOT use type="module" -->
+  <script>
+    // This flips only if app.js actually runs
+    window.__fleetpro_boot = false;
+    window.addEventListener("error", (e) => {
+      const el = document.getElementById("jsIndicator");
+      if (el) {
+        el.textContent = "JS: ERROR";
+        el.style.borderColor = "rgba(255,80,80,0.6)";
+        el.style.color = "rgba(255,180,180,0.95)";
+      }
+      console.error("FleetPro error:", e?.error || e?.message || e);
+    });
+  </script>
+
+  <script src="app.js?v=20251224_2359" defer></script>
+
+  <script>
+    // If app.js sets this true, indicator goes green. If not, it stays red.
+    setTimeout(() => {
+      const el = document.getElementById("jsIndicator");
+      if (!el) return;
+      if (window.__fleetpro_boot) {
+        el.textContent = "JS: loaded";
+        el.style.borderColor = "rgba(80,255,160,0.55)";
+        el.style.color = "rgba(180,255,220,0.95)";
+      } else {
+        el.textContent = "JS: not loaded";
+        el.style.borderColor = "rgba(255,80,80,0.6)";
+        el.style.color = "rgba(255,180,180,0.95)";
+      }
+    }, 600);
+  </script>
 </body>
 </html>
