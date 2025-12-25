@@ -1,473 +1,436 @@
 /* FleetPro / Move-Master.OS — app_v5.js
-   - Stable view switching (sidebar + toolbar)
-   - Dashboard quick calendar + Today summary
-   - Calendar month view
-   - Day workspace (jobs + notes)
-   - Add Job modal (open/close/save)
-   - localStorage persistence
-   - Honest JS badge: flips only after init succeeds
+   Purpose:
+   - Keep current HTML/CSS layout
+   - Wire sidebar + toolbar buttons
+   - Render: Dashboard + Calendar + Day Workspace
+   - LocalStorage persistence
+   - Honest JS badge: flips to "loaded" only after init succeeds
 */
-
 (() => {
   "use strict";
 
-  // ---------- Helpers ----------
+  // ---------------- Helpers ----------------
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const pad2 = (n) => String(n).padStart(2, "0");
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   const monthKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
+  // ---------------- Storage ----------------
   const STORAGE_KEY = "fleetpro_foundation_v5";
 
   const DEFAULT_STATE = {
-    view: "dashboard",
+    version: 5,
+    view: "dashboard",         // dashboard | calendar | day | drivers | ...
     selectedDate: ymd(new Date()),
-    calCursor: monthKey(new Date()),
+    calCursor: monthKey(new Date()), // YYYY-MM
+    activeTab: "jobs",         // jobs | receipts | notes
     dayData: {
-      // "YYYY-MM-DD": { jobs: [{id, customer, pickup, dropoff, amount, notes}], notes: "" }
+      // "YYYY-MM-DD": { jobs: [{id, customer, pickup, dropoff, amount, notes}], notes: "..." }
     }
   };
 
-  let state = structuredClone(DEFAULT_STATE);
+  const safeJSONParse = (str, fallback) => {
+    try { return JSON.parse(str); } catch { return fallback; }
+  };
 
-  // ---------- Status / Error trapping ----------
-  function setJSStatus(text, kind = "warn") {
-    const pill = $("#jsStatusPill");
+  const deepClone = (obj) => structuredClone ? structuredClone(obj) : JSON.parse(JSON.stringify(obj));
+
+  function loadState() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const st = raw ? safeJSONParse(raw, deepClone(DEFAULT_STATE)) : deepClone(DEFAULT_STATE);
+
+    // normalize
+    if (!st.dayData || typeof st.dayData !== "object") st.dayData = {};
+    if (!st.selectedDate) st.selectedDate = ymd(new Date());
+    if (!st.calCursor) st.calCursor = monthKey(new Date());
+    if (!st.view) st.view = "dashboard";
+    if (!st.activeTab) st.activeTab = "jobs";
+
+    // ensure day object exists
+    ensureDay(st.selectedDate, st);
+    return st;
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setStoragePill();
+  }
+
+  function ensureDay(dateStr, st = state) {
+    if (!st.dayData[dateStr]) {
+      st.dayData[dateStr] = { jobs: [], notes: "" };
+    }
+    if (!Array.isArray(st.dayData[dateStr].jobs)) st.dayData[dateStr].jobs = [];
+    if (typeof st.dayData[dateStr].notes !== "string") st.dayData[dateStr].notes = "";
+  }
+
+  // ---------------- UI pills ----------------
+  function setJSBadge(mode, message) {
+    const pill = $("#jsPill");
     if (!pill) return;
-    pill.textContent = text;
-    pill.classList.remove("ok", "warn", "err");
-    pill.classList.add(kind === "ok" ? "ok" : kind === "err" ? "err" : "warn");
+    pill.classList.remove("ok", "bad");
+    if (mode === "ok") {
+      pill.textContent = "JS: loaded";
+      pill.classList.add("ok");
+    } else if (mode === "bad") {
+      pill.textContent = message ? `JS: error` : "JS: not loaded";
+      pill.classList.add("bad");
+    } else {
+      pill.textContent = "JS: not loaded";
+    }
   }
 
   function setStoragePill() {
     const pill = $("#storagePill");
     if (!pill) return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      pill.textContent = raw ? `Local Storage: ON · ${Math.max(1, Math.round(raw.length / 1024))} KB` : "Local Storage: —";
-    } catch {
-      pill.textContent = "Local Storage: blocked";
-    }
+    const bytes = new Blob([localStorage.getItem(STORAGE_KEY) || ""]).size;
+    const kb = Math.max(1, Math.round(bytes / 1024));
+    pill.textContent = `Local Storage: ON · ${kb} KB`;
   }
 
-  window.addEventListener("error", (e) => {
-    setJSStatus("JS: error", "err");
-    console.error("JS error:", e.error || e.message);
-  });
+  // ---------------- Views ----------------
+  const viewMap = {
+    dashboard: "#dashboardView",
+    calendar: "#calendarView",
+    day: "#dayView",
+    drivers: "#driversView",
+    trucks: "#trucksView",
+    dispatch: "#dispatchView",
+    finance: "#financeView",
+    inventory: "#inventoryView",
+    ai: "#aiView",
+  };
 
-  window.addEventListener("unhandledrejection", (e) => {
-    setJSStatus("JS: error", "err");
-    console.error("Unhandled rejection:", e.reason);
-  });
-
-  // ---------- Persistence ----------
-  function safeJSONParse(str, fallback) {
-    try { return JSON.parse(str); } catch { return fallback; }
-  }
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return structuredClone(DEFAULT_STATE);
-      const st = safeJSONParse(raw, structuredClone(DEFAULT_STATE));
-      // normalize
-      if (!st.view) st.view = "dashboard";
-      if (!st.selectedDate) st.selectedDate = ymd(new Date());
-      if (!st.calCursor) st.calCursor = monthKey(new Date());
-      if (!st.dayData || typeof st.dayData !== "object") st.dayData = {};
-      return st;
-    } catch {
-      return structuredClone(DEFAULT_STATE);
-    }
-  }
-
-  function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
-    setStoragePill();
-  }
-
-  function ensureDay(dateStr) {
-    if (!state.dayData[dateStr]) {
-      state.dayData[dateStr] = { jobs: [], notes: "" };
-    }
-    if (!Array.isArray(state.dayData[dateStr].jobs)) state.dayData[dateStr].jobs = [];
-    if (typeof state.dayData[dateStr].notes !== "string") state.dayData[dateStr].notes = "";
-    return state.dayData[dateStr];
-  }
-
-  // ---------- Views ----------
   function switchView(viewName) {
     state.view = viewName;
-    saveState();
-
-    const views = $$(".view");
-    for (const v of views) {
-      const match = v.getAttribute("data-view") === viewName;
-      v.hidden = !match;
+    for (const [k, sel] of Object.entries(viewMap)) {
+      const el = $(sel);
+      if (!el) continue;
+      el.hidden = k !== viewName;
     }
 
-    // highlight sidebar
-    for (const b of $$(".navbtn")) {
+    // nav button active styling (if your CSS supports .active)
+    $$(".navbtn").forEach((b) => {
       b.classList.toggle("active", b.dataset.view === viewName);
-    }
+    });
 
-    // context line
-    const ctx = $("#contextLine");
-    if (ctx) {
-      if (viewName === "day") ctx.textContent = `Day Workspace: ${state.selectedDate}`;
-      else if (viewName === "calendar") ctx.textContent = `Calendar navigation (Month)`;
-      else ctx.textContent = `Foundation mode (Smart)`;
-    }
-
-    // render view content on switch
+    // render relevant view
     if (viewName === "dashboard") renderDashboard();
     if (viewName === "calendar") renderCalendar();
     if (viewName === "day") renderDay();
+
+    saveState();
   }
 
-  // ---------- Calendar rendering ----------
-  function daysInMonth(year, monthIndex0) {
-    return new Date(year, monthIndex0 + 1, 0).getDate();
+  // ---------------- Dashboard ----------------
+  function renderDashboard() {
+    const d = new Date(state.selectedDate + "T00:00:00");
+    const todayLine = $("#dashTodayLine");
+    if (todayLine) todayLine.textContent = `Selected: ${state.selectedDate}`;
+
+    // month snapshot
+    const mk = state.calCursor; // YYYY-MM
+    let mJobs = 0, mReceipts = 0, mWarnings = 0;
+    Object.entries(state.dayData).forEach(([dateStr, obj]) => {
+      if (!dateStr.startsWith(mk)) return;
+      mJobs += (obj.jobs?.length || 0);
+    });
+    $("#mJobs") && ($("#mJobs").textContent = String(mJobs));
+    $("#mReceipts") && ($("#mReceipts").textContent = String(mReceipts));
+    $("#mWarnings") && ($("#mWarnings").textContent = String(mWarnings));
+    $("#mExpenses") && ($("#mExpenses").textContent = "$0");
+
+    renderMiniCalendar("#dashCalendarGrid");
   }
 
-  function renderCalendarGrid(targetEl, cursorKey, { compact = false } = {}) {
-    // cursorKey: "YYYY-MM"
-    const [yy, mm] = cursorKey.split("-").map(Number);
-    const year = yy;
-    const monthIndex0 = mm - 1;
+  function renderMiniCalendar(containerSel) {
+    const grid = $(containerSel);
+    if (!grid) return;
 
-    const first = new Date(year, monthIndex0, 1);
+    grid.innerHTML = "";
+    const cursor = parseMonth(state.calCursor);
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
     const startDow = first.getDay(); // 0 Sun
-    const dim = daysInMonth(year, monthIndex0);
+    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
 
-    // Build a simple grid of buttons (your CSS makes it pretty)
-    const wrap = document.createElement("div");
-    wrap.className = compact ? "cal-quick" : "cal-month";
-
-    // header row (optional)
-    if (!compact) {
-      const title = $("#calTitle");
-      if (title) {
-        const monthName = first.toLocaleString(undefined, { month: "long" });
-        title.textContent = `${monthName} ${year}`;
-      }
+    // pad blanks
+    for (let i = 0; i < startDow; i++) {
+      const blank = document.createElement("div");
+      blank.className = "calcell blank";
+      grid.appendChild(blank);
     }
 
-    // empty pads
-    const totalCells = compact ? 42 : 42; // keep consistent layout
-    for (let i = 0; i < totalCells; i++) {
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(day)}`;
       const cell = document.createElement("button");
+      cell.className = "calcell";
       cell.type = "button";
-      cell.className = "cal-day";
-      cell.disabled = true;
-      cell.textContent = "";
-      wrap.appendChild(cell);
-    }
-
-    // fill days
-    for (let day = 1; day <= dim; day++) {
-      const idx = startDow + (day - 1);
-      const dateStr = `${year}-${pad2(mm)}-${pad2(day)}`;
-
-      const btn = wrap.children[idx];
-      btn.disabled = false;
-      btn.textContent = String(day);
-      btn.dataset.date = dateStr;
-
-      if (dateStr === state.selectedDate) btn.classList.add("selected");
-
-      const d = ensureDay(dateStr);
-      if (d.jobs.length > 0) btn.classList.add("has-data");
-
-      btn.addEventListener("click", () => {
+      cell.textContent = String(day);
+      cell.addEventListener("click", () => {
         state.selectedDate = dateStr;
-        saveState();
+        ensureDay(dateStr);
         switchView("day");
       });
+      grid.appendChild(cell);
     }
+  }
 
-    targetEl.innerHTML = "";
-    targetEl.appendChild(wrap);
+  // ---------------- Calendar (month) ----------------
+  function parseMonth(mk) {
+    const [y, m] = mk.split("-").map(Number);
+    return new Date(y, (m - 1), 1);
   }
 
   function renderCalendar() {
+    const cursor = parseMonth(state.calCursor);
+    const label = cursor.toLocaleString(undefined, { month: "long", year: "numeric" });
+    $("#calMonthLabel") && ($("#calMonthLabel").textContent = label);
+
     const grid = $("#calendarGrid");
     if (!grid) return;
+    grid.innerHTML = "";
 
-    renderCalendarGrid(grid, state.calCursor, { compact: false });
-  }
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const startDow = first.getDay();
+    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
 
-  // ---------- Dashboard ----------
-  function renderDashboard() {
-    const todayLine = $("#dashTodayLine");
-    if (todayLine) {
-      const d = ensureDay(state.selectedDate);
-      todayLine.textContent = `${d.jobs.length} job(s), 0 receipt(s), 0 driver(s), 0 truck(s)`;
+    for (let i = 0; i < startDow; i++) {
+      const blank = document.createElement("div");
+      blank.className = "calcell blank";
+      grid.appendChild(blank);
     }
 
-    const quick = $("#dashCalendarQuick");
-    if (quick) renderCalendarGrid(quick, state.calCursor, { compact: true });
-  }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(day)}`;
+      const cell = document.createElement("button");
+      cell.className = "calcell";
+      cell.type = "button";
+      cell.textContent = String(day);
 
-  // ---------- Day workspace ----------
-  function renderJobsTable(dateStr) {
-    const host = $("#jobsTable");
-    if (!host) return;
+      // highlight selected
+      if (dateStr === state.selectedDate) cell.classList.add("selected");
 
-    const d = ensureDay(dateStr);
+      // small indicator if jobs exist
+      const hasJobs = (state.dayData[dateStr]?.jobs?.length || 0) > 0;
+      if (hasJobs) cell.classList.add("hasdata");
 
-    const table = document.createElement("div");
-    table.className = "sheet";
-
-    const header = document.createElement("div");
-    header.className = "sheet-row sheet-head";
-    header.innerHTML = `
-      <div class="cell">JOB ID</div>
-      <div class="cell">CUSTOMER</div>
-      <div class="cell">PICKUP</div>
-      <div class="cell">DROPOFF</div>
-      <div class="cell">AMOUNT</div>
-    `;
-    table.appendChild(header);
-
-    for (const job of d.jobs) {
-      const row = document.createElement("div");
-      row.className = "sheet-row";
-
-      // Use real inputs so iPad editing behaves like a normal app
-      row.appendChild(makeInputCell(job, "id", "J-0000"));
-      row.appendChild(makeInputCell(job, "customer", "Customer"));
-      row.appendChild(makeInputCell(job, "pickup", "Pickup"));
-      row.appendChild(makeInputCell(job, "dropoff", "Dropoff"));
-      row.appendChild(makeInputCell(job, "amount", "0", { type: "number" }));
-
-      table.appendChild(row);
-    }
-
-    host.innerHTML = "";
-    host.appendChild(table);
-  }
-
-  function makeInputCell(obj, key, placeholder, opts = {}) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-
-    const input = document.createElement("input");
-    input.type = opts.type || "text";
-    input.value = obj[key] ?? "";
-    input.placeholder = placeholder;
-
-    input.addEventListener("input", () => {
-      obj[key] = input.type === "number" ? Number(input.value || 0) : input.value;
-      saveState();
-    });
-
-    cell.appendChild(input);
-    return cell;
-  }
-
-  function renderDay() {
-    const title = $("#dayTitle");
-    if (title) title.textContent = `Day Workspace: ${state.selectedDate}`;
-
-    ensureDay(state.selectedDate);
-    renderJobsTable(state.selectedDate);
-
-    const notes = $("#dayNotes");
-    if (notes) {
-      notes.value = state.dayData[state.selectedDate].notes || "";
-      notes.oninput = () => {
-        state.dayData[state.selectedDate].notes = notes.value;
-        saveState();
-      };
-    }
-
-    // tabs default
-    selectTab("jobs");
-  }
-
-  function selectTab(tabName) {
-    for (const b of $$(".tabbtn")) {
-      b.classList.toggle("active", b.dataset.tab === tabName);
-    }
-    for (const p of $$(".pane")) {
-      p.hidden = p.dataset.pane !== tabName;
-    }
-  }
-
-  // ---------- Modal ----------
-  function openJobModal(dateStr) {
-    const overlay = $("#jobModalOverlay");
-    if (!overlay) return;
-
-    overlay.hidden = false;
-
-    const d = ensureDay(dateStr);
-    $("#jobDate").value = dateStr;
-    $("#jobCustomer").value = "";
-    $("#jobPickup").value = "";
-    $("#jobDropoff").value = "";
-    $("#jobAmount").value = "";
-    $("#jobNotes").value = "";
-
-    // Focus first field (nice on iPad)
-    setTimeout(() => $("#jobCustomer")?.focus(), 50);
-  }
-
-  function closeJobModal() {
-    const overlay = $("#jobModalOverlay");
-    if (!overlay) return;
-    overlay.hidden = true;
-  }
-
-  function bindModal() {
-    $("#btnCloseJobModal")?.addEventListener("click", closeJobModal);
-    $("#btnCancelJob")?.addEventListener("click", closeJobModal);
-
-    // click outside modal closes
-    $("#jobModalOverlay")?.addEventListener("click", (e) => {
-      if (e.target && e.target.id === "jobModalOverlay") closeJobModal();
-    });
-
-    $("#jobForm")?.addEventListener("submit", (e) => {
-      e.preventDefault();
-
-      const dateStr = $("#jobDate").value || state.selectedDate;
-      const d = ensureDay(dateStr);
-
-      const nextId = `J-${pad2(Math.floor(Math.random() * 90) + 10)}${pad2(Math.floor(Math.random() * 90) + 10)}`;
-      const job = {
-        id: nextId,
-        customer: $("#jobCustomer").value.trim(),
-        pickup: $("#jobPickup").value.trim(),
-        dropoff: $("#jobDropoff").value.trim(),
-        amount: Number($("#jobAmount").value || 0),
-        notes: $("#jobNotes").value.trim()
-      };
-
-      d.jobs.unshift(job);
-      state.selectedDate = dateStr;
-      saveState();
-
-      closeJobModal();
-
-      // ensure UI updates
-      renderDashboard();
-      renderCalendar();
-      renderDay();
-      switchView("day");
-    });
-  }
-
-  // ---------- Navigation wiring ----------
-  function bindNav() {
-    // sidebar nav
-    for (const btn of $$(".navbtn")) {
-      btn.addEventListener("click", () => {
-        const view = btn.dataset.view;
-        if (view) switchView(view);
+      cell.addEventListener("click", () => {
+        state.selectedDate = dateStr;
+        ensureDay(dateStr);
+        renderCalendar();
       });
+
+      cell.addEventListener("dblclick", () => {
+        state.selectedDate = dateStr;
+        ensureDay(dateStr);
+        switchView("day");
+      });
+
+      grid.appendChild(cell);
     }
+  }
 
-    // toolbar
-    $("#btnToday")?.addEventListener("click", () => {
-      state.selectedDate = ymd(new Date());
-      state.calCursor = monthKey(new Date());
-      saveState();
-      if (state.view === "calendar") renderCalendar();
-      if (state.view === "dashboard") renderDashboard();
-      switchView("day");
-    });
+  // ---------------- Day Workspace ----------------
+  function renderDay() {
+    ensureDay(state.selectedDate);
+    const dayObj = state.dayData[state.selectedDate];
 
-    $("#btnPrev")?.addEventListener("click", () => {
-      // prev month when in calendar/dashboard; prev day when in day
-      if (state.view === "day") {
-        const d = new Date(state.selectedDate);
-        d.setDate(d.getDate() - 1);
-        state.selectedDate = ymd(d);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderDay();
-        renderCalendar();
-        renderDashboard();
-        $("#contextLine").textContent = `Day Workspace: ${state.selectedDate}`;
-      } else {
-        const [yy, mm] = state.calCursor.split("-").map(Number);
-        const d = new Date(yy, mm - 2, 1);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderCalendar();
-        renderDashboard();
-      }
-    });
-
-    $("#btnNext")?.addEventListener("click", () => {
-      if (state.view === "day") {
-        const d = new Date(state.selectedDate);
-        d.setDate(d.getDate() + 1);
-        state.selectedDate = ymd(d);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderDay();
-        renderCalendar();
-        renderDashboard();
-        $("#contextLine").textContent = `Day Workspace: ${state.selectedDate}`;
-      } else {
-        const [yy, mm] = state.calCursor.split("-").map(Number);
-        const d = new Date(yy, mm, 1);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderCalendar();
-        renderDashboard();
-      }
-    });
-
-    // add job buttons
-    $("#btnAddJob")?.addEventListener("click", () => openJobModal(state.selectedDate));
-    $("#btnAddJobInline")?.addEventListener("click", () => openJobModal(state.selectedDate));
-
-    // dash quick actions
-    $("#btnOpenToday")?.addEventListener("click", () => switchView("day"));
-    $("#btnOpenCalendar")?.addEventListener("click", () => switchView("calendar"));
+    $("#dayTitle") && ($("#dayTitle").textContent = `Day Workspace: ${state.selectedDate}`);
+    $("#contextLine") && ($("#contextLine").textContent = `Day Workspace: ${state.selectedDate}`);
 
     // tabs
-    for (const b of $$(".tabbtn")) {
-      b.addEventListener("click", () => selectTab(b.dataset.tab));
+    setActiveTab(state.activeTab);
+
+    // jobs sheet
+    const body = $("#jobsBody");
+    if (body) {
+      body.innerHTML = "";
+      dayObj.jobs.forEach((job, idx) => {
+        body.appendChild(jobRow(job, idx));
+      });
+      // if empty, show one sample row area (optional)
+      if (dayObj.jobs.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "sheet-row muted";
+        empty.textContent = "No jobs yet. Tap “+ Add Job”.";
+        body.appendChild(empty);
+      }
     }
 
-    // placeholders
-    $("#btnAddReceipt")?.addEventListener("click", () => switchView("day"));
-    $("#btnAddNote")?.addEventListener("click", () => {
-      switchView("day");
-      selectTab("notes");
-      $("#dayNotes")?.focus();
+    // notes
+    const notes = $("#dayNotes");
+    if (notes) {
+      notes.value = dayObj.notes || "";
+    }
+  }
+
+  function setActiveTab(tabName) {
+    state.activeTab = tabName;
+    $$(".tabbtn").forEach((b) => b.classList.toggle("active", b.dataset.tab === tabName));
+    $$(".tab").forEach((t) => (t.hidden = true));
+    const target = $(`#tab-${tabName}`);
+    if (target) target.hidden = false;
+    saveState();
+  }
+
+  function jobRow(job, idx) {
+    const row = document.createElement("div");
+    row.className = "sheet-row";
+
+    const mkCell = (value, key) => {
+      const cell = document.createElement("div");
+      const input = document.createElement("input");
+      input.value = value ?? "";
+      input.type = "text";
+      input.addEventListener("input", () => {
+        const dayObj = state.dayData[state.selectedDate];
+        dayObj.jobs[idx][key] = input.value;
+        saveState();
+      });
+      cell.appendChild(input);
+      return cell;
+    };
+
+    row.appendChild(mkCell(job.id, "id"));
+    row.appendChild(mkCell(job.customer, "customer"));
+    row.appendChild(mkCell(job.pickup, "pickup"));
+    row.appendChild(mkCell(job.dropoff, "dropoff"));
+
+    const amtCell = document.createElement("div");
+    const amt = document.createElement("input");
+    amt.type = "number";
+    amt.inputMode = "decimal";
+    amt.value = job.amount ?? "";
+    amt.addEventListener("input", () => {
+      const dayObj = state.dayData[state.selectedDate];
+      dayObj.jobs[idx].amount = amt.value;
+      saveState();
     });
+    amtCell.appendChild(amt);
+    row.appendChild(amtCell);
+
+    return row;
   }
 
-  // ---------- Init ----------
-  function init() {
-    setJSStatus("JS: loading…", "warn");
+  // ---------------- Modal: Add Job ----------------
+  function openJobModal() {
+    ensureDay(state.selectedDate);
+    const bd = $("#modalBackdrop");
+    if (!bd) return;
 
-    state = loadState();
-    setStoragePill();
+    $("#modalTitle") && ($("#modalTitle").textContent = "Add Job");
 
-    bindNav();
-    bindModal();
+    // prefill date
+    const d = $("#jobDate");
+    if (d) d.value = state.selectedDate;
 
-    // initial renders
-    renderDashboard();
-    renderCalendar();
+    // clear fields
+    const clear = (id) => { const el = $(id); if (el) el.value = ""; };
+    clear("#jobCustomer");
+    clear("#jobPickup");
+    clear("#jobDropoff");
+    clear("#jobAmount");
+    clear("#jobNotes");
+
+    bd.hidden = false;
+    bd.classList.add("open");
+  }
+
+  function closeModal() {
+    const bd = $("#modalBackdrop");
+    if (!bd) return;
+    bd.classList.remove("open");
+    bd.hidden = true;
+  }
+
+  function saveJobFromModal() {
+    const dayObj = state.dayData[state.selectedDate];
+
+    const id = `J-${pad2(Math.floor(Math.random() * 90) + 10)}${pad2(Math.floor(Math.random() * 90) + 10)}`;
+    const customer = $("#jobCustomer")?.value?.trim() || "";
+    const pickup = $("#jobPickup")?.value?.trim() || "";
+    const dropoff = $("#jobDropoff")?.value?.trim() || "";
+    const amount = $("#jobAmount")?.value?.trim() || "";
+    const notes = $("#jobNotes")?.value?.trim() || "";
+
+    dayObj.jobs.unshift({ id, customer, pickup, dropoff, amount, notes });
+    saveState();
     renderDay();
-
-    // show saved view (default dashboard)
-    switchView(state.view || "dashboard");
-
-    // If we got here, init succeeded.
-    setJSStatus("JS: loaded", "ok");
+    closeModal();
   }
 
-  document.addEventListener("DOMContentLoaded", init);
-})();
+  // ---------------- Wiring ----------------
+  function bindNav() {
+    // sidebar nav
+    $$(".navbtn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const view = btn.dataset.view;
+        if (!view) return;
+        switchView(view);
+      });
+    });
+
+    // toolbar
+    $("#todayBtn")?.addEventListener("click", () => {
+      state.selectedDate = ymd(new Date());
+      ensureDay(state.selectedDate);
+      renderDay();
+      renderDashboard();
+      saveState();
+    });
+
+    $("#prevBtn")?.addEventListener("click", () => {
+      // move selected day -1
+      const d = new Date(state.selectedDate + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      state.selectedDate = ymd(d);
+      ensureDay(state.selectedDate);
+      renderDay();
+      renderDashboard();
+      saveState();
+    });
+
+    $("#nextBtn")?.addEventListener("click", () => {
+      const d = new Date(state.selectedDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      state.selectedDate = ymd(d);
+      ensureDay(state.selectedDate);
+      renderDay();
+      renderDashboard();
+      saveState();
+    });
+
+    $("#addJobBtn")?.addEventListener("click", () => { switchView("day"); openJobModal(); });
+    $("#addJobInlineBtn")?.addEventListener("click", () => openJobModal());
+
+    $("#openTodayBtn")?.addEventListener("click", () => switchView("day"));
+    $("#openCalendarBtn")?.addEventListener("click", () => switchView("calendar"));
+
+    // calendar prev/next
+    $("#calPrevBtn")?.addEventListener("click", () => {
+      const c = parseMonth(state.calCursor);
+      c.setMonth(c.getMonth() - 1);
+      state.calCursor = monthKey(c);
+      renderCalendar();
+      renderDashboard();
+      saveState();
+    });
+
+    $("#calNextBtn")?.addEventListener("click", () => {
+      const c = parseMonth(state.calCursor);
+      c.setMonth(c.getMonth() + 1);
+      state.calCursor = monthKey(c);
+      renderCalendar();
+      renderDashboard();
+      saveState();
+    });
+
+    // tabs
+    $$(".tabbtn").forEach((b) => {
+      b.addEventListener("click", () => setActiveTab(b.dataset.tab));
+    });
+
+    // notes persistence
+    $("#day
