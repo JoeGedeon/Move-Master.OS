@@ -821,3 +821,15 @@ body {
 .calendar-month {
   float: none !important;
 }
+
+/* Calendar day markers + day workspace rows */
+#calendarGrid .day { display:flex; flex-direction:column; gap:6px; }
+#calendarGrid .day .markers { font-size:12px; opacity:.85; }
+
+#calendarGrid .day.has-completed { outline: 1px solid rgba(80, 220, 140, .45); }
+#calendarGrid .day.has-scheduled { outline: 1px solid rgba(120, 160, 255, .35); }
+#calendarGrid .day.has-cancelled { outline: 1px solid rgba(255, 120, 120, .35); }
+
+#dayJobsList .job-row { display:flex; justify-content:space-between; gap:12px; padding:10px; border-radius:12px; }
+#dayJobsList .job-actions { display:flex; gap:8px; align-items:center; }
+#dayJobsList .job-status { min-width: 130px; }
