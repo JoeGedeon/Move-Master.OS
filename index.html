@@ -5,211 +5,255 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>FleetPro</title>
 
-  <!-- Cache-bust CSS (change number if Safari acts possessed) -->
+  <!-- GitHub Pages safe relative path (same folder as index.html) -->
   <link rel="stylesheet" href="./styles.css?v=20251225_0100" />
 </head>
 
 <body>
   <div class="app-shell">
-
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark"></div>
         <div class="brand-text">
-          <div class="brand-title">FLEETPRO</div>
+          <div class="brand-name">FLEETPRO</div>
           <div class="brand-sub">Move-Master.OS</div>
         </div>
       </div>
 
       <nav class="nav">
-        <button class="navbtn" type="button" data-view="dashboard">Dashboard</button>
-        <button class="navbtn" type="button" data-view="calendar">Calendar</button>
-        <button class="navbtn" type="button" data-view="day">Day Workspace</button>
+        <button class="navbtn active" data-view="dashboard">Dashboard</button>
+        <button class="navbtn" data-view="calendar">Calendar</button>
+        <button class="navbtn" data-view="day">Day Workspace</button>
 
         <div class="nav-sep"></div>
 
-        <button class="navbtn" type="button" data-view="drivers">Drivers</button>
-        <button class="navbtn" type="button" data-view="trucks">Trucks</button>
-        <button class="navbtn" type="button" data-view="dispatch">Dispatch</button>
-        <button class="navbtn" type="button" data-view="finance">Finance</button>
-        <button class="navbtn" type="button" data-view="inventory">Inventory</button>
-        <button class="navbtn" type="button" data-view="ai">AI Scanner</button>
+        <button class="navbtn" data-view="drivers">Drivers</button>
+        <button class="navbtn" data-view="trucks">Trucks</button>
+        <button class="navbtn" data-view="dispatch">Dispatch</button>
+        <button class="navbtn" data-view="finance">Finance</button>
+        <button class="navbtn" data-view="inventory">Inventory</button>
+        <button class="navbtn" data-view="ai">AI Scanner</button>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="pill">Local Storage: <span id="lsState">ON</span></div>
-        <div class="muted">Foundation build</div>
+        <div class="pill">Local Storage: <b id="lsState">ON</b></div>
+        <div class="pill muted">Foundation build</div>
       </div>
     </aside>
 
     <!-- MAIN -->
     <main class="main">
-
-      <!-- TOP BAR -->
       <header class="topbar">
         <div class="topbar-left">
-          <div class="top-title" id="contextTitle">Operations</div>
-          <div class="top-sub" id="contextSub">Foundation mode (Smart)</div>
+          <div class="title">Operations</div>
+          <div class="subtitle" id="contextLine">Foundation mode (Smart)</div>
         </div>
 
         <div class="topbar-right">
           <div class="clock" id="clock">--:--:--</div>
-          <div class="pill good">● SYSTEM LIVE</div>
-          <div class="pill bad" id="jsStatus">JS: not loaded</div>
+          <div class="badge live">
+            <span class="dot"></span>
+            SYSTEM LIVE
+          </div>
+          <div class="badge js" id="jsBadge">JS: not loaded</div>
         </div>
       </header>
 
-      <!-- TOOLBAR -->
-      <section class="toolbar" id="toolbar">
-        <div class="toolbar-scroll">
-          <button class="tbtn" type="button" id="btnToday">Today</button>
-          <button class="tbtn" type="button" id="btnPrev">◀</button>
-          <button class="tbtn" type="button" id="btnNext">▶</button>
+      <!-- SCROLLABLE TOOLBAR -->
+      <section class="toolbar-wrap">
+        <div class="toolbar" id="toolbar">
+          <button class="chip" id="btnToday">Today</button>
+          <button class="chip" id="btnPrev" aria-label="Previous">&#9664;</button>
+          <button class="chip" id="btnNext" aria-label="Next">&#9654;</button>
 
-          <div class="toolbar-spacer"></div>
+          <div class="chip-sep"></div>
 
-          <button class="tbtn primary" type="button" id="btnAddJob">+ Job (Day)</button>
-          <button class="tbtn" type="button" id="btnAddReceipt">+ Receipt (Day)</button>
-          <button class="tbtn" type="button" id="btnAddNote">+ Note (Day)</button>
+          <button class="chip primary" id="btnAddJob">+ Job (Day)</button>
+          <button class="chip" id="btnAddReceipt">+ Receipt (Day)</button>
+          <button class="chip" id="btnAddNote">+ Note (Day)</button>
 
-          <div class="toolbar-spacer"></div>
+          <div class="chip-sep"></div>
 
-          <button class="tbtn ghost" type="button">Export (later)</button>
-          <button class="tbtn ghost" type="button">Sync (later)</button>
+          <button class="chip disabled" disabled>Export (later)</button>
+          <button class="chip disabled" disabled>Sync (later)</button>
         </div>
       </section>
 
-      <!-- CONTENT -->
+      <!-- CONTENT AREA (SCROLLS) -->
       <section class="content" id="content">
-
-        <!-- DASHBOARD -->
-        <section class="view" id="dashboard">
-          <div class="card">
-            <h2>Today</h2>
-            <div class="big" id="dashDate">—</div>
-            <div class="muted" id="dashCounts">0 job(s), 0 receipt(s), 0 driver(s), 0 truck(s)</div>
-
-            <div class="row">
-              <button class="btn primary" type="button" data-goto="day">Open Today</button>
-              <button class="btn" type="button" data-goto="calendar">Open Calendar</button>
+        <!-- DASHBOARD VIEW -->
+        <section class="view active" id="view-dashboard">
+          <div class="card hero">
+            <div class="hero-left">
+              <div class="hero-title">Today</div>
+              <div class="hero-date" id="dashDate">—</div>
+              <div class="hero-meta" id="dashMeta">Loading…</div>
+              <div class="hero-actions">
+                <button class="btn primary" id="openToday">Open Today</button>
+                <button class="btn" id="openCalendar">Open Calendar</button>
+              </div>
             </div>
           </div>
 
           <div class="card">
-            <h2>Pressure Points</h2>
-            <ul class="muted">
-              <li>Overbooked drivers: AI later</li>
-              <li>Truck maintenance conflicts: rules later</li>
-              <li>Receipts missing: driver app later</li>
+            <h3>Pressure Points</h3>
+            <ul class="bullets" id="pressureList">
+              <li>Overbooked drivers: <span class="muted">AI later</span></li>
+              <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
+              <li>Receipts missing: <span class="muted">driver app later</span></li>
             </ul>
           </div>
 
           <div class="card">
-            <h2>This Month Snapshot</h2>
+            <h3>This Month Snapshot</h3>
             <div class="grid2">
-              <div class="mini">
-                <div class="mini-label">Jobs (month)</div>
-                <div class="mini-value" id="mJobs">0</div>
+              <div class="stat">
+                <div class="stat-label">Jobs (month)</div>
+                <div class="stat-value" id="mJobs">0</div>
               </div>
-              <div class="mini">
-                <div class="mini-label">Receipts (month)</div>
-                <div class="mini-value" id="mReceipts">0</div>
+              <div class="stat">
+                <div class="stat-label">Receipts (month)</div>
+                <div class="stat-value" id="mReceipts">0</div>
               </div>
-              <div class="mini">
-                <div class="mini-label">Expenses (month)</div>
-                <div class="mini-value" id="mExpenses">$0</div>
+              <div class="stat">
+                <div class="stat-label">Expenses (month)</div>
+                <div class="stat-value" id="mExpenses">$0</div>
               </div>
-              <div class="mini">
-                <div class="mini-label">Days stored</div>
-                <div class="mini-value" id="mDays">0</div>
+              <div class="stat">
+                <div class="stat-label">Days stored</div>
+                <div class="stat-value" id="mDays">0</div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- CALENDAR -->
-        <section class="view" id="calendar" hidden>
+        <!-- CALENDAR VIEW -->
+        <section class="view" id="view-calendar">
           <div class="card">
-            <div class="cal-head">
+            <div class="calendar-head">
               <div>
-                <h2 id="calMonth">Month</h2>
-                <div class="muted">Tap any day to open the Day Workspace.</div>
+                <h3 id="calTitle">Month</h3>
+                <div class="muted">Tap any day tile to open the Day Workspace.</div>
               </div>
             </div>
+            <div class="dow">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+          </div>
+        </section>
 
-            <div class="cal-dow">
-              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        <!-- DAY WORKSPACE VIEW -->
+        <section class="view" id="view-day">
+          <div class="card hero day-hero">
+            <div class="day-hero-left">
+              <div class="hero-title">Day Workspace</div>
+              <div class="hero-date" id="dayTitle">—</div>
+              <div class="hero-meta" id="dayMeta">0 job(s) • 0 receipt(s) • 0 note(s)</div>
             </div>
 
-            <div class="cal-grid" id="calendarGrid"></div>
+            <div class="day-hero-right">
+              <div class="pill">Jobs: <b id="pillJobs">0</b></div>
+              <div class="pill">Receipts: <b id="pillReceipts">0</b></div>
+              <div class="pill">Notes: <b id="pillNotes">0</b></div>
+            </div>
           </div>
-        </section>
 
-        <!-- DAY WORKSPACE -->
-        <section class="view" id="day" hidden>
-          <div class="card">
-            <h2>Day Workspace: <span id="dayTitle">—</span></h2>
-            <div class="muted">Notes (for now). Jobs/Receipts tables can be reattached next.</div>
+          <div class="tabs">
+            <button class="tab active" data-tab="jobs">Jobs</button>
+            <button class="tab" data-tab="receipts">Receipts</button>
+            <button class="tab" data-tab="notes">Notes</button>
+            <button class="tab" data-tab="aiNotes">AI Notes</button>
+          </div>
 
-            <label class="label">Day Notes</label>
-            <textarea id="dayNotes" class="textarea" placeholder="Type normally. No one-character nonsense."></textarea>
+          <!-- JOBS -->
+          <div class="tabpane active" id="tab-jobs">
+            <div class="row-actions">
+              <button class="btn primary" id="addJobRow">+ Add Job</button>
+              <span class="muted">Tap a cell and type normally. Use Tab to move right, Enter to go down.</span>
+            </div>
 
-            <div class="row">
-              <button class="btn primary" type="button" id="saveDay">Save</button>
-              <button class="btn" type="button" id="clearDay">Clear</button>
+            <div class="sheet-wrap" id="jobsWrap">
+              <table class="sheet" id="jobsTable">
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Customer</th>
+                    <th>Pickup (From)</th>
+                    <th>Dropoff (To)</th>
+                    <th>Volume (ft³)</th>
+                    <th>Truck</th>
+                    <th>Driver</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="jobsBody"></tbody>
+              </table>
+            </div>
+
+            <div class="help">
+              <b>Pickup (From)</b> = where items are collected. <b>Dropoff (To)</b> = where items are delivered.
+              This wording helps new staff immediately understand “from → to” without guessing.
+            </div>
+          </div>
+
+          <!-- RECEIPTS -->
+          <div class="tabpane" id="tab-receipts">
+            <div class="row-actions">
+              <button class="btn primary" id="addReceiptRow">+ Add Receipt</button>
+              <span class="muted">Basic receipts log for the day. AI categorization later.</span>
+            </div>
+
+            <div class="sheet-wrap" id="receiptsWrap">
+              <table class="sheet" id="receiptsTable">
+                <thead>
+                  <tr>
+                    <th>Receipt ID</th>
+                    <th>Vendor</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Paid By</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="receiptsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- NOTES -->
+          <div class="tabpane" id="tab-notes">
+            <div class="row-actions">
+              <button class="btn primary" id="addNote">+ Add Note</button>
+              <span class="muted">This is a real text box. Type like a normal human.</span>
+            </div>
+            <textarea class="notes" id="notesBox" placeholder="Dispatcher notes, driver notes, confirmations, gate codes, building rules, etc."></textarea>
+          </div>
+
+          <!-- AI NOTES -->
+          <div class="tabpane" id="tab-aiNotes">
+            <div class="card">
+              <h3>AI Notes (placeholder)</h3>
+              <div class="muted">Later: summarize day, detect missing fields, flag risks, estimate volume trends, receipt anomalies.</div>
             </div>
           </div>
         </section>
 
-        <!-- PLACEHOLDER VIEWS -->
-        <section class="view" id="drivers" hidden>
-          <div class="card">
-            <h2>Drivers</h2>
-            <div class="muted">Directory + availability comes next.</div>
-          </div>
-        </section>
-
-        <section class="view" id="trucks" hidden>
-          <div class="card">
-            <h2>Trucks</h2>
-            <div class="muted">Fleet units + maintenance comes next.</div>
-          </div>
-        </section>
-
-        <section class="view" id="dispatch" hidden>
-          <div class="card">
-            <h2>Dispatch</h2>
-            <div class="muted">Assignments + conflicts comes next.</div>
-          </div>
-        </section>
-
-        <section class="view" id="finance" hidden>
-          <div class="card">
-            <h2>Finance</h2>
-            <div class="muted">Payouts + receipts rollups comes next.</div>
-          </div>
-        </section>
-
-        <section class="view" id="inventory" hidden>
-          <div class="card">
-            <h2>Inventory</h2>
-            <div class="muted">Photo audit + AI inventory comes next.</div>
-          </div>
-        </section>
-
-        <section class="view" id="ai" hidden>
-          <div class="card">
-            <h2>AI Scanner</h2>
-            <div class="muted">Upload images/receipts later. For now: foundation is stable.</div>
-          </div>
-        </section>
+        <!-- SIMPLE PLACEHOLDER VIEWS -->
+        <section class="view" id="view-drivers"><div class="card"><h3>Drivers</h3><div class="muted">Directory later. Day-first scheduling is already wired.</div></div></section>
+        <section class="view" id="view-trucks"><div class="card"><h3>Trucks</h3><div class="muted">Units later. Assign trucks to jobs in the day sheet.</div></div></section>
+        <section class="view" id="view-dispatch"><div class="card"><h3>Dispatch</h3><div class="muted">Dispatch board later. For now: calendar → day sheets.</div></div></section>
+        <section class="view" id="view-finance"><div class="card"><h3>Finance</h3><div class="muted">Finance later. Receipts and expenses are day-rooted already.</div></div></section>
+        <section class="view" id="view-inventory"><div class="card"><h3>Inventory</h3><div class="muted">Inventory audit later. Camera + AI hooks later.</div></div></section>
+        <section class="view" id="view-ai"><div class="card"><h3>AI Scanner</h3><div class="muted">Camera + estimate + receipt OCR later. UI foundation is ready.</div></div></section>
 
       </section>
     </main>
   </div>
 
-  <!-- Cache-bust JS (change number if Safari acts possessed) -->
+  <!-- IMPORTANT: script must exist and match filename EXACTLY -->
   <script src="./app_v4.js?v=20251225_0100" defer></script>
 </body>
 </html>
