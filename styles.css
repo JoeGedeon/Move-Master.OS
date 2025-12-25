@@ -675,3 +675,28 @@ body {
   position: sticky;
   top: 0;
 }
+ /* ===== FORCE FULL MONTH CALENDAR GRID ===== */
+#calendarGrid.calendar-grid{
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 10px;
+  width: 100%;
+}
+#calendarGrid .dow{
+  text-align: center;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+#calendarGrid .day{
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+#calendarGrid .day.is-pad{
+  opacity: 0.35;
+}
