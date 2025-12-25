@@ -135,4 +135,252 @@ body{
   background:rgba(255,255,255,.03);
   overflow-x:auto;
   overflow-y:hidden;
-  -webkit-overflow-scrolling:touch
+  -webkit-overflow-scrolling:touch;
+  white-space:nowrap;
+}
+.toolbar::-webkit-scrollbar{height:8px}
+.toolbar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10); border-radius:999px}
+
+.tbtn{
+  flex:0 0 auto;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  color:var(--text);
+  cursor:pointer;
+  font-size:13px;
+}
+.tbtn:hover{background:rgba(255,255,255,.06)}
+.tbtn.primary{
+  background:rgba(79,124,255,.22);
+  border-color:rgba(79,124,255,.45);
+}
+.tbtn.ghost{opacity:.55}
+.tspacer{width:10px; flex:0 0 auto}
+
+/* Content: vertically scrollable */
+.content{
+  flex:1;
+  min-height:0;
+  padding:0 18px 18px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.content::-webkit-scrollbar{width:10px}
+.content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10); border-radius:999px}
+
+/* Cards */
+.card{
+  border-radius:18px;
+  border:1px solid var(--stroke);
+  background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.02));
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:14px;
+}
+.cardHeader{
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+}
+.hLabel{color:var(--muted2); font-size:12px; letter-spacing:.06em; text-transform:none}
+.hTitle{font-size:34px; font-weight:800; margin-top:6px}
+.hMeta{color:var(--muted); font-size:13px; margin-top:6px}
+.hActions{display:flex; gap:10px; flex-wrap:wrap}
+.btn{
+  padding:10px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  cursor:pointer;
+}
+.btn:hover{background:rgba(255,255,255,.07)}
+.btn.primary{
+  background:rgba(79,124,255,.30);
+  border-color:rgba(79,124,255,.55);
+}
+
+.grid4{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:12px;
+}
+.mini{
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  padding:14px;
+}
+.miniLabel{color:var(--muted2); font-size:12px}
+.miniValue{font-size:22px; font-weight:800; margin-top:6px}
+
+/* Lists */
+.bullets{margin:10px 0 0; padding-left:18px; color:var(--muted)}
+.bullets li{margin:8px 0}
+
+/* Views */
+.view.hidden{display:none}
+
+/* Calendar */
+.dow{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:10px;
+  margin-top:10px;
+  color:var(--muted2);
+  font-size:12px;
+  padding:0 4px;
+}
+.calGrid{
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+.dayTile{
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  min-height:86px;
+  padding:12px;
+  cursor:pointer;
+  position:relative;
+}
+.dayTile:hover{background:rgba(255,255,255,.06)}
+.dayNum{font-weight:800; font-size:16px; opacity:.9}
+.badgeRow{
+  position:absolute; left:10px; bottom:10px;
+  display:flex; gap:6px; flex-wrap:wrap;
+}
+.smallBadge{
+  font-size:11px;
+  padding:6px 8px;
+  border-radius:999px;
+  border:1px solid rgba(79,124,255,.35);
+  background:rgba(79,124,255,.14);
+  color:rgba(255,255,255,.85);
+}
+
+/* Tabs */
+.tabs{
+  display:flex; gap:10px;
+  padding:6px 6px 10px;
+  flex-wrap:wrap;
+}
+.tab{
+  padding:10px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.03);
+  color:var(--text);
+  cursor:pointer;
+}
+.tab.active{
+  border-color:rgba(79,124,255,.55);
+  background:rgba(79,124,255,.14);
+}
+.tabPanel.hidden{display:none}
+
+.rowBetween{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.hint{color:var(--muted2); font-size:12px}
+
+/* Table: make it horizontally scrollable (fix your “stuck at dropoff/volume”) */
+.tableWrap{
+  width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.15);
+}
+.tableWrap::-webkit-scrollbar{height:10px}
+.tableWrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:999px}
+
+.sheet{
+  width:max-content;
+  min-width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:auto;
+}
+.sheet th, .sheet td{
+  padding:12px 10px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  border-right:1px solid rgba(255,255,255,.06);
+  white-space:nowrap;
+}
+.sheet th{
+  position:sticky;
+  top:0;
+  background:rgba(8,10,28,.85);
+  backdrop-filter:blur(10px);
+  z-index:2;
+  text-align:left;
+  font-size:12px;
+  color:var(--muted);
+  letter-spacing:.06em;
+}
+.sheet td{
+  background:rgba(255,255,255,.02);
+  min-width:160px;
+}
+.sheet td:first-child{min-width:120px}
+.sheet td:nth-child(5){min-width:120px} /* Volume */
+.sheet td:nth-child(8){min-width:260px} /* Notes */
+
+.cell{
+  position:relative;
+}
+.cellDisplay{
+  min-height:20px;
+  color:rgba(255,255,255,.88);
+}
+.cellEditing{
+  outline:2px solid rgba(79,124,255,.55);
+  outline-offset:-2px;
+  background:rgba(79,124,255,.10) !important;
+}
+.cellEditor{
+  width:100%;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:10px;
+  padding:10px 10px;
+  background:rgba(0,0,0,.25);
+  color:var(--text);
+  font-size:14px;
+}
+.cellEditor:focus{outline:2px solid rgba(79,124,255,.55); border-color:transparent}
+
+/* Notes */
+.label{display:block; color:var(--muted2); font-size:12px; margin-bottom:8px}
+.notesBox{
+  width:100%;
+  min-height:120px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.18);
+  padding:12px;
+  color:var(--text);
+  font-size:14px;
+  resize:vertical;
+}
+
+/* Misc */
+.empty{color:var(--muted); padding:18px}
+.legend{color:var(--muted); font-size:13px}
+.legendTitle{color:var(--text); font-weight:800; margin-bottom:6px}
+
+@media (max-width: 900px){
+  .sidebar{width:240px; min-width:240px}
+  .grid4{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .hTitle{font-size:28px}
+}
