@@ -623,3 +623,21 @@ body {
 }
 
 /* If your topbar doesn’t have these inner wrappers, this does nothing harmlessly. */
+
+/* Safety: main area must actually show up */
+html, body { height: 100%; }
+.app-shell { min-height: 100vh; }
+
+.main {
+  min-height: 100vh;
+  display: block;
+}
+
+.views {
+  min-height: calc(100vh - 20px);
+  display: block;
+}
+
+.view {
+  display: block;
+}
