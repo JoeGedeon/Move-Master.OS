@@ -1,17 +1,16 @@
 /* FleetPro / Move-Master.OS — app_v5.js
-   Purpose:
-   - Keep your layout
-   - Fix nav + toolbar wiring
-   - Render: Dashboard + Calendar + Day Workspace
-   - Make JS badge honest (only flips after init runs)
+   - Working nav (sidebar + top buttons)
+   - Calendar month render + dashboard quick calendar
+   - Day workspace + tabs
+   - Modal "Add Job" overlay (fixed positioning, not inline)
+   - Honest JS badge: flips only after init runs
 */
 (() => {
   "use strict";
 
-  // ---------------- Helpers ----------------
+  // ===== Helpers =====
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
   const pad2 = (n) => String(n).padStart(2, "0");
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   const monthKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
@@ -19,12 +18,12 @@
   const STORAGE_KEY = "fleetpro_foundation_v5";
 
   const DEFAULT_STATE = {
-    view: "dashboard",             // dashboard | calendar | day | drivers | ...
-    selectedDate: ymd(new Date()), // YYYY-MM-DD
+    view: "dashboard",          // dashboard | calendar | day | drivers | ...
+    selectedDate: ymd(new Date()),
     calCursor: monthKey(new Date()),
     dayData: {
-      // "YYYY-MM-DD": { jobs:[], receipts:[], notes:"", warnings:[] }
-    },
+      // "YYYY-MM-DD": { jobs: [...], receipts: [...], notes: "..." }
+    }
   };
 
   function safeJSONParse(str, fallback) {
@@ -42,517 +41,400 @@
   }
 
   function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      updateStoragePill(true);
-    } catch {
-      updateStoragePill(false);
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateStoragePill();
   }
 
-  function updateStoragePill(ok) {
-    const el = $("#storagePill");
-    if (!el) return;
-    if (!ok) {
-      el.textContent = "Local Storage: blocked";
-      return;
-    }
-    const bytes = (localStorage.getItem(STORAGE_KEY) || "").length;
-    el.textContent = `Local Storage: ON · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  function updateStoragePill() {
+    const pill = $("#storagePill");
+    if (!pill) return;
+    let kb = 0;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY) || "";
+      kb = Math.max(1, Math.ceil(raw.length / 1024));
+    } catch {}
+    pill.textContent = `Local Storage: ON · ${kb} KB`;
   }
 
   function setJSLoaded(ok) {
-    const pill = $("#jsPill");
+    const pill = $("#jsStatusPill");
     if (!pill) return;
-    pill.textContent = ok ? "JS: loaded" : "JS: not loaded";
-    pill.style.opacity = ok ? "1" : "0.7";
-  }
-
-  function setHeader(title, context) {
-    const t = $("#pageTitle");
-    const c = $("#contextLine");
-    if (t) t.textContent = title;
-    if (c) c.textContent = context;
-  }
-
-  function ensureDay(dateStr) {
-    if (!state.dayData[dateStr]) {
-      state.dayData[dateStr] = { jobs: [], receipts: [], notes: "", warnings: [] };
+    if (ok) {
+      pill.textContent = "JS: loaded";
+      pill.classList.add("loaded");
+    } else {
+      pill.textContent = "JS: not loaded";
+      pill.classList.remove("loaded");
     }
-    return state.dayData[dateStr];
   }
 
-  function parseYMD(dateStr) {
-    const [Y, M, D] = dateStr.split("-").map(Number);
-    return new Date(Y, M - 1, D);
+  function setContextLine(text) {
+    const el = $("#contextLine");
+    if (el) el.textContent = text;
   }
 
-  // ---------------- View switching ----------------
-  function showView(viewName) {
-    state.view = viewName;
+  // ===== Global state =====
+  let state = null;
+
+  // ===== View switching =====
+  function switchView(name) {
+    state.view = name;
     saveState();
 
-    $$(".view").forEach(v => v.classList.remove("is-visible"));
-    const target = $(`#view-${viewName}`);
-    if (target) target.classList.add("is-visible");
+    // update nav button highlighting
+    $$(".navbtn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.view === name);
+    });
 
-    // highlight sidebar
-    $$(".navbtn").forEach(b => b.classList.remove("is-active"));
-    const activeBtn = $(`.navbtn[data-view="${viewName}"]`);
-    if (activeBtn) activeBtn.classList.add("is-active");
+    // update view panels
+    $$(".view").forEach(v => v.classList.remove("active"));
+    const panel = $(`#view-${name}`);
+    if (panel) panel.classList.add("active");
 
-    // update header + render relevant stuff
-    if (viewName === "dashboard") {
-      setHeader("Operations", "Foundation mode (Smart)");
+    if (name === "dashboard") {
+      setContextLine("Foundation mode (Smart)");
       renderDashboard();
-    } else if (viewName === "calendar") {
-      setHeader("Operations", "Calendar navigation (Month)");
+    } else if (name === "calendar") {
+      setContextLine("Calendar navigation (Month)");
       renderCalendar();
-    } else if (viewName === "day") {
-      setHeader("Operations", `Day Workspace: ${state.selectedDate}`);
+    } else if (name === "day") {
+      setContextLine(`Day Workspace: ${state.selectedDate}`);
       renderDay();
     } else {
-      setHeader("Operations", viewName[0].toUpperCase() + viewName.slice(1));
+      setContextLine(name[0].toUpperCase() + name.slice(1));
     }
   }
 
-  // ---------------- Bind UI ----------------
   function bindNav() {
     // sidebar nav
-    document.addEventListener("click", (e) => {
+    $(".sidebar")?.addEventListener("click", (e) => {
       const btn = e.target.closest(".navbtn");
       if (!btn) return;
-      const view = btn.dataset.view;
-      if (!view) return;
-      showView(view);
-    });
-
-    // top toolbar buttons
-    const btnToday = $("#btnToday");
-    const btnPrev = $("#btnPrev");
-    const btnNext = $("#btnNext");
-
-    btnToday?.addEventListener("click", () => {
-      state.selectedDate = ymd(new Date());
-      state.calCursor = monthKey(new Date());
-      saveState();
-      if (state.view === "day") renderDay();
-      if (state.view === "calendar") renderCalendar();
-      if (state.view === "dashboard") renderDashboard();
-    });
-
-    btnPrev?.addEventListener("click", () => {
-      // prev month if calendar, prev day if day
-      if (state.view === "calendar") {
-        const d = parseYMD(state.calCursor + "-01");
-        d.setMonth(d.getMonth() - 1);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderCalendar();
-      } else if (state.view === "day") {
-        const d = parseYMD(state.selectedDate);
-        d.setDate(d.getDate() - 1);
-        state.selectedDate = ymd(d);
-        saveState();
-        renderDay();
-      } else {
-        showView("calendar");
-      }
-    });
-
-    btnNext?.addEventListener("click", () => {
-      if (state.view === "calendar") {
-        const d = parseYMD(state.calCursor + "-01");
-        d.setMonth(d.getMonth() + 1);
-        state.calCursor = monthKey(d);
-        saveState();
-        renderCalendar();
-      } else if (state.view === "day") {
-        const d = parseYMD(state.selectedDate);
-        d.setDate(d.getDate() + 1);
-        state.selectedDate = ymd(d);
-        saveState();
-        renderDay();
-      } else {
-        showView("calendar");
-      }
+      switchView(btn.dataset.view);
     });
 
     // dashboard quick buttons
     $("#openToday")?.addEventListener("click", () => {
       state.selectedDate = ymd(new Date());
       saveState();
-      showView("day");
+      switchView("day");
     });
-    $("#openCalendar")?.addEventListener("click", () => showView("calendar"));
+    $("#openCalendar")?.addEventListener("click", () => switchView("calendar"));
 
-    // day tabs
-    document.addEventListener("click", (e) => {
-      const t = e.target.closest(".tab");
-      if (!t) return;
-      const tab = t.dataset.daytab;
-      if (!tab) return;
-
-      $$(".tab").forEach(x => x.classList.remove("is-active"));
-      t.classList.add("is-active");
-
-      $$(".daypane").forEach(p => p.classList.remove("is-visible"));
-      $(`#pane-${tab}`)?.classList.add("is-visible");
-    });
-
-    // add job/receipt/note (toolbar + inline)
-    const addJob = () => { showView("day"); addJobRow(); };
-    const addReceipt = () => { showView("day"); /* placeholder */ };
-    const addNote = () => { showView("day"); focusNotes(); };
-
-    $("#btnAddJob")?.addEventListener("click", addJob);
-    $("#btnAddReceipt")?.addEventListener("click", addReceipt);
-    $("#btnAddNote")?.addEventListener("click", addNote);
-
-    $("#addJobInline")?.addEventListener("click", addJobRow);
-    $("#addReceiptInline")?.addEventListener("click", () => {});
-    $("#addNoteInline")?.addEventListener("click", focusNotes);
-
-    // notes save
-    $("#notesBox")?.addEventListener("input", (e) => {
-      const day = ensureDay(state.selectedDate);
-      day.notes = e.target.value;
+    // toolbar
+    $("#btnToday")?.addEventListener("click", () => {
+      state.selectedDate = ymd(new Date());
+      state.calCursor = monthKey(new Date());
       saveState();
+      // keep current view but rerender relevant pieces
+      if (state.view === "calendar") renderCalendar();
+      if (state.view === "day") renderDay();
+      if (state.view === "dashboard") renderDashboard();
+    });
+
+    $("#btnPrev")?.addEventListener("click", () => shiftMonth(-1));
+    $("#btnNext")?.addEventListener("click", () => shiftMonth(1));
+
+    // Add Job modal
+    $("#btnAddJob")?.addEventListener("click", () => openJobModal());
+    $("#btnAddReceipt")?.addEventListener("click", () => openReceiptPlaceholder());
+    $("#btnAddNote")?.addEventListener("click", () => openNotePlaceholder());
+
+    // Modal close actions
+    $("#modalClose")?.addEventListener("click", closeModal);
+    $("#btnCancel")?.addEventListener("click", closeModal);
+    $("#modalOverlay")?.addEventListener("click", (e) => {
+      if (e.target.id === "modalOverlay") closeModal();
+    });
+
+    // Modal save
+    $("#jobForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveJobFromModal();
+    });
+
+    // Day tabs
+    $(".tabs")?.addEventListener("click", (e) => {
+      const tab = e.target.closest(".tab");
+      if (!tab) return;
+      setDayTab(tab.dataset.tab);
     });
   }
 
-  // ---------------- Rendering ----------------
-  function renderDashboard() {
-    const today = ymd(new Date());
-    const day = ensureDay(today);
+  function shiftMonth(delta) {
+    // state.calCursor is "YYYY-MM"
+    const [yy, mm] = state.calCursor.split("-").map(Number);
+    const d = new Date(yy, (mm - 1) + delta, 1);
+    state.calCursor = monthKey(d);
+    saveState();
+    if (state.view === "calendar") renderCalendar();
+    if (state.view === "dashboard") renderDashboard(); // quick calendar mirrors cursor
+  }
 
+  // ===== Dashboard =====
+  function renderDashboard() {
+    // summary
+    const d = state.selectedDate;
+    const day = ensureDay(d);
     const jobs = day.jobs.length;
     const receipts = day.receipts.length;
+    const notes = (day.notes || "").trim().length ? "yes" : "no";
+    $("#dashSummary").textContent = `${d} — ${jobs} job(s), ${receipts} receipt(s), notes: ${notes}`;
 
-    const todaySummary = $("#todaySummary");
-    if (todaySummary) {
-      todaySummary.textContent = `${jobs} job(s), ${receipts} receipt(s), 0 driver(s), 0 truck(s)`;
-    }
-
-    renderCalendarQuick();
+    renderMiniCalendar("#dashCal");
   }
 
-  function renderCalendarQuick() {
-    const host = $("#calendarQuick");
+  // ===== Calendar =====
+  function renderCalendar() {
+    const [yy, mm] = state.calCursor.split("-").map(Number);
+    const monthDate = new Date(yy, mm - 1, 1);
+    const title = monthDate.toLocaleString(undefined, { month: "long", year: "numeric" });
+    $("#calTitle").textContent = title;
+
+    renderMonthGrid("#calendarGrid");
+  }
+
+  function renderMiniCalendar(containerSel) {
+    // quick calendar uses calCursor too
+    renderMonthGrid(containerSel, true);
+  }
+
+  function renderMonthGrid(containerSel, compact = false) {
+    const host = $(containerSel);
     if (!host) return;
-
-    // Use cursor month
-    const [Y, M] = state.calCursor.split("-").map(Number);
-    const first = new Date(Y, M - 1, 1);
-    const startDow = first.getDay(); // 0..6
-    const daysInMonth = new Date(Y, M, 0).getDate();
-
     host.innerHTML = "";
 
-    // leading blanks
+    const [yy, mm] = state.calCursor.split("-").map(Number);
+    const first = new Date(yy, mm - 1, 1);
+    const startDow = first.getDay(); // 0 Sun
+    const daysInMonth = new Date(yy, mm, 0).getDate();
+
+    // Leading blanks
     for (let i = 0; i < startDow; i++) {
-      const p = document.createElement("div");
-      p.className = "daypill is-muted";
-      p.textContent = "—";
-      p.style.pointerEvents = "none";
-      host.appendChild(p);
+      const blank = document.createElement("div");
+      blank.className = "cal-day muted";
+      blank.textContent = " ";
+      host.appendChild(blank);
     }
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${Y}-${pad2(M)}-${pad2(d)}`;
-      const btn = document.createElement("button");
-      btn.className = "daypill";
-      btn.type = "button";
-      btn.textContent = String(d);
-      btn.addEventListener("click", () => {
-        state.selectedDate = dateStr;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(yy, mm - 1, day);
+      const key = ymd(d);
+
+      const cell = document.createElement("div");
+      cell.className = "cal-day";
+      cell.textContent = String(day);
+
+      // highlight selected date
+      if (key === state.selectedDate) {
+        cell.style.outline = "2px solid rgba(120,170,255,.55)";
+      }
+
+      cell.addEventListener("click", () => {
+        state.selectedDate = key;
         saveState();
-        showView("day");
+        switchView("day");
       });
-      host.appendChild(btn);
+
+      host.appendChild(cell);
     }
   }
 
-  function renderCalendar() {
-    const grid = $("#calendarGrid");
-    const title = $("#calTitle");
-    if (!grid) return;
-
-    const [Y, M] = state.calCursor.split("-").map(Number);
-    const first = new Date(Y, M - 1, 1);
-    const startDow = first.getDay();
-    const daysInMonth = new Date(Y, M, 0).getDate();
-
-    if (title) {
-      const monthName = first.toLocaleString(undefined, { month: "long" });
-      title.textContent = `${monthName} ${Y}`;
+  // ===== Day Workspace =====
+  function ensureDay(dateStr) {
+    if (!state.dayData[dateStr]) {
+      state.dayData[dateStr] = { jobs: [], receipts: [], notes: "" };
     }
-
-    grid.innerHTML = "";
-
-    // leading blanks
-    for (let i = 0; i < startDow; i++) {
-      const cell = document.createElement("div");
-      cell.className = "daycell is-muted";
-      cell.innerHTML = `<div class="daynum">—</div>`;
-      cell.style.pointerEvents = "none";
-      grid.appendChild(cell);
-    }
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${Y}-${pad2(M)}-${pad2(d)}`;
-      const day = ensureDay(dateStr);
-
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = "daycell";
-      cell.innerHTML = `
-        <div class="daynum">${d}</div>
-        <div class="muted" style="margin-top:6px;font-size:12px">
-          Jobs: ${day.jobs.length}
-        </div>
-      `;
-
-      cell.addEventListener("click", () => {
-        state.selectedDate = dateStr;
-        saveState();
-        showView("day");
-      });
-
-      grid.appendChild(cell);
-    }
+    // normalize
+    if (!Array.isArray(state.dayData[dateStr].jobs)) state.dayData[dateStr].jobs = [];
+    if (!Array.isArray(state.dayData[dateStr].receipts)) state.dayData[dateStr].receipts = [];
+    if (typeof state.dayData[dateStr].notes !== "string") state.dayData[dateStr].notes = "";
+    return state.dayData[dateStr];
   }
 
   function renderDay() {
-    const day = ensureDay(state.selectedDate);
+    const d = state.selectedDate;
+    const day = ensureDay(d);
 
-    const dayTitle = $("#dayTitle");
-    const dayMeta = $("#dayMeta");
-    const warn = $("#warningsPill");
+    $("#dayTitle").textContent = `Day Workspace — ${d}`;
 
-    if (dayTitle) dayTitle.textContent = `Day Workspace`;
-    if (dayMeta) dayMeta.textContent = state.selectedDate;
+    // Jobs sheet: simple list/table-ish
+    const jobsHost = $("#sheetJobs");
+    jobsHost.innerHTML = "";
 
-    if (warn) warn.textContent = `Warnings: ${day.warnings.length}`;
+    const header = document.createElement("div");
+    header.className = "muted";
+    header.textContent = "Jobs (tap + Job (Day) to add)";
+    jobsHost.appendChild(header);
 
-    // notes
-    const notes = $("#notesBox");
-    if (notes) notes.value = day.notes || "";
+    if (!day.jobs.length) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.style.marginTop = "12px";
+      empty.textContent = "No jobs yet.";
+      jobsHost.appendChild(empty);
+    } else {
+      const wrap = document.createElement("div");
+      wrap.style.marginTop = "12px";
+      wrap.style.display = "grid";
+      wrap.style.gap = "10px";
 
-    renderJobsTable();
-  }
-
-  function renderJobsTable() {
-    const tbody = $("#jobsTable tbody");
-    if (!tbody) return;
-
-    const day = ensureDay(state.selectedDate);
-    tbody.innerHTML = "";
-
-    day.jobs.forEach((job, idx) => {
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td contenteditable="true" data-k="id">${escapeHTML(job.id || "")}</td>
-        <td contenteditable="true" data-k="customer">${escapeHTML(job.customer || "")}</td>
-        <td contenteditable="true" data-k="pickup">${escapeHTML(job.pickup || "")}</td>
-        <td contenteditable="true" data-k="dropoff">${escapeHTML(job.dropoff || "")}</td>
-        <td contenteditable="true" data-k="volume">${escapeHTML(job.volume || "")}</td>
-      `;
-
-      // save edits on input (normal typing)
-      tr.querySelectorAll('[contenteditable="true"]').forEach(td => {
-        td.addEventListener("input", () => {
-          const k = td.dataset.k;
-          if (!k) return;
-          day.jobs[idx][k] = td.textContent.trim();
-          validateWarningsForDay(day);
-          saveState();
-          const warn = $("#warningsPill");
-          if (warn) warn.textContent = `Warnings: ${day.warnings.length}`;
-        });
+      day.jobs.forEach((j) => {
+        const row = document.createElement("div");
+        row.style.padding = "10px 12px";
+        row.style.borderRadius = "12px";
+        row.style.border = "1px solid rgba(255,255,255,.10)";
+        row.style.background = "rgba(255,255,255,.03)";
+        row.innerHTML = `
+          <div style="display:flex; justify-content:space-between; gap:10px;">
+            <div><strong>${escapeHTML(j.customer || "—")}</strong></div>
+            <div class="muted">${escapeHTML(j.id || "")}</div>
+          </div>
+          <div class="muted" style="margin-top:6px;">
+            Pickup: ${escapeHTML(j.pickup || "—")} · Dropoff: ${escapeHTML(j.dropoff || "—")}
+          </div>
+          ${j.notes ? `<div class="muted" style="margin-top:6px;">Notes: ${escapeHTML(j.notes)}</div>` : ""}
+        `;
+        wrap.appendChild(row);
       });
 
-      tbody.appendChild(tr);
-    });
-
-    // if empty, show one row
-    if (day.jobs.length === 0) {
-      addJobRow();
+      jobsHost.appendChild(wrap);
     }
-  }
 
-  function addJobRow() {
-    const day = ensureDay(state.selectedDate);
-    const nextId = `J-${pad2(day.jobs.length + 1)}${pad2(Math.floor(Math.random() * 90) + 10)}`; // quick unique-ish
-    day.jobs.push({ id: nextId, customer: "", pickup: "", dropoff: "", volume: "" });
-    validateWarningsForDay(day);
-    saveState();
-    renderJobsTable();
-  }
+    // Receipts placeholder
+    $("#sheetReceipts").innerHTML = `<div class="muted">Receipts placeholder for ${d}.</div>`;
 
-  function focusNotes() {
-    // switch to notes tab + focus
-    $$(".tab").forEach(x => x.classList.remove("is-active"));
-    $(`.tab[data-daytab="notes"]`)?.classList.add("is-active");
-
-    $$(".daypane").forEach(p => p.classList.remove("is-visible"));
-    $("#pane-notes")?.classList.add("is-visible");
-
-    $("#notesBox")?.focus();
-  }
-
-  function validateWarningsForDay(day) {
-    const warnings = [];
-    day.jobs.forEach(j => {
-      if (!j.dropoff) warnings.push(`${j.id || "Job"} missing dropoff`);
-      if (!j.volume) warnings.push(`${j.id || "Job"} missing volume`);
+    // Notes sheet: normal textarea (not one-character-at-a-time nonsense)
+    const notesHost = $("#sheetNotes");
+    notesHost.innerHTML = "";
+    const label = document.createElement("div");
+    label.className = "muted";
+    label.textContent = "Notes";
+    const ta = document.createElement("textarea");
+    ta.value = day.notes || "";
+    ta.style.marginTop = "10px";
+    ta.style.width = "100%";
+    ta.style.minHeight = "140px";
+    ta.style.padding = "10px 12px";
+    ta.style.borderRadius = "12px";
+    ta.style.border = "1px solid rgba(255,255,255,.10)";
+    ta.style.background = "rgba(255,255,255,.04)";
+    ta.style.color = "rgba(255,255,255,.92)";
+    ta.addEventListener("input", () => {
+      day.notes = ta.value;
+      saveState();
     });
-    day.warnings = warnings;
+    notesHost.appendChild(label);
+    notesHost.appendChild(ta);
+
+    // default tab stays jobs unless user switched
+    // (we store tab choice as DOM state only for now)
+    setDayTab(getActiveTab());
   }
 
+  function getActiveTab() {
+    const active = $(".tab.active");
+    return active ? active.dataset.tab : "jobs";
+  }
+
+  function setDayTab(tabName) {
+    $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabName));
+    $("#sheetJobs").classList.toggle("hidden", tabName !== "jobs");
+    $("#sheetReceipts").classList.toggle("hidden", tabName !== "receipts");
+    $("#sheetNotes").classList.toggle("hidden", tabName !== "notes");
+  }
+
+  // ===== Modal =====
+  function openJobModal() {
+    const overlay = $("#modalOverlay");
+    if (!overlay) return;
+
+    $("#modalTitle").textContent = "Add Job";
+
+    // Prefill date with selectedDate
+    $("#jobDate").value = state.selectedDate;
+
+    // Clear fields
+    $("#jobCustomer").value = "";
+    $("#jobPickup").value = "";
+    $("#jobDropoff").value = "";
+    $("#jobNotes").value = "";
+
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+
+    // focus
+    setTimeout(() => $("#jobCustomer")?.focus(), 50);
+  }
+
+  function closeModal() {
+    const overlay = $("#modalOverlay");
+    if (!overlay) return;
+    overlay.classList.add("hidden");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+
+  function saveJobFromModal() {
+    const date = $("#jobDate").value || state.selectedDate;
+    const customer = $("#jobCustomer").value.trim();
+    const pickup = $("#jobPickup").value.trim();
+    const dropoff = $("#jobDropoff").value.trim();
+    const notes = $("#jobNotes").value.trim();
+
+    const day = ensureDay(date);
+
+    // Simple ID generator
+    const id = `J-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    day.jobs.unshift({ id, customer, pickup, dropoff, notes, createdAt: Date.now() });
+    state.selectedDate = date;
+    saveState();
+
+    closeModal();
+    switchView("day"); // ensures view + render
+  }
+
+  function openReceiptPlaceholder() {
+    // For now just route to Day + Receipts tab
+    switchView("day");
+    setDayTab("receipts");
+  }
+
+  function openNotePlaceholder() {
+    switchView("day");
+    setDayTab("notes");
+  }
+
+  // ===== Safety =====
   function escapeHTML(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
   }
 
-  // ---------------- Boot ----------------
-  let state;
+  // ===== Boot =====
+  function init() {
+    state = loadState();
+    bindNav();
+    updateStoragePill();
+
+    // render initial view
+    switchView(state.view || "dashboard");
+
+    // always make sure dashboard has something
+    renderDashboard();
+
+    // honest badge only after we got here without throwing
+    setJSLoaded(true);
+  }
 
   document.addEventListener("DOMContentLoaded", () => {
     try {
-      state = loadState();
-      updateStoragePill(true);
-      bindNav();
-
-      // Render all key things once so "Dashboard calendar" always appears
-      renderDashboard();
-      renderCalendar();
-      renderDay();
-
-      // Then show whichever view you were on
-      showView(state.view || "dashboard");
-
-      // Only now do we honestly mark JS loaded
-      setJSLoaded(true);
+      init();
     } catch (err) {
       console.error(err);
       setJSLoaded(false);
-      // don't crash the UI completely
-      try { updateStoragePill(false); } catch {}
+      // leave UI visible but dead, which is basically the human condition anyway
     }
   });
 })();
-// ===============================
-// Data Model + Store (v5 brains)
-// ===============================
-const STORAGE_KEY = "fleetpro_foundation_v5";
-
-const DEFAULT_STATE = {
-  version: 5,
-  view: "dashboard",
-  selectedDate: ymd(new Date()),
-  calCursor: monthKey(new Date()),
-
-  // Core entities
-  jobsById: {},        // { "J-0001": {id, date, customer, pickup, dropoff, status, notes, createdAt, updatedAt} }
-  receiptsById: {},    // { "R-0001": {id, jobId|null, date, amount, vendor, note, createdAt} }
-  driversById: {},     // { "D-0001": {id, name, phone, active} }
-  trucksById: {},      // { "T-0001": {id, label, plate, active} }
-
-  // Relationships / scheduling
-  dispatchByDate: {},  // { "YYYY-MM-DD": { assignments: [{jobId, driverId, truckId, start, end}] } }
-
-  // Day notes + warnings
-  dayNotesByDate: {},  // { "YYYY-MM-DD": "..." }
-
-  // UI helpers
-  ui: {
-    jobSearch: "",
-    jobStatusFilter: "all"
-  }
-};
-
-function safeJSONParse(str, fallback) {
-  try { return JSON.parse(str); } catch { return fallback; }
-}
-
-function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  const st = raw ? safeJSONParse(raw, DEFAULT_STATE) : structuredClone(DEFAULT_STATE);
-
-  // Normalize missing keys (keeps upgrades safe)
-  st.jobsById ??= {};
-  st.receiptsById ??= {};
-  st.driversById ??= {};
-  st.trucksById ??= {};
-  st.dispatchByDate ??= {};
-  st.dayNotesByDate ??= {};
-  st.ui ??= { jobSearch: "", jobStatusFilter: "all" };
-
-  return st;
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  updateStoragePill();
-}
-
-// ID helpers (simple, stable)
-function nextId(prefix, existingMap) {
-  const nums = Object.keys(existingMap)
-    .filter(k => k.startsWith(prefix + "-"))
-    .map(k => parseInt(k.split("-")[1], 10))
-    .filter(n => Number.isFinite(n));
-  const n = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `${prefix}-${String(n).padStart(4, "0")}`;
-}
-
-// Core actions
-function addJob(payload) {
-  const id = nextId("J", state.jobsById);
-  const now = new Date().toISOString();
-
-  const job = {
-    id,
-    date: payload.date || state.selectedDate,
-    customer: (payload.customer || "").trim(),
-    pickup: (payload.pickup || "").trim(),
-    dropoff: (payload.dropoff || "").trim(),
-    status: payload.status || "scheduled", // scheduled | active | complete | cancelled
-    notes: payload.notes || "",
-    createdAt: now,
-    updatedAt: now
-  };
-
-  // Minimal validation
-  const errors = [];
-  if (!job.customer) errors.push("Customer is required");
-  if (!job.pickup) errors.push("Pickup is required");
-  if (!job.dropoff) errors.push("Dropoff is required");
-  if (!job.date) errors.push("Date is required");
-
-  if (errors.length) {
-    toast("Fix: " + errors.join(", "));
-    return null;
-  }
-
-  state.jobsById[id] = job;
-  saveState();
-  return id;
-}
-
-function jobsForDate(dateStr) {
-  return Object.values(state.jobsById).filter(j => j.date === dateStr);
-}
-
-function missingReceiptsCount(dateStr) {
-  const jobs = jobsForDate(dateStr);
-  const receipts = Object.values(state.receiptsById).filter(r => r.date === dateStr);
-  const jobIdsWithReceipt = new Set(receipts.map(r => r.jobId).filter(Boolean));
-  return jobs.filter(j => !jobIdsWithReceipt.has(j.id) && j.status !== "cancelled").length;
-}
