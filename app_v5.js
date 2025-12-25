@@ -447,3 +447,112 @@
     }
   });
 })();
+// ===============================
+// Data Model + Store (v5 brains)
+// ===============================
+const STORAGE_KEY = "fleetpro_foundation_v5";
+
+const DEFAULT_STATE = {
+  version: 5,
+  view: "dashboard",
+  selectedDate: ymd(new Date()),
+  calCursor: monthKey(new Date()),
+
+  // Core entities
+  jobsById: {},        // { "J-0001": {id, date, customer, pickup, dropoff, status, notes, createdAt, updatedAt} }
+  receiptsById: {},    // { "R-0001": {id, jobId|null, date, amount, vendor, note, createdAt} }
+  driversById: {},     // { "D-0001": {id, name, phone, active} }
+  trucksById: {},      // { "T-0001": {id, label, plate, active} }
+
+  // Relationships / scheduling
+  dispatchByDate: {},  // { "YYYY-MM-DD": { assignments: [{jobId, driverId, truckId, start, end}] } }
+
+  // Day notes + warnings
+  dayNotesByDate: {},  // { "YYYY-MM-DD": "..." }
+
+  // UI helpers
+  ui: {
+    jobSearch: "",
+    jobStatusFilter: "all"
+  }
+};
+
+function safeJSONParse(str, fallback) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const st = raw ? safeJSONParse(raw, DEFAULT_STATE) : structuredClone(DEFAULT_STATE);
+
+  // Normalize missing keys (keeps upgrades safe)
+  st.jobsById ??= {};
+  st.receiptsById ??= {};
+  st.driversById ??= {};
+  st.trucksById ??= {};
+  st.dispatchByDate ??= {};
+  st.dayNotesByDate ??= {};
+  st.ui ??= { jobSearch: "", jobStatusFilter: "all" };
+
+  return st;
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateStoragePill();
+}
+
+// ID helpers (simple, stable)
+function nextId(prefix, existingMap) {
+  const nums = Object.keys(existingMap)
+    .filter(k => k.startsWith(prefix + "-"))
+    .map(k => parseInt(k.split("-")[1], 10))
+    .filter(n => Number.isFinite(n));
+  const n = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `${prefix}-${String(n).padStart(4, "0")}`;
+}
+
+// Core actions
+function addJob(payload) {
+  const id = nextId("J", state.jobsById);
+  const now = new Date().toISOString();
+
+  const job = {
+    id,
+    date: payload.date || state.selectedDate,
+    customer: (payload.customer || "").trim(),
+    pickup: (payload.pickup || "").trim(),
+    dropoff: (payload.dropoff || "").trim(),
+    status: payload.status || "scheduled", // scheduled | active | complete | cancelled
+    notes: payload.notes || "",
+    createdAt: now,
+    updatedAt: now
+  };
+
+  // Minimal validation
+  const errors = [];
+  if (!job.customer) errors.push("Customer is required");
+  if (!job.pickup) errors.push("Pickup is required");
+  if (!job.dropoff) errors.push("Dropoff is required");
+  if (!job.date) errors.push("Date is required");
+
+  if (errors.length) {
+    toast("Fix: " + errors.join(", "));
+    return null;
+  }
+
+  state.jobsById[id] = job;
+  saveState();
+  return id;
+}
+
+function jobsForDate(dateStr) {
+  return Object.values(state.jobsById).filter(j => j.date === dateStr);
+}
+
+function missingReceiptsCount(dateStr) {
+  const jobs = jobsForDate(dateStr);
+  const receipts = Object.values(state.receiptsById).filter(r => r.date === dateStr);
+  const jobIdsWithReceipt = new Set(receipts.map(r => r.jobId).filter(Boolean));
+  return jobs.filter(j => !jobIdsWithReceipt.has(j.id) && j.status !== "cancelled").length;
+}
