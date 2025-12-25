@@ -1,14 +1,11 @@
-/* FleetPro Smart Engine v1.1
-   - Day-centric data
-   - Live totals
-   - Rules/validation warnings
-   - Pressure Points on dashboard
-   - Calendar warning badges
-   - CLICK-TO-FIX: click a warning -> jump to tab+cell and focus it
+/* FleetPro Smart Engine v1.2
+   - Fixes "one character then blur" by NOT re-rendering tables on each keystroke
+   - Debounced smart refresh (totals/warnings/calendar/dashboard) without rebuilding active table
+   - Spreadsheet-like nav: Tab/Shift+Tab, Enter/Shift+Enter
    Persistence: localStorage
 */
 
-const STORAGE_KEY = "fleetpro_smart_v1_1";
+const STORAGE_KEY = "fleetpro_smart_v1_2";
 
 const state = loadState() ?? seedState();
 
@@ -19,12 +16,28 @@ let ui = {
   activeTab: "jobs",
 };
 
+// Which table is currently being edited (so we don't rebuild it mid-typing)
+let editing = {
+  active: false,
+  tab: null,
+  tbodyId: null,
+};
+
 const TABLES = {
   jobs:   { tab: "jobs",   tbodyId: "jobsBody",    columns: ["id","customer","pickup","dropoff","volume","status"] },
   drivers:{ tab: "drivers",tbodyId: "driversBody", columns: ["name","status","hours","notes"] },
   trucks: { tab: "trucks", tbodyId: "trucksBody",  columns: ["id","status","capacity","mileage"] },
   records:{ tab: "records",tbodyId: "recordsBody", columns: ["type","source","linkedEntity","rawData","approved","created"] },
 };
+
+// Debounced smart refresh so we don't thrash UI while typing
+const debouncedSmartRefresh = debounce(() => {
+  recomputeAll();
+  // Update smart UI without rebuilding tables
+  renderDashboard(false);
+  renderCalendar();
+  renderDaySmartOnly();
+}, 180);
 
 function seedState() {
   const today = toISODate(new Date());
@@ -146,7 +159,6 @@ function computeDerivedForDay(day) {
     warnings: []
   };
 
-  // Jobs
   derived.jobsCount = day.jobs.length;
 
   let volSum = 0;
@@ -179,7 +191,6 @@ function computeDerivedForDay(day) {
   });
   derived.totalVolume = round2(volSum);
 
-  // Trucks
   let capSum = 0;
   day.trucks.forEach((t, idx) => {
     const capRaw = String(t.capacity ?? "").trim();
@@ -203,16 +214,15 @@ function computeDerivedForDay(day) {
   if (derived.totalVolume > 0 && derived.totalTruckCapacity > 0 && derived.totalVolume > derived.totalTruckCapacity) {
     derived.warnings.push(warn("danger", "OVER_CAPACITY",
       `Over capacity: volume ${derived.totalVolume} > capacity ${derived.totalTruckCapacity}`,
-      "trucks", null, null
+      "trucks"
     ));
   } else if (derived.totalVolume > 0 && derived.totalTruckCapacity === 0) {
     derived.warnings.push(warn("warn", "NO_TRUCK_CAPACITY",
       `Volume ${derived.totalVolume} but no truck capacity entered`,
-      "trucks", null, null
+      "trucks"
     ));
   }
 
-  // Drivers duplicate names
   const seen = new Map();
   day.drivers.forEach((d, idx) => {
     const name = String(d.name ?? "").trim();
@@ -229,7 +239,6 @@ function computeDerivedForDay(day) {
     }
   });
 
-  // Records: receipts parse
   const receipts = day.records.filter(r => String(r.type || "").toLowerCase() === "receipt");
   derived.receiptsCount = receipts.length;
 
@@ -283,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ui.activeDate = toISODate(dt);
       ensureDay(ui.activeDate);
       recomputeAll();
-      renderDay();
+      renderDay(); // safe, not while typing
       renderCalendar();
     }
   });
@@ -298,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ui.activeDate = toISODate(dt);
       ensureDay(ui.activeDate);
       recomputeAll();
-      renderDay();
+      renderDay(); // safe, not while typing
       renderCalendar();
     }
   });
@@ -346,7 +355,6 @@ document.addEventListener("DOMContentLoaded", () => {
   safeOn("addDriverRow", () => addDriver(ui.activeDate));
   safeOn("addTruckRow", () => addTruck(ui.activeDate));
   safeOn("addRecordRow", () => addRecord(ui.activeDate, { type: "note", source: "dispatcher", linkedEntity: "day", rawData: "Note=" }));
-  safeOn("addMediaPlaceholder", () => addMedia(ui.activeDate));
 
   ensureDay(ui.activeDate);
   recomputeAll();
@@ -371,12 +379,13 @@ function setView(view) {
   }
 
   if (view === "calendar") renderCalendar();
-  if (view === "dashboard") renderDashboard();
+  if (view === "dashboard") renderDashboard(true);
   if (view === "day") renderDay();
 }
 
 function setTab(tab) {
   ui.activeTab = tab;
+
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
   const pane = document.getElementById(`pane-${tab}`);
@@ -391,13 +400,13 @@ function recomputeAll() {
 
 /* ---------------- Render ---------------- */
 function renderAll() {
-  renderDashboard();
+  renderDashboard(true);
   renderCalendar();
   renderDay();
   setView(ui.activeView);
 }
 
-function renderDashboard() {
+function renderDashboard(full = true) {
   const todayISO = toISODate(new Date());
   ensureDay(todayISO);
   computeDerivedForDay(state.days[todayISO]);
@@ -411,6 +420,7 @@ function renderDashboard() {
     sumEl.textContent = `${d.derived.jobsCount} job(s), ${d.derived.receiptsCount} receipt(s), ${d.drivers.length} driver(s), ${d.trucks.length} truck(s)`;
   }
 
+  // Month snapshot
   const monthISO = ui.calendarMonth;
   const [y, m] = monthISO.split("-").map(Number);
   const totalDays = daysInMonth(y, m);
@@ -430,6 +440,7 @@ function renderDashboard() {
 
   const statsEl = document.getElementById("monthStats");
   if (statsEl) {
+    // Safe to rebuild this, doesn't affect typing
     statsEl.innerHTML = "";
     const stats = [
       ["Jobs (month)", String(jobsCount)],
@@ -445,7 +456,8 @@ function renderDashboard() {
     });
   }
 
-  injectPressurePoints();
+  if (full) injectPressurePoints();
+  else injectPressurePoints(); // still ok; doesn't touch tables
 }
 
 function injectPressurePoints() {
@@ -583,10 +595,10 @@ function renderCalendar() {
   }
 }
 
+// Full day render (builds tables). Safe when not typing.
 function renderDay() {
   ensureDay(ui.activeDate);
   const dayObj = state.days[ui.activeDate];
-
   computeDerivedForDay(dayObj);
   save();
 
@@ -595,8 +607,45 @@ function renderDay() {
 
   const dayMeta = document.getElementById("dayMeta");
   if (dayMeta) {
-    dayMeta.textContent = `${dayObj.jobs.length} job(s) • ${dayObj.records.length} record(s) • ${dayObj.media.length} media • ${dayObj.drivers.length} drivers • ${dayObj.trucks.length} trucks`;
+    dayMeta.textContent = `${dayObj.jobs.length} job(s) • ${dayObj.records.length} record(s) • ${dayObj.drivers.length} drivers • ${dayObj.trucks.length} trucks`;
   }
+
+  renderDaySmartOnly();
+
+  // Build tables
+  renderEditableTable("jobsBody", dayObj.jobs, TABLES.jobs, (row, key, value) => {
+    dayObj.jobs[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  }, (r,k,td) => validateCellJobs(dayObj, r, k, td));
+
+  renderEditableTable("driversBody", dayObj.drivers, TABLES.drivers, (row, key, value) => {
+    dayObj.drivers[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  }, (r,k,td) => validateCellDrivers(dayObj, r, k, td));
+
+  renderEditableTable("trucksBody", dayObj.trucks, TABLES.trucks, (row, key, value) => {
+    dayObj.trucks[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  }, (r,k,td) => validateCellTrucks(dayObj, r, k, td));
+
+  renderEditableTable("recordsBody", dayObj.records, TABLES.records, (row, key, value) => {
+    if (key === "created") return;
+    dayObj.records[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  });
+
+  setTab(ui.activeTab);
+}
+
+// Smart-only render (totals + warnings). Safe during typing.
+function renderDaySmartOnly() {
+  ensureDay(ui.activeDate);
+  const dayObj = state.days[ui.activeDate];
+  computeDerivedForDay(dayObj);
 
   const totalsEl = document.getElementById("dayTotals");
   if (totalsEl) {
@@ -610,60 +659,6 @@ function renderDay() {
   }
 
   injectDayWarningsPanel(dayObj);
-
-  renderEditableTable("jobsBody", dayObj.jobs,
-    TABLES.jobs.columns,
-    (rowIndex, key, value) => {
-      dayObj.jobs[rowIndex][key] = value;
-      computeDerivedForDay(dayObj);
-      save();
-      renderCalendar();
-      renderDashboard();
-      renderDay();
-    },
-    (rowIndex, key, td) => validateCellJobs(dayObj, rowIndex, key, td)
-  );
-
-  renderEditableTable("driversBody", dayObj.drivers,
-    TABLES.drivers.columns,
-    (rowIndex, key, value) => {
-      dayObj.drivers[rowIndex][key] = value;
-      computeDerivedForDay(dayObj);
-      save();
-      renderCalendar();
-      renderDashboard();
-      renderDay();
-    },
-    (rowIndex, key, td) => validateCellDrivers(dayObj, rowIndex, key, td)
-  );
-
-  renderEditableTable("trucksBody", dayObj.trucks,
-    TABLES.trucks.columns,
-    (rowIndex, key, value) => {
-      dayObj.trucks[rowIndex][key] = value;
-      computeDerivedForDay(dayObj);
-      save();
-      renderCalendar();
-      renderDashboard();
-      renderDay();
-    },
-    (rowIndex, key, td) => validateCellTrucks(dayObj, rowIndex, key, td)
-  );
-
-  renderEditableTable("recordsBody", dayObj.records,
-    TABLES.records.columns,
-    (rowIndex, key, value) => {
-      if (key === "created") return;
-      dayObj.records[rowIndex][key] = value;
-      computeDerivedForDay(dayObj);
-      save();
-      renderCalendar();
-      renderDashboard();
-      renderDay();
-    }
-  );
-
-  setTab(ui.activeTab);
 }
 
 function injectDayWarningsPanel(dayObj) {
@@ -679,7 +674,6 @@ function injectDayWarningsPanel(dayObj) {
     if (head && head.parentElement) head.parentElement.insertBefore(panel, head.nextSibling);
     else dayView.prepend(panel);
 
-    // ONE event listener for all warning clicks
     panel.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-jump='1']");
       if (!btn) return;
@@ -701,7 +695,7 @@ function injectDayWarningsPanel(dayObj) {
     </div>
 
     ${warnings.length === 0
-      ? `<div class="muted">No warnings. Either you’re crushing it or you haven’t entered any data yet.</div>`
+      ? `<div class="muted">No warnings. Calm. Suspicious, but calm.</div>`
       : `<ul class="warnings-list">
           ${warnings.slice(0, 18).map(w => {
             const cls = w.level === "danger" ? "wlvl-danger" : "wlvl-warn";
@@ -721,15 +715,134 @@ function injectDayWarningsPanel(dayObj) {
   `;
 }
 
+/* ---------------- Editable tables (FIXED) ---------------- */
+function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+
+  // If user is actively typing in this table, do not rebuild it.
+  if (editing.active && editing.tbodyId === tbodyId) return;
+
+  tbody.innerHTML = "";
+
+  rows.forEach((row, rIndex) => {
+    const tr = document.createElement("tr");
+
+    cfg.columns.forEach((key, cIndex) => {
+      const td = document.createElement("td");
+      td.textContent = row[key] ?? "";
+
+      const readonly = (key === "created");
+      td.setAttribute("contenteditable", readonly ? "false" : "true");
+      if (readonly) td.style.color = "#7e89b8";
+
+      // Stamp coordinates for navigation
+      td.dataset.row = String(rIndex);
+      td.dataset.col = String(cIndex);
+      td.dataset.key = key;
+      td.dataset.tab = cfg.tab;
+      td.dataset.tbody = tbodyId;
+
+      if (!readonly) {
+        // Start editing mode when focused
+        td.addEventListener("focus", () => {
+          editing.active = true;
+          editing.tab = cfg.tab;
+          editing.tbodyId = tbodyId;
+        });
+
+        // Commit only on blur OR explicit Enter/Tab handler
+        td.addEventListener("blur", () => {
+          const val = td.textContent.trim();
+          onCommit(rIndex, key, val);
+          // End editing shortly after blur so clicks feel natural
+          setTimeout(() => {
+            editing.active = false;
+            editing.tab = null;
+            editing.tbodyId = null;
+          }, 0);
+        });
+
+        td.addEventListener("keydown", (e) => {
+          // Spreadsheet behavior
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitCell(td, onCommit);
+            moveCell(td, e.shiftKey ? "up" : "down");
+          } else if (e.key === "Tab") {
+            e.preventDefault();
+            commitCell(td, onCommit);
+            moveCell(td, e.shiftKey ? "left" : "right");
+          } else {
+            // normal typing, but update smart panels lightly (debounced)
+            debouncedSmartRefresh();
+          }
+        });
+
+        // For mouse typing: keep totals updated without re-rendering table
+        td.addEventListener("input", () => {
+          debouncedSmartRefresh();
+        });
+      }
+
+      if (typeof onValidateCell === "function") {
+        queueMicrotask(() => onValidateCell(rIndex, key, td));
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+function commitCell(td, onCommit) {
+  const tab = td.dataset.tab;
+  const row = Number(td.dataset.row);
+  const key = td.dataset.key;
+  const value = td.textContent.trim();
+  if (!tab || Number.isNaN(row) || !key) return;
+  onCommit(row, key, value);
+}
+
+function moveCell(td, dir) {
+  const tbodyId = td.dataset.tbody;
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+
+  const r = Number(td.dataset.row);
+  const c = Number(td.dataset.col);
+
+  let nr = r, nc = c;
+
+  if (dir === "right") nc = c + 1;
+  if (dir === "left") nc = c - 1;
+  if (dir === "down") nr = r + 1;
+  if (dir === "up") nr = r - 1;
+
+  // Clamp
+  nr = Math.max(0, Math.min(nr, tbody.rows.length - 1));
+  nc = Math.max(0, Math.min(nc, tbody.rows[0]?.cells.length - 1));
+
+  const target = tbody.rows[nr]?.cells[nc];
+  if (!target) return;
+
+  target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  requestAnimationFrame(() => {
+    try { target.focus(); } catch {}
+  });
+}
+
 /* ---------------- Jump-to-fix ---------------- */
 function jumpToIssue(tab, row, key) {
-  // Ensure we are on day view
   setView("day");
   setTab(tab);
 
   const cfg = TABLES[tab];
-  if (!cfg) return;
-  if (row === null || row === undefined || !key) return;
+  if (!cfg || row === null || row === undefined || !key) return;
+
+  // Rebuild day view safely (only if not editing)
+  if (!editing.active) renderDay();
 
   const tbody = document.getElementById(cfg.tbodyId);
   if (!tbody) return;
@@ -740,14 +853,13 @@ function jumpToIssue(tab, row, key) {
   const tr = tbody.rows[row];
   if (!tr) return;
 
-  const td = tr.cells[colIndex];
-  if (!td) return;
+  const cell = tr.cells[colIndex];
+  if (!cell) return;
 
-  // Scroll + focus + flash
-  td.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   requestAnimationFrame(() => {
-    try { td.focus(); } catch {}
-    flashCell(td);
+    try { cell.focus(); } catch {}
+    flashCell(cell);
   });
 }
 
@@ -756,46 +868,11 @@ function flashCell(td) {
   setTimeout(() => td.classList.remove("jump-flash"), 900);
 }
 
-/* ---------------- Editable tables ---------------- */
-function renderEditableTable(tbodyId, rows, columns, onUpdate, onValidateCell) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-
-  tbody.innerHTML = "";
-
-  rows.forEach((row, idx) => {
-    const tr = document.createElement("tr");
-
-    columns.forEach((key) => {
-      const td = document.createElement("td");
-      td.textContent = row[key] ?? "";
-
-      const readonly = (key === "created");
-      td.setAttribute("contenteditable", readonly ? "false" : "true");
-      if (readonly) td.style.color = "#7e89b8";
-
-      if (!readonly) {
-        td.addEventListener("input", () => onUpdate(idx, key, td.textContent.trim()));
-        td.addEventListener("blur", () => onUpdate(idx, key, td.textContent.trim()));
-      }
-
-      if (typeof onValidateCell === "function") {
-        queueMicrotask(() => onValidateCell(idx, key, td));
-      }
-
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
-}
-
-/* ---------------- Cell validators ---------------- */
+/* ---------------- Validators ---------------- */
 function clearCellMarks(td) {
   td.classList.remove("cell-bad");
   td.classList.remove("cell-warn");
 }
-
 function validateCellJobs(dayObj, rowIndex, key, td) {
   clearCellMarks(td);
   const j = dayObj.jobs[rowIndex];
@@ -812,19 +889,16 @@ function validateCellJobs(dayObj, rowIndex, key, td) {
     if (Number.isFinite(n) && n < 0) td.classList.add("cell-bad");
   }
 }
-
 function validateCellDrivers(dayObj, rowIndex, key, td) {
   clearCellMarks(td);
   const d = dayObj.drivers[rowIndex];
   if (!d) return;
   if (key === "name" && !String(d.name || "").trim()) td.classList.add("cell-warn");
 }
-
 function validateCellTrucks(dayObj, rowIndex, key, td) {
   clearCellMarks(td);
   const t = dayObj.trucks[rowIndex];
   if (!t) return;
-
   if (key === "capacity") {
     const raw = String(t.capacity || "").trim();
     if (!raw) td.classList.add("cell-warn");
@@ -847,9 +921,10 @@ function addJob(dateISO) {
   });
   save();
   recomputeAll();
+  // Safe rebuild (user isn't typing when adding row via button)
   renderDay();
   renderCalendar();
-  renderDashboard();
+  renderDashboard(true);
 }
 
 function addDriver(dateISO) {
@@ -859,7 +934,7 @@ function addDriver(dateISO) {
   recomputeAll();
   renderDay();
   renderCalendar();
-  renderDashboard();
+  renderDashboard(true);
 }
 
 function addTruck(dateISO) {
@@ -869,7 +944,7 @@ function addTruck(dateISO) {
   recomputeAll();
   renderDay();
   renderCalendar();
-  renderDashboard();
+  renderDashboard(true);
 }
 
 function addRecord(dateISO, partial) {
@@ -886,22 +961,7 @@ function addRecord(dateISO, partial) {
   recomputeAll();
   renderDay();
   renderCalendar();
-  renderDashboard();
-}
-
-function addMedia(dateISO) {
-  const d = ensureDay(dateISO);
-  d.media.push({
-    type: "photo",
-    ref: "",
-    linkedRecord: "",
-    notes: "",
-    created: new Date().toISOString()
-  });
-  save();
-  recomputeAll();
-  renderDay();
-  renderCalendar();
+  renderDashboard(true);
 }
 
 /* ---------------- Utilities ---------------- */
@@ -912,4 +972,12 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function debounce(fn, wait) {
+  let t = null;
+  return (...args) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
 }
