@@ -5,12 +5,12 @@ html, body {
   margin: 0;
   background: #05070c;
   color: #eaeef7;
-  overflow: hidden; /* scrolling happens in .main */
+  overflow: hidden; /* scrolling happens in explicit containers */
 }
 
 .app {
   display: flex;
-  height: 100dvh; /* iPad Safari-friendly */
+  height: 100dvh;
   width: 100%;
 }
 
@@ -22,7 +22,7 @@ html, body {
   display: flex;
   flex-direction: column;
   border-right: 1px solid #151d3a;
-  min-height: 0; /* IMPORTANT for scroll children */
+  min-height: 0;
 }
 
 .logo { font-weight: 900; letter-spacing: 2px; margin-bottom: 14px; }
@@ -33,8 +33,8 @@ html, body {
   gap: 8px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-right: 6px;
   min-height: 0;
+  padding-right: 6px;
 }
 
 .nav-divider { height: 1px; background: #151d3a; margin: 10px 0; }
@@ -57,36 +57,48 @@ html, body {
 .pill.live { background: rgba(60,255,127,0.12); color: #3cff7f; border: 1px solid rgba(60,255,127,0.25); }
 .tiny { margin-top: 8px; font-size: 12px; color: #7e89b8; }
 
-/* Main (vertical scrolling lives here) */
+/* Main */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 18px 18px 24px;
-  min-height: 0;               /* IMPORTANT */
-  overflow-y: auto;            /* IMPORTANT */
-  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  padding: 18px;
 }
 
-.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex: 0 0 auto; }
+/* Topbar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
 .title { font-weight: 800; font-size: 18px; }
 .subtitle { font-size: 12px; color: #7e89b8; margin-top: 4px; }
 .clock { font-variant-numeric: tabular-nums; color: #cbd6ff; }
 
-/* Toolbar (horizontal scroll) */
-.toolbar { margin-bottom: 14px; flex: 0 0 auto; }
+/* Toolbar: horizontal scroll is explicit */
+.toolbar { flex: 0 0 auto; margin-bottom: 12px; }
+
 .toolbar-scroll {
   display: flex;
   gap: 10px;
+
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+
+  /* This improves iOS scroll vs “button click eats swipe” */
+  touch-action: pan-x;
+
   padding: 10px;
   border: 1px solid #151d3a;
   border-radius: 12px;
   background: rgba(15,21,43,0.55);
   backdrop-filter: blur(8px);
 }
+
 .toolbtn {
   flex: 0 0 auto;
   white-space: nowrap;
@@ -101,9 +113,22 @@ html, body {
 .toolbtn.ghost { opacity: 0.65; cursor: default; }
 .tool-sep { width: 1px; background: #1c2445; align-self: stretch; }
 
+/* Content: vertical scroll is explicit */
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  padding-right: 2px;
+}
+
+/* Views */
 .view { display: none; }
 .view.active { display: block; }
 
+/* UI bits */
 .h2 { font-size: 18px; font-weight: 800; }
 .muted { color: #7e89b8; font-size: 12px; }
 
@@ -140,5 +165,59 @@ html, body {
   background: rgba(15,21,43,0.55);
   backdrop-filter: blur(8px);
 }
-.dow {
-  display
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 8px 6px 10px; color: #7e89b8; font-size: 12px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.daycell { min-height: 95px; border: 1px solid #1c2445; border-radius: 12px; background: #0f152b; padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.daycell:hover { background: #182057; }
+.daynum { font-weight: 900; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(42,60,255,0.5); background: rgba(42,60,255,0.12); color: #cbd6ff; }
+.badge.warn { border-color: rgba(255,179,71,0.45); background: rgba(255,179,71,0.10); color: #ffcf8c; }
+.daycell.off { opacity: 0.45; }
+.daycell.today { outline: 2px solid rgba(60,255,127,0.35); }
+
+/* Day workspace */
+.day-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.day-totals { display: flex; gap: 10px; flex-wrap: wrap; }
+.total-pill { padding: 8px 10px; border-radius: 999px; border: 1px solid #1c2445; background: #0f152b; font-size: 12px; color: #cbd6ff; }
+
+/* Tabs scroll */
+.tabs { margin: 10px 0; }
+.tabs-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  padding: 8px;
+  border: 1px solid #151d3a;
+  border-radius: 12px;
+  background: rgba(15,21,43,0.55);
+  backdrop-filter: blur(8px);
+}
+.tab { flex: 0 0 auto; white-space: nowrap; padding: 10px 12px; border-radius: 10px; border: 1px solid #1c2445; background: #0f152b; color: #eaeef7; cursor: pointer; }
+.tab.active { border-color: rgba(42,60,255,0.8); background: rgba(42,60,255,0.14); }
+.tab:hover { background: #182057; }
+
+.pane { display: none; }
+.pane.active { display: block; }
+.pane-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+
+/* Table scroll */
+.table-wrap {
+  border: 1px solid #151d3a;
+  border-radius: 14px;
+  background: rgba(15,21,43,0.55);
+  backdrop-filter: blur(8px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 55vh;
+}
+
+.sheet { width: 100%; border-collapse: collapse; min-width: 760px; }
+.sheet th, .sheet td { padding: 10px; border-bottom: 1px solid #1c2445; }
+.sheet th { position: sticky; top: 0; background: #0b1020; z-index: 1; text-align: left; font-size: 12px; color: #cbd6ff; }
+.sheet td { background: rgba(5,7,12,0.6); }
+.sheet td[contenteditable="true"] { outline: none; }
+.sheet td[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(42,60,255,0.45); border-radius: 6px; }
