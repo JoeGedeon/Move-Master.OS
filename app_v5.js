@@ -991,3 +991,268 @@
     init();
   }
 })();
+
+/* ============================================================
+   PATCH: Finance Activation + "Coming Soon" Removal
+   Paste at the VERY BOTTOM of apps_v5.js
+   ============================================================ */
+(() => {
+  "use strict";
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const escapeHtml = (s) =>
+    String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  // Try to reuse your existing state if you have it.
+  // If your file uses a different variable name, this patch still updates the label + nav safely.
+  const getState = () => {
+    try {
+      // common patterns: window.state / state (global)
+      if (typeof window.state === "object" && window.state) return window.state;
+      if (typeof state === "object" && state) return state;
+    } catch {}
+    return null;
+  };
+
+  const clampMoney = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
+  };
+  const money = (n) => `$${clampMoney(n).toFixed(2)}`;
+
+  const LS_JOBS = "fleet_jobs_v5";
+  const LS_RECEIPTS = "fleet_receipts_v5";
+
+  const loadArray = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  };
+  const saveArray = (key, arr) => {
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
+  };
+
+  // ---------- 1) Fix "Coming Soon" label on Finance tab ----------
+  function markFinanceActiveLabel() {
+    // Handle both naming styles: finance / finances
+    const candidates = [
+      document.querySelector('[data-view="finances"]'),
+      document.querySelector('[data-view="finance"]'),
+    ].filter(Boolean);
+
+    for (const btn of candidates) {
+      // If there is a secondary label element, replace it.
+      const sub = btn.querySelector(".sub") || btn.querySelector(".subtext") || btn.querySelector("small");
+      if (sub && /coming\s*soon/i.test(sub.textContent || "")) sub.textContent = "Active";
+
+      // Fallback: replace within full text
+      if (/coming\s*soon/i.test(btn.textContent || "")) {
+        btn.innerHTML = btn.innerHTML.replace(/coming\s*soon/gi, "Active");
+      }
+    }
+  }
+
+  // ---------- 2) Render Finance page ----------
+  function renderFinanceView() {
+    const st = getState();
+
+    // Find container using either singular or plural
+    const host = $("#view-finances") || $("#view-finance");
+    if (!host) {
+      console.warn("⚠ Finance container missing. Add #view-finances or #view-finance in HTML when ready.");
+      return;
+    }
+
+    // Pull data from your shared state if possible, otherwise from localStorage
+    const jobs = st?.jobs || loadArray(LS_JOBS);
+    const receipts = st?.receipts || loadArray(LS_RECEIPTS);
+
+    // Determine a reasonable date range: current month if state exists, otherwise just totals
+    let from = "";
+    let to = "";
+    try {
+      const d = st?.currentDate ? new Date(st.currentDate) : new Date();
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      const pad2 = (n) => String(n).padStart(2, "0");
+      const ymd = (x) => `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
+      from = ymd(first);
+      to = ymd(last);
+    } catch {}
+
+    const inRange = (dateStr) => {
+      if (!from || !to) return true;
+      return dateStr >= from && dateStr <= to;
+    };
+
+    let totalRev = 0;
+    for (const j of jobs) {
+      if (!j?.date || !inRange(j.date)) continue;
+      if (String(j.status || "").toLowerCase() === "cancelled") continue;
+      totalRev += clampMoney(j.amount ?? 0);
+    }
+    totalRev = clampMoney(totalRev);
+
+    let totalExp = 0;
+    for (const r of receipts) {
+      if (!r?.date || !inRange(r.date)) continue;
+      totalExp += clampMoney(r.amount ?? 0);
+    }
+    totalExp = clampMoney(totalExp);
+
+    const net = clampMoney(totalRev - totalExp);
+
+    // Category totals
+    const catTotals = new Map();
+    for (const r of receipts) {
+      if (!r?.date || !inRange(r.date)) continue;
+      const c = (r.category || "Other").trim() || "Other";
+      catTotals.set(c, clampMoney((catTotals.get(c) || 0) + clampMoney(r.amount ?? 0)));
+    }
+    const catRows = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1]);
+
+    // Render
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Finance</div>
+          <div class="panel-sub">Receipts + revenue totals (month view)</div>
+        </div>
+
+        <div class="day-totals">
+          <div><strong>Range:</strong> ${escapeHtml(from || "All")} → ${escapeHtml(to || "All")}</div>
+          <div><strong>Revenue:</strong> ${money(totalRev)} · <strong>Expenses:</strong> ${money(totalExp)} · <strong>Net:</strong> ${money(net)}</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-header">
+          <div class="panel-title">Category Totals</div>
+          <div class="panel-sub">Based on receipts in the current range</div>
+        </div>
+        ${
+          catRows.length
+            ? `<div style="display:flex; flex-direction:column; gap:6px;">
+                ${catRows.map(([c, amt]) => `<div>${escapeHtml(c)}: <strong>${money(amt)}</strong></div>`).join("")}
+              </div>`
+            : `<div class="muted">No receipts in range.</div>`
+        }
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-header">
+          <div class="panel-title">Receipts</div>
+          <div class="panel-sub">${receipts.filter(r => r?.date && inRange(r.date)).length} in range</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${
+            receipts
+              .filter(r => r?.date && inRange(r.date))
+              .slice()
+              .sort((a, b) => (a.date === b.date ? (b.createdAt||0)-(a.createdAt||0) : b.date.localeCompare(a.date)))
+              .slice(0, 200)
+              .map(r => `
+                <div class="job-row">
+                  <div class="job-main">
+                    <div class="job-title">${escapeHtml(r.vendor || "Vendor")} · ${money(r.amount ?? 0)}</div>
+                    <div class="job-sub">${escapeHtml(r.date)} · ${escapeHtml(r.category || "Other")}${r.notes ? ` · ${escapeHtml(r.notes)}` : ""}</div>
+                  </div>
+                </div>
+              `).join("")
+            || `<div class="empty muted">No receipts yet.</div>`
+          }
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" type="button" id="finExportCsv">Export Receipts CSV</button>
+        </div>
+      </div>
+    `;
+
+    // CSV export
+    $("#finExportCsv")?.addEventListener("click", () => {
+      const inRangeReceipts = receipts.filter(r => r?.date && inRange(r.date));
+      const header = ["id","date","vendor","category","amount","notes"].join(",");
+      const lines = inRangeReceipts.map(r => {
+        const cols = [
+          r.id ?? "",
+          r.date ?? "",
+          (r.vendor ?? "").replaceAll('"', '""'),
+          (r.category ?? "").replaceAll('"', '""'),
+          String(r.amount ?? 0),
+          (r.notes ?? "").replaceAll('"', '""'),
+        ].map(v => /[,"\n]/.test(v) ? `"${v}"` : v);
+        return cols.join(",");
+      });
+      const csv = [header, ...lines].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `receipts_${from || "all"}_to_${to || "all"}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  }
+
+  // ---------- 3) Make Finance nav open Finance view ----------
+  function bindFinanceNav() {
+    const financeBtn = document.querySelector('[data-view="finances"]') || document.querySelector('[data-view="finance"]');
+    if (!financeBtn) return;
+
+    financeBtn.addEventListener("click", () => {
+      // Prefer your existing setView if present
+      try {
+        if (typeof window.setView === "function") {
+          // try both
+          window.setView("finances");
+          renderFinanceView();
+          return;
+        }
+      } catch {}
+
+      // Manual view switching fallback (non-destructive)
+      const views = $$('[id^="view-"]');
+      if (views.length) {
+        views.forEach(v => (v.style.display = "none"));
+        const host = $("#view-finances") || $("#view-finance");
+        if (host) host.style.display = "block";
+      }
+      renderFinanceView();
+    });
+  }
+
+  function initPatch() {
+    markFinanceActiveLabel();
+    bindFinanceNav();
+
+    // If user is already on finance view, render it.
+    const st = getState();
+    if (st && (st.view === "finances" || st.view === "finance")) renderFinanceView();
+
+    // Also: if container exists and is empty, render once.
+    const host = $("#view-finances") || $("#view-finance");
+    if (host && (host.textContent || "").trim().length < 4) renderFinanceView();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPatch);
+  } else {
+    initPatch();
+  }
+})();
