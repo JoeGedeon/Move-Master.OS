@@ -1,28 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>FleetPro</title>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=20251224_9999" />
+  <!-- Cache-bust versions: change the number when Safari acts possessed -->
+  <link rel="stylesheet" href="./styles.css?v=20251225_0001" />
 </head>
 
 <body>
   <div class="app-shell">
 
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="sidebar" aria-label="Sidebar Navigation">
       <div class="brand">
-        <div class="brand-mark"></div>
-        <div class="brand-name">FLEETPRO</div>
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <div class="brand-name">FLEETPRO</div>
+          <div class="brand-sub">Move-Master.OS</div>
+        </div>
       </div>
 
-      <nav class="nav">
+      <nav class="nav" id="sideNav">
         <button class="navbtn active" data-view="dashboard">Dashboard</button>
         <button class="navbtn" data-view="calendar">Calendar</button>
         <button class="navbtn" data-view="day">Day Workspace</button>
@@ -35,85 +35,172 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="pill">Local Storage: ON</div>
+        <div class="pill">Local Storage: <strong id="lsState">ON</strong></div>
         <div class="pill">Foundation build</div>
       </div>
     </aside>
 
     <!-- MAIN -->
     <main class="main">
-
-      <!-- OPERATIONS TOOLBAR -->
-      <section class="toolbar">
-        <div class="toolbar-left">
-          <button id="todayBtn">Today</button>
-          <button id="prevBtn">◀</button>
-          <button id="nextBtn">▶</button>
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="context-title" id="contextTitle">Operations</div>
+          <div class="context-sub" id="contextSubtitle">Foundation mode (Smart)</div>
         </div>
 
-        <div class="toolbar-right">
-          <button id="addJobBtn">+ Job (Day)</button>
-          <button id="addReceiptBtn">+ Receipt (Day)</button>
-          <button id="addNoteBtn">+ Note (Day)</button>
+        <div class="topbar-right">
+          <div class="clock" id="clock">--:--</div>
+          <div class="status">
+            <span class="dot"></span>
+            <span>SYSTEM LIVE</span>
+          </div>
+          <div class="jsbadge" id="jsBadge">JS: not loaded</div>
         </div>
-      </section>
+      </header>
 
-      <!-- CONTEXT HEADER -->
-      <section class="context">
-        <h1 id="contextTitle">Operations</h1>
-        <div id="contextSubtitle">Foundation mode (Smart)</div>
+      <!-- Toolbar (scrollable) -->
+      <section class="toolbar-wrap">
+        <div class="toolbar" id="toolbar">
+          <button class="tb" id="btnToday">Today</button>
+          <button class="tb" id="btnPrev">◀</button>
+          <button class="tb" id="btnNext">▶</button>
+          <div class="tb-sep"></div>
+          <button class="tb primary" id="btnAddJob">+ Job (Day)</button>
+          <button class="tb" id="btnAddReceipt">+ Receipt (Day)</button>
+          <button class="tb" id="btnAddNote">+ Note (Day)</button>
+          <div class="tb-sep"></div>
+          <button class="tb ghost" id="btnExport">Export (later)</button>
+          <button class="tb ghost" id="btnSync">Sync (later)</button>
+        </div>
       </section>
 
       <!-- VIEWS -->
+      <section class="views">
 
-      <section id="dashboardView" class="view active">
-        <div class="card">
-          <h2>Today</h2>
-          <div id="todaySummary">Loading...</div>
-          <div class="actions">
-            <button id="openTodayBtn">Open Today</button>
-            <button id="openCalendarBtn">Open Calendar</button>
+        <!-- DASHBOARD -->
+        <section class="view active" id="view-dashboard">
+          <div class="grid">
+            <div class="card">
+              <div class="card-h">
+                <h2>Today</h2>
+              </div>
+              <div class="muted" id="todayLine">Loading...</div>
+              <div class="btnrow">
+                <button class="btn primary" id="openToday">Open Today</button>
+                <button class="btn" id="openCalendar">Open Calendar</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h">
+                <h2>Pressure Points</h2>
+                <span class="tag">placeholder</span>
+              </div>
+              <ul class="list" id="pressureList">
+                <li>Loading...</li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <div class="card-h">
+                <h2>This Month Snapshot</h2>
+              </div>
+              <div class="stats">
+                <div class="stat">
+                  <div class="stat-k">Jobs (month)</div>
+                  <div class="stat-v" id="statJobs">0</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-k">Receipts (month)</div>
+                  <div class="stat-v" id="statReceipts">0</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-k">Expenses (month)</div>
+                  <div class="stat-v" id="statExpenses">$0</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-k">Warnings</div>
+                  <div class="stat-v" id="statWarnings">0</div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="card">
-          <h2>Pressure Points</h2>
-          <ul>
-            <li>Overbooked drivers: AI later</li>
-            <li>Truck maintenance conflicts: rules later</li>
-            <li>Receipts missing: driver app later</li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="calendarView" class="view">
-        <div id="calendarGrid"></div>
-      </section>
-
-      <section id="dayView" class="view">
-        <div class="card">
-          <h2 id="dayTitle">Day Workspace</h2>
-
-          <div class="tabs">
-            <button class="tab active" data-tab="jobs">Jobs</button>
-            <button class="tab" data-tab="drivers">Drivers</button>
-            <button class="tab" data-tab="trucks">Trucks</button>
-            <button class="tab" data-tab="records">Records</button>
-            <button class="tab" data-tab="media">Media</button>
-            <button class="tab" data-tab="ai">AI Notes</button>
+        <!-- CALENDAR -->
+        <section class="view" id="view-calendar">
+          <div class="card">
+            <div class="card-h">
+              <h2 id="calTitle">Calendar</h2>
+              <span class="muted">Tap any day to open the Day Workspace.</span>
+            </div>
+            <div class="dow">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div class="calendar" id="calendarGrid"></div>
           </div>
+        </section>
 
-          <div id="dayContent"></div>
-        </div>
+        <!-- DAY WORKSPACE -->
+        <section class="view" id="view-day">
+          <div class="card">
+            <div class="card-h">
+              <h2 id="dayTitle">Day Workspace</h2>
+              <div class="chips">
+                <span class="chip" id="chipJobs">Jobs: 0</span>
+                <span class="chip" id="chipVolume">Volume: 0</span>
+              </div>
+            </div>
+
+            <div class="helper">
+              <strong>Pickup</strong> = where the load starts (origin). |
+              <strong>Dropoff</strong> = where the load ends (destination).
+            </div>
+
+            <div class="tabs" id="dayTabs">
+              <button class="tab active" data-tab="jobs">Jobs</button>
+              <button class="tab" data-tab="drivers">Drivers</button>
+              <button class="tab" data-tab="trucks">Trucks</button>
+              <button class="tab" data-tab="records">Records</button>
+              <button class="tab" data-tab="media">Media</button>
+              <button class="tab" data-tab="ai">AI Notes</button>
+            </div>
+
+            <div class="tabbar">
+              <button class="btn primary" id="btnAddRow">+ Add Row</button>
+              <span class="muted">Click a cell to edit. Press Enter to save, Tab to move.</span>
+            </div>
+
+            <div id="tabContent"></div>
+          </div>
+        </section>
+
+        <!-- PLACEHOLDER VIEWS -->
+        <section class="view" id="view-drivers">
+          <div class="card"><h2>Drivers</h2><div class="muted">Directory + assignments (next).</div></div>
+        </section>
+        <section class="view" id="view-trucks">
+          <div class="card"><h2>Trucks</h2><div class="muted">Truck units + maintenance (next).</div></div>
+        </section>
+        <section class="view" id="view-dispatch">
+          <div class="card"><h2>Dispatch</h2><div class="muted">Dispatch board (next).</div></div>
+        </section>
+        <section class="view" id="view-finance">
+          <div class="card"><h2>Finance</h2><div class="muted">Receipts + expenses rollups (next).</div></div>
+        </section>
+        <section class="view" id="view-inventory">
+          <div class="card"><h2>Inventory</h2><div class="muted">AI inventory audit (next).</div></div>
+        </section>
+        <section class="view" id="view-ai">
+          <div class="card"><h2>AI Scanner</h2><div class="muted">Customer photos + receipt capture (next).</div></div>
+        </section>
+
       </section>
-
     </main>
   </div>
 
-  <!-- 🔥 THIS IS THE PART THAT WAS MISSING 🔥 -->
-  <!-- JavaScript MUST be loaded, or nothing works -->
-
-  <script src="./app.js?v=20251224_9999"></script>
-
+  <!-- JS (cache-bust number) -->
+  <script src="./app.js?v=20251225_0001" defer></script>
 </body>
 </html>
