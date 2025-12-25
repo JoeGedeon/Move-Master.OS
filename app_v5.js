@@ -1,21 +1,22 @@
 /* ============================================================
-   Fleet CRM — apps_v5.js (NON-DESTRUCTIVE RENDERER)
+   Fleet CRM — apps_v5.js (Dispatch Added + "Coming Soon" Fixed)
    ------------------------------------------------------------
-   Fixes:
-   ✅ Stops nuking your dashboard HTML
-   ✅ Always renders the FULL calendar if #calendarGrid exists
-   ✅ Keeps Quick Calendar (#dashboardCalendar) working
-   ✅ Keeps Day Workspace working
-   ✅ Makes Drivers + Trucks real pages (renders into #view-drivers/#view-trucks if present)
+   ✅ Drivers page active
+   ✅ Trucks page active
+   ✅ Dispatch page now active (daily board)
+   ✅ Removes "coming soon" text from nav for active pages
+   ✅ Non-destructive: renders into existing IDs if present
    ------------------------------------------------------------
-   Design rule:
-   - If your HTML already has content, JS will NOT replace it.
-   - JS only fills known placeholders by ID.
+   Expects (if you have them):
+   - Views: #view-dashboard #view-calendar #view-day #view-drivers #view-trucks #view-dispatch
+   - Calendar: #calendarGrid (full) and/or #dashboardCalendar (quick)
+   - Day: #dayTitle #dayJobs
+   Nav buttons: [data-view="dashboard|calendar|day|drivers|trucks|dispatch"]
    ============================================================ */
 
 (() => {
   "use strict";
-  console.log("✅ apps_v5.js loaded (non-destructive build)");
+  console.log("✅ apps_v5.js loaded (dispatch + coming-soon fix)");
 
   // ---------------------------
   // Helpers
@@ -87,6 +88,7 @@
     job.pickup = (job.pickup || "").trim();
     job.dropoff = (job.dropoff || "").trim();
     job.amount = clampMoney(job.amount ?? 0);
+    job.notes = (job.notes || "").trim();
     job.driverId = (job.driverId || "").trim();
     job.truckId = (job.truckId || "").trim();
 
@@ -114,7 +116,9 @@
     if (!drv.id) drv.id = makeId("drv");
     drv.name = (drv.name || "").trim();
     drv.phone = (drv.phone || "").trim();
+    drv.email = (drv.email || "").trim();
     drv.active = drv.active !== false;
+    drv.notes = (drv.notes || "").trim();
     if (!drv.createdAt) drv.createdAt = Date.now();
     drv.updatedAt = drv.updatedAt || drv.createdAt;
     return drv;
@@ -128,6 +132,7 @@
     trk.type = (trk.type || "").trim();
     trk.capacity = (trk.capacity || "").trim();
     trk.active = trk.active !== false;
+    trk.notes = (trk.notes || "").trim();
     if (!trk.createdAt) trk.createdAt = Date.now();
     trk.updatedAt = trk.updatedAt || trk.createdAt;
     return trk;
@@ -196,15 +201,41 @@
     return clampMoney(total);
   }
 
+  function driverName(id) {
+    const d = state.drivers.find(x => x.id === id);
+    return d ? d.name : "";
+  }
+  function truckLabel(id) {
+    const t = state.trucks.find(x => x.id === id);
+    return t ? t.label : "";
+  }
+
+  // Conflicts = same driver or truck used on multiple non-cancelled jobs same day
+  function conflictsForDate(dateStr) {
+    const js = jobsByDate(dateStr).filter(j => j.status !== STATUS.cancelled);
+    const dMap = new Map();
+    const tMap = new Map();
+
+    for (const j of js) {
+      if (j.driverId) dMap.set(j.driverId, (dMap.get(j.driverId) || 0) + 1);
+      if (j.truckId) tMap.set(j.truckId, (tMap.get(j.truckId) || 0) + 1);
+    }
+
+    const driverConf = [];
+    const truckConf = [];
+
+    for (const [id, c] of dMap.entries()) if (c > 1) driverConf.push({ id, c, name: driverName(id) || "Unknown" });
+    for (const [id, c] of tMap.entries()) if (c > 1) truckConf.push({ id, c, label: truckLabel(id) || "Unknown" });
+
+    return { driverConf, truckConf };
+  }
+
   // ---------------------------
-  // View switching (uses your existing view containers)
-  // Expects: #view-dashboard, #view-calendar, #view-day, etc.
-  // If you don’t have them, it still won’t overwrite your dashboard HTML.
+  // Views
   // ---------------------------
   function setView(viewName) {
     state.view = viewName;
 
-    // If you have view sections, toggle them
     const viewEls = $$('[id^="view-"]');
     if (viewEls.length) {
       viewEls.forEach(el => {
@@ -218,7 +249,6 @@
       }
     }
 
-    // Highlight nav buttons
     $$("[data-view]").forEach(btn => {
       btn.classList.toggle("active", btn.getAttribute("data-view") === viewName);
     });
@@ -227,8 +257,44 @@
   }
 
   // ---------------------------
-  // Renders that do NOT overwrite your layout
-  // They only populate known placeholders.
+  // Coming-soon label fix
+  // ---------------------------
+  function fixComingSoonLabels() {
+    const mapping = [
+      { view: "drivers", exists: !!$("#view-drivers"), label: "Active" },
+      { view: "trucks", exists: !!$("#view-trucks"), label: "Active" },
+      { view: "dispatch", exists: !!$("#view-dispatch"), label: "Active" },
+    ];
+
+    for (const m of mapping) {
+      if (!m.exists) continue;
+      const btn = $(`[data-view="${m.view}"]`);
+      if (!btn) continue;
+
+      // Replace any small/secondary text that says coming soon
+      const candidates = [
+        btn.querySelector(".sub"),
+        btn.querySelector(".subtext"),
+        btn.querySelector("small"),
+        btn.querySelector("span:last-child"),
+      ].filter(Boolean);
+
+      for (const el of candidates) {
+        const t = (el.textContent || "").toLowerCase();
+        if (t.includes("coming") && t.includes("soon")) {
+          el.textContent = m.label;
+        }
+      }
+
+      // Also fallback: replace within button text (rare case)
+      if ((btn.textContent || "").toLowerCase().includes("coming soon")) {
+        btn.innerHTML = btn.innerHTML.replace(/coming\s*soon/i, m.label);
+      }
+    }
+  }
+
+  // ---------------------------
+  // Dashboard placeholders (non-destructive)
   // ---------------------------
   function renderDashboardPlaceholders() {
     const todayStr = ymd(state.currentDate);
@@ -236,13 +302,8 @@
     const exp = sumReceiptExpense(todayStr);
     const net = clampMoney(rev - exp);
 
-    // today line
-    if ($("#todayLine")) $("#todayLine").textContent = todayStr;
-
-    // month snapshot / dashboard stats
     const stats = $("#monthSnapshot") || $("#dashboardStats");
     if (stats) {
-      // Only write if it's a placeholder (empty or very short)
       const txt = (stats.textContent || "").trim();
       if (txt.length < 6) {
         stats.innerHTML = `
@@ -252,20 +313,20 @@
       }
     }
 
-    // pressure points (same rule: fill only if empty)
     const pp = $("#pressurePoints");
     if (pp) {
       const t = (pp.textContent || "").trim();
       if (t.length < 6) {
+        const jobs = jobsByDate(todayStr).filter(j => j.status !== STATUS.cancelled).length;
+        const rcpts = receiptsByDate(todayStr).length;
         pp.innerHTML = `
-          <div>• Jobs today: ${jobsByDate(todayStr).length}</div>
-          <div>• Receipts today: ${receiptsByDate(todayStr).length}</div>
+          <div>• Jobs today: ${jobs}</div>
+          <div>• Receipts today: ${rcpts}</div>
           <div>• Net today: ${money(net)}</div>
         `;
       }
     }
 
-    // Quick calendar always renders if container exists
     const quick = $("#dashboardCalendar");
     if (quick) renderQuickCalendar(quick);
   }
@@ -275,7 +336,6 @@
     const m = state.currentDate.getMonth();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
 
-    // do not overwrite if user built custom quick calendar UI
     if (container.dataset.custom === "1") return;
 
     container.innerHTML = "";
@@ -303,28 +363,26 @@
   }
 
   // ---------------------------
-  // FULL Calendar (IMPORTANT FIX)
-  // Always renders if #calendarGrid exists anywhere in the DOM.
+  // FULL Calendar renderer (if #calendarGrid exists anywhere)
   // ---------------------------
   function renderFullCalendarIfPresent() {
     const grid = $("#calendarGrid");
     const label = $("#calendarLabel") || $("#monthLabel");
-
-    if (!grid) return; // you simply don't have a calendar container in HTML
+    if (!grid) return;
 
     const y = state.monthCursor.getFullYear();
     const m = state.monthCursor.getMonth();
     if (label) label.textContent = `${state.monthCursor.toLocaleString("default", { month: "long" })} ${y}`;
 
-    // If your CSS expects a specific structure, we won't inject extra wrappers. Just fill the grid.
     grid.innerHTML = "";
 
     const first = new Date(y, m, 1);
     const firstDow = first.getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
 
-    // Optional DOW row if your CSS supports it:
-    if (grid.dataset.dow !== "0") {
+    // DOW header if your CSS supports it
+    const wantsDow = grid.dataset.dow !== "0";
+    if (wantsDow) {
       const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       for (const d of dow) {
         const h = document.createElement("div");
@@ -347,9 +405,10 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "calendar-day";
-      btn.innerHTML = `<strong>${day}</strong>`;
+      btn.innerHTML = `<div class="num">${day}</div>`;
 
       if (sameDay(d, new Date())) btn.classList.add("today");
+      if (sameDay(d, state.currentDate)) btn.classList.add("selected");
 
       const jobs = jobsByDate(dateStr).filter(j => j.status !== STATUS.cancelled).length;
       const rcpts = receiptsByDate(dateStr).length;
@@ -366,7 +425,7 @@
   }
 
   // ---------------------------
-  // Day Workspace (renders into existing #dayTitle/#dayJobs if present)
+  // Day Workspace (renders into #dayTitle/#dayJobs)
   // ---------------------------
   function renderDayWorkspaceIfPresent() {
     const title = $("#dayTitle");
@@ -376,7 +435,7 @@
     const dateStr = ymd(state.currentDate);
     title.textContent = `Day Workspace – ${dateStr}`;
 
-    const jobs = jobsByDate(dateStr).slice();
+    const jobs = jobsByDate(dateStr).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
     const rev = sumJobRevenue(dateStr);
     const exp = sumReceiptExpense(dateStr);
     const net = clampMoney(rev - exp);
@@ -385,24 +444,33 @@
       <div class="day-totals">
         <div><strong>Revenue:</strong> ${money(rev)} · <strong>Expenses:</strong> ${money(exp)} · <strong>Net:</strong> ${money(net)}</div>
       </div>
+
       <div style="margin-top:10px;">
-        ${jobs.length ? jobs.map(j => `
-          <div class="job-row">
-            <div class="job-main">
-              <div class="job-title">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</div>
-              <div class="job-sub">${escapeHtml(j.pickup || "Pickup")} → ${escapeHtml(j.dropoff || "Dropoff")}</div>
-              <div class="job-sub">Status: <strong>${escapeHtml(STATUS_LABEL[j.status] || "Scheduled")}</strong></div>
-            </div>
-          </div>
-        `).join("") : `<div class="empty muted">No jobs for this day.</div>`}
+        ${
+          jobs.length
+          ? jobs.map(j => `
+              <div class="job-row ${j.status === STATUS.completed ? "is-completed" : ""} ${j.status === STATUS.cancelled ? "is-cancelled" : ""}">
+                <div class="job-main">
+                  <div class="job-title">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</div>
+                  <div class="job-sub">${escapeHtml(j.pickup || "Pickup")} → ${escapeHtml(j.dropoff || "Dropoff")}</div>
+                  <div class="job-sub">
+                    Driver: <strong>${escapeHtml(driverName(j.driverId) || "Unassigned")}</strong> ·
+                    Truck: <strong>${escapeHtml(truckLabel(j.truckId) || "Unassigned")}</strong> ·
+                    Status: <strong>${escapeHtml(STATUS_LABEL[j.status] || "Scheduled")}</strong>
+                  </div>
+                </div>
+              </div>
+            `).join("")
+          : `<div class="empty muted">No jobs for this day.</div>`
+        }
       </div>
     `;
   }
 
   // ---------------------------
-  // Drivers view (renders ONLY into #view-drivers)
+  // Drivers view (renders into #view-drivers)
   // ---------------------------
-  function renderDriversViewIfPresent() {
+  function renderDriversIfPresent() {
     const host = $("#view-drivers");
     if (!host) return;
 
@@ -412,11 +480,12 @@
     const q = state.driverSearch.trim().toLowerCase();
     const filtered = state.drivers
       .slice()
-      .sort((a, b) => (a.active === b.active ? a.name.localeCompare(b.name) : (a.active ? -1 : 1)))
+      .sort((a,b) => (a.active === b.active ? a.name.localeCompare(b.name) : (a.active ? -1 : 1)))
       .filter(d => {
         if (!q) return true;
-        return (d.name || "").toLowerCase().includes(q) ||
-               (d.phone || "").toLowerCase().includes(q);
+        return (d.name||"").toLowerCase().includes(q) ||
+               (d.phone||"").toLowerCase().includes(q) ||
+               (d.email||"").toLowerCase().includes(q);
       });
 
     host.innerHTML = `
@@ -429,10 +498,10 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
           <label class="field" style="min-width:240px;">
             <span>Search</span>
-            <input id="drvSearch" type="text" value="${escapeHtml(state.driverSearch)}" placeholder="Search driver..." />
+            <input id="drvSearch" type="text" value="${escapeHtml(state.driverSearch)}" placeholder="Search name/phone/email" />
           </label>
 
-          <label class="field" style="min-width:240px;">
+          <label class="field" style="min-width:220px;">
             <span>Name</span>
             <input id="drvName" type="text" placeholder="Driver name" />
           </label>
@@ -442,39 +511,52 @@
             <input id="drvPhone" type="text" placeholder="(555) 555-5555" />
           </label>
 
+          <label class="field" style="min-width:220px;">
+            <span>Email</span>
+            <input id="drvEmail" type="text" placeholder="optional@email.com" />
+          </label>
+
           <button class="btn primary" id="drvAdd" type="button">Add</button>
         </div>
 
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${filtered.length ? filtered.map(d => `
-            <div class="job-row ${d.active ? "" : "is-cancelled"}">
-              <div class="job-main">
-                <div class="job-title">${escapeHtml(d.name || "Unnamed Driver")}</div>
-                <div class="job-sub">${escapeHtml(d.phone || "")} · ${d.active ? "Active" : "Inactive"}</div>
-              </div>
-              <div class="job-actions">
-                <button class="btn" data-drv-edit="${escapeHtml(d.id)}" type="button">Edit</button>
-                <button class="btn" data-drv-toggle="${escapeHtml(d.id)}" type="button">${d.active ? "Deactivate" : "Activate"}</button>
-                <button class="btn danger" data-drv-del="${escapeHtml(d.id)}" type="button">Delete</button>
-              </div>
-            </div>
-          `).join("") : `<div class="empty muted">No drivers found.</div>`}
+          ${
+            filtered.length
+              ? filtered.map(d => `
+                  <div class="job-row ${d.active ? "" : "is-cancelled"}">
+                    <div class="job-main">
+                      <div class="job-title">${escapeHtml(d.name || "Unnamed Driver")}</div>
+                      <div class="job-sub">${escapeHtml(d.phone || "")}${d.email ? ` · ${escapeHtml(d.email)}` : ""} · ${d.active ? "Active" : "Inactive"}</div>
+                      ${d.notes ? `<div class="job-sub">${escapeHtml(d.notes)}</div>` : ""}
+                    </div>
+                    <div class="job-actions">
+                      <button class="btn" data-drv-edit="${escapeHtml(d.id)}" type="button">Edit</button>
+                      <button class="btn" data-drv-toggle="${escapeHtml(d.id)}" type="button">${d.active ? "Deactivate" : "Activate"}</button>
+                      <button class="btn danger" data-drv-del="${escapeHtml(d.id)}" type="button">Delete</button>
+                    </div>
+                  </div>
+                `).join("")
+              : `<div class="empty muted">No drivers found.</div>`
+          }
         </div>
       </div>
     `;
 
     $("#drvSearch")?.addEventListener("input", (e) => {
       state.driverSearch = e.target.value || "";
-      renderDriversViewIfPresent();
+      renderDriversIfPresent();
+      fixComingSoonLabels();
     });
 
     $("#drvAdd")?.addEventListener("click", () => {
       const name = ($("#drvName")?.value || "").trim();
       const phone = ($("#drvPhone")?.value || "").trim();
+      const email = ($("#drvEmail")?.value || "").trim();
       if (!name) return;
-      state.drivers.push(normalizeDriver({ name, phone, active: true }));
+      state.drivers.push(normalizeDriver({ name, phone, email, active: true }));
       persist();
-      renderDriversViewIfPresent();
+      renderDriversIfPresent();
+      fixComingSoonLabels();
     });
 
     $$("[data-drv-toggle]", host).forEach(btn => {
@@ -485,7 +567,8 @@
         d.active = !d.active;
         d.updatedAt = Date.now();
         persist();
-        renderDriversViewIfPresent();
+        renderDriversIfPresent();
+        fixComingSoonLabels();
       });
     });
 
@@ -494,9 +577,14 @@
         const id = btn.getAttribute("data-drv-del");
         if (!id) return;
         if (!confirm("Delete this driver?")) return;
+
+        // unassign from jobs
+        state.jobs = state.jobs.map(j => (j.driverId === id ? normalizeJob({ ...j, driverId: "", updatedAt: Date.now() }) : j));
         state.drivers = state.drivers.filter(x => x.id !== id);
+
         persist();
-        renderDriversViewIfPresent();
+        renderDriversIfPresent();
+        fixComingSoonLabels();
       });
     });
 
@@ -510,20 +598,28 @@
         if (name === null) return;
         const phone = prompt("Phone:", d.phone || "");
         if (phone === null) return;
+        const email = prompt("Email:", d.email || "");
+        if (email === null) return;
+        const notes = prompt("Notes:", d.notes || "");
+        if (notes === null) return;
 
         d.name = name.trim();
         d.phone = phone.trim();
+        d.email = email.trim();
+        d.notes = notes.trim();
         d.updatedAt = Date.now();
+
         persist();
-        renderDriversViewIfPresent();
+        renderDriversIfPresent();
+        fixComingSoonLabels();
       });
     });
   }
 
   // ---------------------------
-  // Trucks view (renders ONLY into #view-trucks)
+  // Trucks view (renders into #view-trucks)
   // ---------------------------
-  function renderTrucksViewIfPresent() {
+  function renderTrucksIfPresent() {
     const host = $("#view-trucks");
     if (!host) return;
 
@@ -533,12 +629,13 @@
     const q = state.truckSearch.trim().toLowerCase();
     const filtered = state.trucks
       .slice()
-      .sort((a, b) => (a.active === b.active ? a.label.localeCompare(b.label) : (a.active ? -1 : 1)))
+      .sort((a,b) => (a.active === b.active ? a.label.localeCompare(b.label) : (a.active ? -1 : 1)))
       .filter(t => {
         if (!q) return true;
-        return (t.label || "").toLowerCase().includes(q) ||
-               (t.plate || "").toLowerCase().includes(q) ||
-               (t.type || "").toLowerCase().includes(q);
+        return (t.label||"").toLowerCase().includes(q) ||
+               (t.plate||"").toLowerCase().includes(q) ||
+               (t.type||"").toLowerCase().includes(q) ||
+               (t.capacity||"").toLowerCase().includes(q);
       });
 
     host.innerHTML = `
@@ -551,7 +648,7 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
           <label class="field" style="min-width:240px;">
             <span>Search</span>
-            <input id="trkSearch" type="text" value="${escapeHtml(state.truckSearch)}" placeholder="Search trucks..." />
+            <input id="trkSearch" type="text" value="${escapeHtml(state.truckSearch)}" placeholder="Search label/plate/type" />
           </label>
 
           <label class="field" style="min-width:220px;">
@@ -566,44 +663,60 @@
 
           <label class="field" style="min-width:180px;">
             <span>Type</span>
-            <input id="trkType" type="text" placeholder="Box truck / Sprinter" />
+            <input id="trkType" type="text" placeholder="Box truck / Sprinter / Pickup" />
+          </label>
+
+          <label class="field" style="min-width:140px;">
+            <span>Capacity</span>
+            <input id="trkCap" type="text" placeholder="26ft" />
           </label>
 
           <button class="btn primary" id="trkAdd" type="button">Add</button>
         </div>
 
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${filtered.length ? filtered.map(t => `
-            <div class="job-row ${t.active ? "" : "is-cancelled"}">
-              <div class="job-main">
-                <div class="job-title">${escapeHtml(t.label || "Unnamed Truck")}</div>
-                <div class="job-sub">${escapeHtml(t.type || "")}${t.plate ? ` · Plate: ${escapeHtml(t.plate)}` : ""} · ${t.active ? "Active" : "Inactive"}</div>
-              </div>
-              <div class="job-actions">
-                <button class="btn" data-trk-edit="${escapeHtml(t.id)}" type="button">Edit</button>
-                <button class="btn" data-trk-toggle="${escapeHtml(t.id)}" type="button">${t.active ? "Deactivate" : "Activate"}</button>
-                <button class="btn danger" data-trk-del="${escapeHtml(t.id)}" type="button">Delete</button>
-              </div>
-            </div>
-          `).join("") : `<div class="empty muted">No trucks found.</div>`}
+          ${
+            filtered.length
+              ? filtered.map(t => `
+                  <div class="job-row ${t.active ? "" : "is-cancelled"}">
+                    <div class="job-main">
+                      <div class="job-title">${escapeHtml(t.label || "Unnamed Truck")}</div>
+                      <div class="job-sub">
+                        ${escapeHtml(t.type || "")}${t.capacity ? ` · ${escapeHtml(t.capacity)}` : ""}${t.plate ? ` · Plate: ${escapeHtml(t.plate)}` : ""}
+                        · ${t.active ? "Active" : "Inactive"}
+                      </div>
+                      ${t.notes ? `<div class="job-sub">${escapeHtml(t.notes)}</div>` : ""}
+                    </div>
+                    <div class="job-actions">
+                      <button class="btn" data-trk-edit="${escapeHtml(t.id)}" type="button">Edit</button>
+                      <button class="btn" data-trk-toggle="${escapeHtml(t.id)}" type="button">${t.active ? "Deactivate" : "Activate"}</button>
+                      <button class="btn danger" data-trk-del="${escapeHtml(t.id)}" type="button">Delete</button>
+                    </div>
+                  </div>
+                `).join("")
+              : `<div class="empty muted">No trucks found.</div>`
+          }
         </div>
       </div>
     `;
 
     $("#trkSearch")?.addEventListener("input", (e) => {
       state.truckSearch = e.target.value || "";
-      renderTrucksViewIfPresent();
+      renderTrucksIfPresent();
+      fixComingSoonLabels();
     });
 
     $("#trkAdd")?.addEventListener("click", () => {
       const label = ($("#trkLabel")?.value || "").trim();
       const plate = ($("#trkPlate")?.value || "").trim();
       const type = ($("#trkType")?.value || "").trim();
+      const capacity = ($("#trkCap")?.value || "").trim();
       if (!label) return;
 
-      state.trucks.push(normalizeTruck({ label, plate, type, active: true }));
+      state.trucks.push(normalizeTruck({ label, plate, type, capacity, active: true }));
       persist();
-      renderTrucksViewIfPresent();
+      renderTrucksIfPresent();
+      fixComingSoonLabels();
     });
 
     $$("[data-trk-toggle]", host).forEach(btn => {
@@ -614,7 +727,8 @@
         t.active = !t.active;
         t.updatedAt = Date.now();
         persist();
-        renderTrucksViewIfPresent();
+        renderTrucksIfPresent();
+        fixComingSoonLabels();
       });
     });
 
@@ -623,9 +737,14 @@
         const id = btn.getAttribute("data-trk-del");
         if (!id) return;
         if (!confirm("Delete this truck?")) return;
+
+        // unassign from jobs
+        state.jobs = state.jobs.map(j => (j.truckId === id ? normalizeJob({ ...j, truckId: "", updatedAt: Date.now() }) : j));
         state.trucks = state.trucks.filter(x => x.id !== id);
+
         persist();
-        renderTrucksViewIfPresent();
+        renderTrucksIfPresent();
+        fixComingSoonLabels();
       });
     });
 
@@ -641,37 +760,180 @@
         if (plate === null) return;
         const type = prompt("Type:", t.type || "");
         if (type === null) return;
+        const cap = prompt("Capacity:", t.capacity || "");
+        if (cap === null) return;
+        const notes = prompt("Notes:", t.notes || "");
+        if (notes === null) return;
 
         t.label = label.trim();
         t.plate = plate.trim();
         t.type = type.trim();
+        t.capacity = cap.trim();
+        t.notes = notes.trim();
         t.updatedAt = Date.now();
+
         persist();
-        renderTrucksViewIfPresent();
+        renderTrucksIfPresent();
+        fixComingSoonLabels();
       });
     });
+  }
+
+  // ---------------------------
+  // Dispatch view (renders into #view-dispatch)
+  // ---------------------------
+  function renderDispatchIfPresent() {
+    const host = $("#view-dispatch");
+    if (!host) return;
+
+    const dateStr = ymd(state.currentDate);
+    const jobs = jobsByDate(dateStr).filter(j => j.status !== STATUS.cancelled);
+    const receipts = receiptsByDate(dateStr);
+    const rev = sumJobRevenue(dateStr);
+    const exp = sumReceiptExpense(dateStr);
+    const net = clampMoney(rev - exp);
+
+    const { driverConf, truckConf } = conflictsForDate(dateStr);
+
+    // group by driver
+    const byDriver = new Map();
+    for (const j of jobs) {
+      const key = j.driverId || "__unassigned__";
+      if (!byDriver.has(key)) byDriver.set(key, []);
+      byDriver.get(key).push(j);
+    }
+
+    // group by truck
+    const byTruck = new Map();
+    for (const j of jobs) {
+      const key = j.truckId || "__unassigned__";
+      if (!byTruck.has(key)) byTruck.set(key, []);
+      byTruck.get(key).push(j);
+    }
+
+    const driverSections = Array.from(byDriver.entries())
+      .sort((a,b) => {
+        const an = a[0] === "__unassigned__" ? "ZZZ" : (driverName(a[0]) || "");
+        const bn = b[0] === "__unassigned__" ? "ZZZ" : (driverName(b[0]) || "");
+        return an.localeCompare(bn);
+      })
+      .map(([id, list]) => {
+        const title = id === "__unassigned__" ? "Unassigned Driver" : (driverName(id) || "Driver");
+        return `
+          <div class="panel" style="margin-top:12px;">
+            <div class="panel-header">
+              <div class="panel-title">${escapeHtml(title)} <span class="muted">(${list.length})</span></div>
+              <div class="panel-sub">Dispatch board by driver</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${list.map(j => `
+                <div class="job-row">
+                  <div class="job-main">
+                    <div class="job-title">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</div>
+                    <div class="job-sub">${escapeHtml(j.pickup || "Pickup")} → ${escapeHtml(j.dropoff || "Dropoff")}</div>
+                    <div class="job-sub">Truck: <strong>${escapeHtml(truckLabel(j.truckId) || "Unassigned")}</strong> · Status: <strong>${escapeHtml(STATUS_LABEL[j.status] || "Scheduled")}</strong></div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const truckSections = Array.from(byTruck.entries())
+      .sort((a,b) => {
+        const an = a[0] === "__unassigned__" ? "ZZZ" : (truckLabel(a[0]) || "");
+        const bn = b[0] === "__unassigned__" ? "ZZZ" : (truckLabel(b[0]) || "");
+        return an.localeCompare(bn);
+      })
+      .map(([id, list]) => {
+        const title = id === "__unassigned__" ? "Unassigned Truck" : (truckLabel(id) || "Truck");
+        return `
+          <div class="panel" style="margin-top:12px;">
+            <div class="panel-header">
+              <div class="panel-title">${escapeHtml(title)} <span class="muted">(${list.length})</span></div>
+              <div class="panel-sub">Dispatch board by truck</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${list.map(j => `
+                <div class="job-row">
+                  <div class="job-main">
+                    <div class="job-title">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</div>
+                    <div class="job-sub">${escapeHtml(j.pickup || "Pickup")} → ${escapeHtml(j.dropoff || "Dropoff")}</div>
+                    <div class="job-sub">Driver: <strong>${escapeHtml(driverName(j.driverId) || "Unassigned")}</strong> · Status: <strong>${escapeHtml(STATUS_LABEL[j.status] || "Scheduled")}</strong></div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Dispatch</div>
+          <div class="panel-sub">Daily dispatch board · ${escapeHtml(dateStr)}</div>
+        </div>
+
+        <div class="day-totals">
+          <div><strong>Jobs:</strong> ${jobs.length}</div>
+          <div><strong>Revenue:</strong> ${money(rev)} · <strong>Expenses:</strong> ${money(exp)} · <strong>Net:</strong> ${money(net)}</div>
+          <div><strong>Receipts:</strong> ${receipts.length}</div>
+        </div>
+
+        ${(driverConf.length || truckConf.length) ? `
+          <div class="day-totals" style="margin-top:10px;">
+            <div><strong>⚠ Conflicts</strong></div>
+            ${driverConf.length ? `<div>Driver conflicts: ${driverConf.map(d => `${escapeHtml(d.name)} (${d.c})`).join(", ")}</div>` : ""}
+            ${truckConf.length ? `<div>Truck conflicts: ${truckConf.map(t => `${escapeHtml(t.label)} (${t.c})`).join(", ")}</div>` : ""}
+          </div>
+        ` : `<div class="muted" style="margin-top:10px;">No conflicts detected for this day.</div>`}
+
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn primary" type="button" id="goDayFromDispatch">Open Day Workspace</button>
+          <button class="btn" type="button" id="goCalendarFromDispatch">Open Calendar</button>
+        </div>
+      </div>
+
+      ${jobs.length ? `
+        <div style="margin-top:12px;">
+          <div class="muted" style="margin-bottom:8px;">Grouped boards</div>
+          ${driverSections}
+          ${truckSections}
+        </div>
+      ` : `
+        <div class="panel" style="margin-top:12px;">
+          <div class="panel-header">
+            <div class="panel-title">No jobs scheduled</div>
+            <div class="panel-sub">Dispatch needs jobs to display assignments and routing.</div>
+          </div>
+          <div class="muted">Go to Day Workspace and add jobs for ${escapeHtml(dateStr)}.</div>
+        </div>
+      `}
+    `;
+
+    $("#goDayFromDispatch")?.addEventListener("click", () => setView("day"));
+    $("#goCalendarFromDispatch")?.addEventListener("click", () => setView("calendar"));
   }
 
   // ---------------------------
   // Render router
   // ---------------------------
   function renderAll() {
-    // Always update dashboard placeholders if they exist
     renderDashboardPlaceholders();
-
-    // Always render full calendar if #calendarGrid exists (this is the big fix)
     renderFullCalendarIfPresent();
-
-    // Render day workspace if its containers exist
     renderDayWorkspaceIfPresent();
-
-    // Render drivers/trucks only if their view containers exist
-    renderDriversViewIfPresent();
-    renderTrucksViewIfPresent();
+    renderDriversIfPresent();
+    renderTrucksIfPresent();
+    renderDispatchIfPresent();
+    fixComingSoonLabels();
   }
 
   // ---------------------------
-  // Navigation bindings
+  // Nav bindings
   // ---------------------------
   function bindNav() {
     $$("[data-view]").forEach(btn => {
@@ -682,7 +944,6 @@
       });
     });
 
-    // Optional toolbar date nav
     $("#btnToday")?.addEventListener("click", () => {
       state.currentDate = startOfDay(new Date());
       state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
@@ -716,8 +977,9 @@
   function init() {
     seedFleetIfEmpty();
     bindNav();
+    fixComingSoonLabels();
 
-    // Choose a starting view if your HTML uses views; otherwise just render placeholders.
+    // Start on dashboard if you have views; otherwise just render placeholders
     const hasViews = $$('[id^="view-"]').length > 0;
     if (hasViews) setView($("#view-dashboard") ? "dashboard" : "day");
     else renderAll();
