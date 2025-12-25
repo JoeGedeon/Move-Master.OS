@@ -833,3 +833,7 @@ body {
 #dayJobsList .job-row { display:flex; justify-content:space-between; gap:12px; padding:10px; border-radius:12px; }
 #dayJobsList .job-actions { display:flex; gap:8px; align-items:center; }
 #dayJobsList .job-status { min-width: 130px; }
+
+.job-row.is-cancelled { opacity: 0.55; }
+.job-row.is-completed { outline: 1px solid rgba(90, 220, 140, 0.35); }
+.job-actions .job-edit { margin-left: 6px; }
