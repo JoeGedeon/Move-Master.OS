@@ -5,10 +5,13 @@
    - Jobs: Add/Edit/Delete + status
    - Receipts: Add/Edit/Delete
    - Day totals: Revenue / Expenses / Net
-   - Calendar polish:
-     * Compact markers (S/C/X + receipt indicator)
-     * Hover/tap tooltip preview on calendar days
-     * Consistent month rendering + clean nav
+   - Calendar polish: marker chips + hover/tap tooltip preview
+   - Dashboard intelligence:
+     * Revenue at risk (scheduled not completed)
+     * Tomorrow overload
+     * Missing receipts checks
+     * Uncategorized receipts check
+     * 7-day forecast (jobs + revenue + expenses + net)
    - Defensive init + overlay safety
 */
 
@@ -28,6 +31,11 @@
   const pad2 = (n) => String(n).padStart(2, "0");
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d, n) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return startOfDay(x);
+  };
   const sameDay = (a, b) =>
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
@@ -41,6 +49,8 @@
     if (!Number.isFinite(n)) return 0;
     return Math.round(n * 100) / 100;
   };
+
+  const money = (n) => `$${clampMoney(n).toFixed(2)}`;
 
   function safe(fn) {
     try { fn(); } catch (e) { err(e); }
@@ -180,7 +190,7 @@
     const el = $("#contextLine");
     if (!el) return;
 
-    if (state.activeView === "dashboard") el.textContent = "Foundation mode (Smart)";
+    if (state.activeView === "dashboard") el.textContent = "Dashboard Intelligence";
     else if (state.activeView === "calendar") el.textContent = "Calendar (Polished)";
     else if (state.activeView === "day") el.textContent = `Day Workspace: ${ymd(state.currentDate)}`;
     else el.textContent = "Coming soon";
@@ -285,6 +295,142 @@
   }
 
   // ---------------------------
+  // Dashboard Intelligence
+  // ---------------------------
+  function findPressurePointsBody() {
+    // Preferred: an explicit id if you ever add it
+    const byId = $("#pressurePoints");
+    if (byId) return byId;
+
+    // Fallback: locate the card whose title text is "Pressure Points"
+    const cards = $$(".card");
+    for (const c of cards) {
+      const t = $(".card-title", c);
+      if (t && t.textContent.trim().toLowerCase() === "pressure points") {
+        return $(".card-body", c) || c;
+      }
+    }
+    return null;
+  }
+
+  function dashboardIntelligence() {
+    const todayStr = ymd(state.currentDate);
+    const tomorrowStr = ymd(addDays(state.currentDate, 1));
+
+    const todayJobs = state.jobs.filter(j => j.date === todayStr && j.status !== STATUS.cancelled);
+    const tomorrowJobs = state.jobs.filter(j => j.date === tomorrowStr && j.status !== STATUS.cancelled);
+
+    // Revenue at risk = scheduled jobs (not completed) in next 7 days
+    const start = state.currentDate;
+    const end = addDays(state.currentDate, 7);
+
+    let riskRevenue = 0;
+    let scheduledNext7 = 0;
+    let completedNext7 = 0;
+
+    for (const j of state.jobs) {
+      const d = new Date(j.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const sd = startOfDay(d);
+      if (sd < start || sd > end) continue;
+      if (j.status === STATUS.cancelled) continue;
+
+      if (j.status === STATUS.completed) completedNext7++;
+      else {
+        scheduledNext7++;
+        riskRevenue += clampMoney(j.amount);
+      }
+    }
+
+    // Tomorrow overload threshold (tweakable)
+    const OVERLOAD_JOB_COUNT = 6;
+    const tomorrowOverload = tomorrowJobs.length >= OVERLOAD_JOB_COUNT;
+
+    // Missing receipts heuristic:
+    // If there are jobs today and ZERO receipts today -> warn.
+    // Also if there are receipts today with blank category -> warn.
+    const todayReceipts = state.receipts.filter(r => r.date === todayStr);
+    const missingReceiptsToday = todayJobs.length > 0 && todayReceipts.length === 0;
+
+    const uncategorizedToday = todayReceipts.filter(r => !r.category).length;
+
+    // 7-day forecast summary (revenue/expenses/net)
+    let forecastRevenue = 0;
+    let forecastExpenses = 0;
+    let forecastJobs = 0;
+
+    for (const j of state.jobs) {
+      const d = new Date(j.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const sd = startOfDay(d);
+      if (sd < start || sd > end) continue;
+      if (j.status === STATUS.cancelled) continue;
+      forecastJobs++;
+      forecastRevenue += clampMoney(j.amount);
+    }
+
+    for (const r of state.receipts) {
+      const d = new Date(r.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const sd = startOfDay(d);
+      if (sd < start || sd > end) continue;
+      forecastExpenses += clampMoney(r.amount);
+    }
+
+    const forecastNet = clampMoney(forecastRevenue - forecastExpenses);
+
+    // Render into Pressure Points
+    const host = findPressurePointsBody();
+    if (!host) return;
+
+    // keep its class sane if it's the .card-body
+    host.classList.remove("muted");
+
+    const bullets = [];
+    bullets.push(`7-day forecast: ${forecastJobs} jobs · Rev ${money(forecastRevenue)} · Exp ${money(forecastExpenses)} · Net ${money(forecastNet)}`);
+
+    if (scheduledNext7 > 0) {
+      bullets.push(`Revenue at risk: ${scheduledNext7} scheduled (not completed) · ${money(riskRevenue)}`);
+    } else {
+      bullets.push(`Revenue at risk: none (either you’re on top of it, or the calendar is empty)`);
+    }
+
+    if (tomorrowOverload) {
+      bullets.push(`⚠ Tomorrow overload: ${tomorrowJobs.length} jobs scheduled. Consider adding a driver/truck or shifting capacity.`);
+    } else {
+      bullets.push(`Tomorrow load: ${tomorrowJobs.length} jobs`);
+    }
+
+    if (missingReceiptsToday) {
+      bullets.push(`⚠ Missing receipts today: jobs exist but no receipts logged for ${todayStr}.`);
+    } else {
+      bullets.push(`Receipts today: ${todayReceipts.length}`);
+    }
+
+    if (uncategorizedToday > 0) {
+      bullets.push(`⚠ Uncategorized receipts today: ${uncategorizedToday}. (This ruins reporting later. Fix now, thank yourself later.)`);
+    }
+
+    // Small “assistant brain” hint
+    bullets.push(`Tip: Use "Fuel / Tolls / Supplies / Parking / Meals" categories for clean reports.`);
+
+    host.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:8px; font-size:13px;">
+        ${bullets.map(b => `<div>• ${escapeHtml(b)}</div>`).join("")}
+      </div>
+    `;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // ---------------------------
   // Calendar tooltip (polish)
   // ---------------------------
   function ensureCalTip() {
@@ -314,9 +460,9 @@
     inner.innerHTML = `
       <div class="cal-tip-title">${dateStr}</div>
       <div class="cal-tip-row">Jobs: S ${counts.s} · C ${counts.c} · X ${counts.x}</div>
-      <div class="cal-tip-row">Revenue: $${rev.toFixed(2)}</div>
-      <div class="cal-tip-row">Expenses: $${rt.amount.toFixed(2)} (${rt.count})</div>
-      <div class="cal-tip-row"><strong>Net:</strong> $${net.toFixed(2)}</div>
+      <div class="cal-tip-row">Revenue: ${money(rev)}</div>
+      <div class="cal-tip-row">Expenses: ${money(rt.amount)} (${rt.count})</div>
+      <div class="cal-tip-row"><strong>Net:</strong> ${money(net)}</div>
     `;
 
     const rect = anchorEl.getBoundingClientRect();
@@ -333,14 +479,12 @@
     if (tip) tip.hidden = true;
   }
 
-  // Hide tooltip when scrolling or clicking elsewhere
   function bindCalTipAutoHide() {
     document.addEventListener("scroll", hideCalTip, true);
     document.addEventListener("click", (e) => {
       const tip = $("#calTip");
       if (!tip) return;
       if (tip.contains(e.target)) return;
-      // If clicking inside a calendar day, keep it (calendar click will navigate anyway)
       hideCalTip();
     });
   }
@@ -364,7 +508,7 @@
     if (snapshot) {
       snapshot.textContent =
         `Month: S ${counts.s} · C ${counts.c} · X ${counts.x} · ` +
-        `Revenue $${revenue.toFixed(2)} · Expenses $${expenses.toFixed(2)} · Net $${net.toFixed(2)}`;
+        `Revenue ${money(revenue)} · Expenses ${money(expenses)} · Net ${money(net)}`;
     }
 
     const todayStats = $("#todayStats");
@@ -376,10 +520,11 @@
       const netDay = clampMoney(rev - rt.amount);
       todayStats.textContent =
         `Today: S ${ds.s} · C ${ds.c} · X ${ds.x} · ` +
-        `Rev $${rev.toFixed(2)} · Exp $${rt.amount.toFixed(2)} · Net $${netDay.toFixed(2)}`;
+        `Rev ${money(rev)} · Exp ${money(rt.amount)} · Net ${money(netDay)}`;
     }
 
     renderDashboardQuickCalendar();
+    dashboardIntelligence();
   }
 
   function renderDashboardQuickCalendar() {
@@ -417,7 +562,6 @@
     }
   }
 
-  // Polished month calendar
   function renderFullMonthCalendar() {
     const grid = $("#calendarGrid");
     if (!grid) return;
@@ -429,7 +573,6 @@
 
     grid.innerHTML = "";
 
-    // weekday headers
     const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     for (const d of dow) {
       const h = document.createElement("div");
@@ -443,7 +586,6 @@
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const today = startOfDay(new Date());
 
-    // Leading pads
     for (let i = 0; i < firstDow; i++) {
       const pad = document.createElement("div");
       pad.className = "day pad";
@@ -466,7 +608,6 @@
       num.className = "num";
       num.textContent = String(day);
 
-      // Marker bar (polished)
       const bar = document.createElement("div");
       bar.className = "markerbar";
 
@@ -500,14 +641,10 @@
       cell.appendChild(num);
       cell.appendChild(bar);
 
-      // hover / long press tooltip
       cell.addEventListener("mouseenter", () => showCalTip(cell, dateStr));
       cell.addEventListener("mouseleave", hideCalTip);
-
-      // tap on mobile
       cell.addEventListener("touchstart", () => showCalTip(cell, dateStr), { passive: true });
 
-      // click to open day workspace
       cell.addEventListener("click", () => {
         hideCalTip();
         state.currentDate = startOfDay(d);
@@ -525,7 +662,6 @@
     const dayTitle = $("#dayTitle");
     if (dayTitle) dayTitle.textContent = `Day Workspace: ${dateStr}`;
 
-    // Jobs list
     const jobsList = $("#dayJobsList");
     if (jobsList) {
       const jobs = state.jobs
@@ -544,10 +680,10 @@
       totalsBar.className = "day-totals";
       totalsBar.innerHTML = `
         <div><strong>Totals</strong></div>
-        <div>Scheduled: ${jt.scheduled.count} · $${jt.scheduled.amount.toFixed(2)}</div>
-        <div>Completed: ${jt.completed.count} · $${jt.completed.amount.toFixed(2)}</div>
+        <div>Scheduled: ${jt.scheduled.count} · ${money(jt.scheduled.amount)}</div>
+        <div>Completed: ${jt.completed.count} · ${money(jt.completed.amount)}</div>
         <div>Cancelled: ${jt.cancelled.count}</div>
-        <div><strong>Revenue:</strong> $${revenue.toFixed(2)} · <strong>Expenses:</strong> $${rt.amount.toFixed(2)} · <strong>Net:</strong> $${net.toFixed(2)}</div>
+        <div><strong>Revenue:</strong> ${money(revenue)} · <strong>Expenses:</strong> ${money(rt.amount)} · <strong>Net:</strong> ${money(net)}</div>
       `;
       jobsList.appendChild(totalsBar);
 
@@ -572,7 +708,7 @@
 
           const sub = document.createElement("div");
           sub.className = "job-sub";
-          sub.textContent = `${j.pickup || "Pickup"} → ${j.dropoff || "Dropoff"} · $${clampMoney(j.amount).toFixed(2)}`;
+          sub.textContent = `${j.pickup || "Pickup"} → ${j.dropoff || "Dropoff"} · ${money(j.amount)}`;
 
           left.appendChild(title);
           left.appendChild(sub);
@@ -616,7 +752,6 @@
       }
     }
 
-    // Receipts list
     const recList = $("#dayReceiptsList");
     if (recList) {
       const receipts = state.receipts
@@ -630,7 +765,7 @@
 
       const header = document.createElement("div");
       header.className = "receipts-header";
-      header.innerHTML = `<strong>Receipts</strong> · ${rt.count} · $${rt.amount.toFixed(2)}`;
+      header.innerHTML = `<strong>Receipts</strong> · ${rt.count} · ${money(rt.amount)}`;
       recList.appendChild(header);
 
       if (!receipts.length) {
@@ -647,7 +782,7 @@
           left.className = "receipt-main";
           left.innerHTML = `
             <div class="receipt-title">${r.vendor || "Vendor"} · ${r.category || "Category"}</div>
-            <div class="receipt-sub">$${clampMoney(r.amount).toFixed(2)} · ${r.notes || ""}</div>
+            <div class="receipt-sub">${money(r.amount)} · ${r.notes || ""}</div>
           `;
 
           const right = document.createElement("div");
@@ -880,14 +1015,10 @@
     el.btnSave?.addEventListener("click", () => safe(onJobModalSave));
     el.btnCancel?.addEventListener("click", () => safe(closeJobModal));
     el.btnClose?.addEventListener("click", () => safe(closeJobModal));
-    el.overlay?.addEventListener("click", () => {
-      if (!el.modal?.hidden) safe(closeJobModal);
-    });
+    el.overlay?.addEventListener("click", () => { if (!el.modal?.hidden) safe(closeJobModal); });
     el.btnDelete?.addEventListener("click", () => safe(onJobModalDelete));
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") safe(closeJobModal);
-    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") safe(closeJobModal); });
   }
 
   // ---------------------------
@@ -1036,14 +1167,10 @@
     el.btnSave?.addEventListener("click", () => safe(onReceiptModalSave));
     el.btnCancel?.addEventListener("click", () => safe(closeReceiptModal));
     el.btnClose?.addEventListener("click", () => safe(closeReceiptModal));
-    el.overlay?.addEventListener("click", () => {
-      if (!el.modal?.hidden) safe(closeReceiptModal);
-    });
+    el.overlay?.addEventListener("click", () => { if (!el.modal?.hidden) safe(closeReceiptModal); });
     el.btnDelete?.addEventListener("click", () => safe(onReceiptModalDelete));
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") safe(closeReceiptModal);
-    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") safe(closeReceiptModal); });
   }
 
   // ---------------------------
@@ -1071,9 +1198,7 @@
       if (state.activeView === "calendar") {
         state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
       } else {
-        const d = new Date(state.currentDate);
-        d.setDate(d.getDate() - 1);
-        state.currentDate = startOfDay(d);
+        state.currentDate = addDays(state.currentDate, -1);
         state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
       }
       hideCalTip();
@@ -1084,9 +1209,7 @@
       if (state.activeView === "calendar") {
         state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
       } else {
-        const d = new Date(state.currentDate);
-        d.setDate(d.getDate() + 1);
-        state.currentDate = startOfDay(d);
+        state.currentDate = addDays(state.currentDate, 1);
         state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
       }
       hideCalTip();
@@ -1119,7 +1242,6 @@
   function init() {
     forceHideOverlays();
 
-    // normalize once and persist
     state.jobs = (state.jobs || []).map(normalizeJob);
     state.receipts = (state.receipts || []).map(normalizeReceipt);
     persistAll();
