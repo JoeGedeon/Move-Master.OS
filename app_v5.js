@@ -1,33 +1,31 @@
-/* FleetPro / Move-Master.OS - app_v4.js
-   - Working sidebar + toolbar navigation
-   - Honest JS loaded flag
-   - Calendar month view -> Day workspace
-   - Day workspace Jobs table with REAL editors (fixes one-char issue)
-   - LocalStorage persistence
+/* FleetPro / Move-Master.OS — app_v5.js
+   Purpose:
+   - Keep your current HTML/CSS layout
+   - Restore rendering: Dashboard + Calendar + Day Workspace
+   - Restore button wiring (sidebar + top toolbar)
+   - Keep "JS: loaded" honest (only flips after init runs)
 */
-
-window.__FP_JS_LOADED = true;
 
 (() => {
   "use strict";
 
-  // ---------- Helpers ----------
+  // -------------------------
+  // Helpers
+  // -------------------------
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const pad2 = (n) => String(n).padStart(2, "0");
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   const monthKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 
-  const STORAGE_KEY = "fleetpro_foundation_v4";
+  const STORAGE_KEY = "fleetpro_foundation_v5";
 
   const DEFAULT_STATE = {
-    version: 4,
-    view: "dashboard",
+    view: "dashboard",          // dashboard | calendar | day
     selectedDate: ymd(new Date()),
     calCursor: monthKey(new Date()),
-    dayData: {
-      // "YYYY-MM-DD": { jobs: [], aiNotes: "" }
-    }
+    // dayData["YYYY-MM-DD"] = { jobs: [...], receipts: [...], notes: "...", warnings: [...] }
+    dayData: {}
   };
 
   function safeJSONParse(str, fallback) {
@@ -37,524 +35,323 @@ window.__FP_JS_LOADED = true;
   function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     const st = raw ? safeJSONParse(raw, DEFAULT_STATE) : structuredClone(DEFAULT_STATE);
+
     if (!st.dayData) st.dayData = {};
+    if (!st.view) st.view = "dashboard";
     if (!st.selectedDate) st.selectedDate = ymd(new Date());
     if (!st.calCursor) st.calCursor = monthKey(new Date());
-    if (!st.view) st.view = "dashboard";
+
     return st;
   }
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    updateStoragePill();
+    updateLocalStorageBadge();
   }
 
   function ensureDay(dateStr) {
     if (!state.dayData[dateStr]) {
-      state.dayData[dateStr] = { jobs: [], aiNotes: "" };
+      state.dayData[dateStr] = { jobs: [], receipts: [], notes: "", warnings: [] };
     }
     return state.dayData[dateStr];
   }
 
-  function updateStoragePill() {
-    const pill = $("#storagePill");
-    if (!pill) return;
-    try {
-      const bytes = new Blob([localStorage.getItem(STORAGE_KEY) || ""]).size;
-      pill.textContent = `Local Storage: ON • ${Math.max(1, Math.round(bytes / 1024))} KB`;
-    } catch {
-      pill.textContent = "Local Storage: ON";
-    }
-  }
-
-  // ---------- Clock ----------
-  function startClock() {
-    const el = $("#clockBadge");
+  function updateLocalStorageBadge() {
+    const el = $("#localStorageBadge");
     if (!el) return;
-    const tick = () => {
-      const d = new Date();
-      el.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+    const bytes = new Blob([localStorage.getItem(STORAGE_KEY) || ""]).size;
+    const kb = Math.max(1, Math.round(bytes / 1024));
+
+    el.textContent = `Local Storage: ON · ${kb} KB`;
+  }
+
+  // -------------------------
+  // DOM references (keep flexible, don’t require HTML surgery)
+  // -------------------------
+  function getViews() {
+    // supports either #dashboardView/#calendarView/#dayView
+    // or <section id="dashboardView"> etc
+    return {
+      dashboard: $("#dashboardView") || $("#dashboard") || $("#dashView"),
+      calendar: $("#calendarView") || $("#calendar") || $("#calView"),
+      day: $("#dayView") || $("#dayWorkspaceView") || $("#dayWorkspace") || $("#day")
     };
-    tick();
-    setInterval(tick, 1000);
   }
 
-  // ---------- View Switching ----------
-  function setContextLine(text) {
-    const el = $("#contextLine");
-    if (el) el.textContent = text;
+  function setJsBadgeLoaded(loaded) {
+    // supports badge text "JS: loaded / JS: not loaded"
+    const badge = $("#jsBadge") || $(".js-badge") || $("[data-js-badge]");
+    if (!badge) return;
+
+    badge.textContent = loaded ? "JS: loaded" : "JS: not loaded";
+    badge.classList.toggle("loaded", !!loaded);
   }
 
+  function setHeaderContext(text) {
+    const ctx = $("#contextLine") || $("#contextLabel") || $("#context") || $("[data-context]");
+    if (ctx) ctx.textContent = text;
+  }
+
+  function setTodayCardText(titleLine, subLine) {
+    const title = $("#todayTitle") || $("#dashTodayTitle");
+    const sub = $("#todaySub") || $("#dashTodaySub");
+    const meta = $("#todayMeta") || $("#dashTodayMeta");
+
+    if (title) title.textContent = titleLine || "Today";
+    if (sub) sub.textContent = subLine || "";
+    if (meta) meta.textContent = "";
+  }
+
+  // -------------------------
+  // Navigation / Views
+  // -------------------------
   function switchView(viewName) {
     state.view = viewName;
+    saveState();
 
-    $$(".navbtn").forEach(btn => {
-      btn.classList.toggle("is-active", btn.dataset.view === viewName);
+    const views = getViews();
+    Object.entries(views).forEach(([k, el]) => {
+      if (!el) return;
+      el.style.display = (k === viewName) ? "" : "none";
     });
 
-    $$(".view").forEach(v => {
-      v.classList.toggle("is-active", v.dataset.view === viewName);
+    // sidebar active state (supports .navbtn or sidebar <button>)
+    $$(".navbtn, .sidebar button, .sidebar a").forEach(btn => {
+      const v = btn.dataset.view || btn.getAttribute("data-view") || "";
+      if (v) btn.classList.toggle("active", v === viewName);
     });
 
-    if (viewName === "dashboard") {
-      setContextLine("Foundation mode (Smart)");
-      renderDashboard();
-    } else if (viewName === "calendar") {
-      setContextLine("Calendar navigation (Month)");
-      renderCalendar();
-    } else if (viewName === "day") {
-      setContextLine(`Day Workspace: ${state.selectedDate}`);
-      renderDay();
-    } else {
-      setContextLine(viewName.charAt(0).toUpperCase() + viewName.slice(1));
-    }
+    // render after switching
+    if (viewName === "dashboard") renderDashboard();
+    if (viewName === "calendar") renderCalendar();
+    if (viewName === "day") renderDayWorkspace();
+  }
 
+  // -------------------------
+  // Calendar rendering
+  // -------------------------
+  function cursorToDate() {
+    // "YYYY-MM"
+    const [y, m] = state.calCursor.split("-").map(Number);
+    return new Date(y, (m - 1), 1);
+  }
+
+  function setCursorFromDate(d) {
+    state.calCursor = monthKey(d);
     saveState();
   }
 
-  // ---------- Dashboard ----------
-  function renderDashboard() {
-    const dateObj = new Date(state.selectedDate + "T00:00:00");
-    const dashDate = $("#dashDate");
-    const dashCounts = $("#dashCounts");
-
-    if (dashDate) {
-      dashDate.textContent = dateObj.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    }
-
-    const day = ensureDay(state.selectedDate);
-    const jobs = day.jobs.length;
-
-    if (dashCounts) {
-      dashCounts.textContent = `${jobs} job(s), 0 receipt(s), 0 driver(s), 0 truck(s)`;
-    }
-
-    // Pressure points: “missing required fields” style
-    const pressure = $("#pressureList");
-    if (pressure) {
-      const warnings = computeWarningsForDay(state.selectedDate);
-      pressure.innerHTML = "";
-      if (warnings.length === 0) {
-        const li = document.createElement("li");
-        li.className = "muted";
-        li.textContent = "No warnings yet.";
-        pressure.appendChild(li);
-      } else {
-        warnings.slice(0, 5).forEach(w => {
-          const li = document.createElement("li");
-          li.textContent = w;
-          pressure.appendChild(li);
-        });
-      }
-    }
-
-    // Month snapshot (basic counts)
-    const mk = state.calCursor;
-    const monthStats = computeMonthStats(mk);
-    const setText = (id, val) => { const el = $(id); if (el) el.textContent = String(val); };
-
-    setText("#statJobsMonth", monthStats.jobs);
-    setText("#statReceiptsMonth", 0);
-    setText("#statExpensesMonth", "$0");
-    setText("#statWarnings", monthStats.warnings);
-  }
-
-  function computeMonthStats(mKey) {
-    let jobs = 0;
-    let warnings = 0;
-    for (const [dateStr, data] of Object.entries(state.dayData)) {
-      if (!dateStr.startsWith(mKey)) continue;
-      jobs += (data.jobs?.length || 0);
-      warnings += computeWarningsForDay(dateStr).length;
-    }
-    return { jobs, warnings };
-  }
-
-  // ---------- Calendar ----------
-  function parseMonthKey(mKey) {
-    const [y, m] = mKey.split("-").map(Number);
-    return new Date(y, m - 1, 1);
-  }
-
   function renderCalendar() {
-    const cursor = parseMonthKey(state.calCursor);
-    const title = $("#calTitle");
-    if (title) {
-      title.textContent = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const grid = $("#calendarGrid") || $("#calendar-grid") || $("#calGrid");
+    const monthLabel = $("#calendarMonthLabel") || $("#calMonthLabel") || $("#monthLabel");
+
+    if (!grid) {
+      // If the grid isn’t found, don’t crash. Just keep dashboard alive.
+      setHeaderContext("Calendar navigation (Month)");
+      return;
     }
 
-    const grid = $("#calendarGrid");
-    if (!grid) return;
+    const first = cursorToDate();
+    const y = first.getFullYear();
+    const m = first.getMonth();
 
-    // Build month tiles (Sun-Sat grid)
-    const firstDay = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-    const startDow = firstDay.getDay(); // 0=Sun
-    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+    const monthName = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+    if (monthLabel) monthLabel.textContent = monthName;
 
+    setHeaderContext("Calendar navigation (Month)");
+
+    // build calendar starting Sunday
+    const start = new Date(y, m, 1);
+    const startDay = start.getDay(); // 0=Sun
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+    // clear grid
     grid.innerHTML = "";
 
-    // Leading blanks
-    for (let i = 0; i < startDow; i++) {
-      const tile = document.createElement("div");
-      tile.className = "day-tile is-empty";
-      grid.appendChild(tile);
+    // leading blanks
+    for (let i = 0; i < startDay; i++) {
+      const blank = document.createElement("div");
+      blank.className = "day-tile empty";
+      blank.innerHTML = `<div class="day-num"></div>`;
+      grid.appendChild(blank);
     }
 
-    // Actual days
-    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-      const d = new Date(cursor.getFullYear(), cursor.getMonth(), dayNum);
-      const dStr = ymd(d);
-      const info = ensureDay(dStr);
+    // days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(y, m, day);
+      const dateStr = ymd(dateObj);
+      const d = ensureDay(dateStr);
 
       const tile = document.createElement("button");
       tile.type = "button";
       tile.className = "day-tile";
-      tile.dataset.date = dStr;
+      tile.dataset.date = dateStr;
 
-      const top = document.createElement("div");
-      top.className = "day-num";
-      top.textContent = String(dayNum);
+      // simple indicators
+      const jobsCount = d.jobs.length;
+      const hasWarnings = Array.isArray(d.warnings) && d.warnings.length > 0;
 
-      const chips = document.createElement("div");
-      chips.className = "chips";
+      tile.innerHTML = `
+        <div class="day-num">${day}</div>
+        <div class="day-badges">
+          ${jobsCount ? `<span class="badge pill">${jobsCount} job</span>` : ""}
+          ${hasWarnings ? `<span class="badge warn">warn</span>` : ""}
+        </div>
+      `;
 
-      if (info.jobs?.length) {
-        const c = document.createElement("span");
-        c.className = "chip";
-        c.textContent = `${info.jobs.length} job`;
-        chips.appendChild(c);
-      }
+      // selected highlight
+      if (dateStr === state.selectedDate) tile.classList.add("selected");
 
-      const warns = computeWarningsForDay(dStr);
-      if (warns.length) {
-        const c = document.createElement("span");
-        c.className = "chip warn";
-        c.textContent = `${warns.length} warn`;
-        chips.appendChild(c);
-      }
-
-      tile.appendChild(top);
-      tile.appendChild(chips);
-
-      if (dStr === state.selectedDate) tile.classList.add("is-selected");
+      tile.addEventListener("click", () => {
+        state.selectedDate = dateStr;
+        saveState();
+        switchView("day");
+      });
 
       grid.appendChild(tile);
     }
   }
 
-  // ---------- Day Workspace ----------
-  function renderDay() {
-    const d = new Date(state.selectedDate + "T00:00:00");
-    const title = $("#dayTitle");
-    const meta = $("#dayMeta");
+  // -------------------------
+  // Dashboard rendering
+  // -------------------------
+  function computeMonthSnapshot() {
+    const cursor = cursorToDate();
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+
+    let jobs = 0;
+    let receipts = 0;
+    let warnings = 0;
+    let daysStored = 0;
+
+    for (const [dateStr, payload] of Object.entries(state.dayData)) {
+      const [yy, mm] = dateStr.split("-").map(Number);
+      if (yy === y && (mm - 1) === m) {
+        daysStored++;
+        jobs += (payload.jobs?.length || 0);
+        receipts += (payload.receipts?.length || 0);
+        warnings += (payload.warnings?.length || 0);
+      }
+    }
+
+    return { jobs, receipts, warnings, daysStored };
+  }
+
+  function renderDashboard() {
+    setHeaderContext("Foundation mode (Smart)");
+
+    const dateObj = new Date(state.selectedDate + "T12:00:00");
+    const nice = dateObj.toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+    const day = ensureDay(state.selectedDate);
+    const jobCount = day.jobs.length;
+    const receiptCount = day.receipts.length;
+
+    setTodayCardText("Today", nice);
+
+    // If you have any counters on the dashboard:
+    const dashCounts = $("#dashCounts") || $("#todayCounts") || $("#countsLine");
+    if (dashCounts) {
+      dashCounts.textContent = `${jobCount} job(s), ${receiptCount} receipt(s)`;
+    }
+
+    // Month snapshot tiles (supports several ids)
+    const snap = computeMonthSnapshot();
+
+    const elJobs = $("#snapJobs") || $("#monthJobs");
+    const elReceipts = $("#snapReceipts") || $("#monthReceipts");
+    const elWarnings = $("#snapWarnings") || $("#monthWarnings");
+    const elDays = $("#snapDays") || $("#monthDaysStored");
+
+    if (elJobs) elJobs.textContent = String(snap.jobs);
+    if (elReceipts) elReceipts.textContent = String(snap.receipts);
+    if (elWarnings) elWarnings.textContent = String(snap.warnings);
+    if (elDays) elDays.textContent = String(snap.daysStored);
+
+    // Wire the two dashboard buttons if present
+    const btnOpenToday = $("#openTodayBtn") || $("#btnOpenToday") || $("[data-action='open-today']");
+    const btnOpenCalendar = $("#openCalendarBtn") || $("#btnOpenCalendar") || $("[data-action='open-calendar']");
+
+    if (btnOpenToday) btnOpenToday.onclick = () => switchView("day");
+    if (btnOpenCalendar) btnOpenCalendar.onclick = () => switchView("calendar");
+  }
+
+  // -------------------------
+  // Day Workspace rendering
+  // -------------------------
+  function renderDayWorkspace() {
+    setHeaderContext(`Day Workspace: ${state.selectedDate}`);
+
+    const title = $("#dayTitle") || $("#dayWorkspaceTitle");
     if (title) {
-      title.textContent = d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const d = new Date(state.selectedDate + "T12:00:00");
+      title.textContent = d.toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
     }
 
     const day = ensureDay(state.selectedDate);
-    const warns = computeWarningsForDay(state.selectedDate);
-    if (meta) {
-      meta.textContent = `${day.jobs.length} job(s) • ${warns.length} warning(s)`;
-    }
 
-    // Notes
-    const notes = $("#aiNotes");
+    // Notes (textarea preferred)
+    const notes = $("#notes") || $("#dayNotes") || $("#notesArea");
     if (notes) {
-      notes.value = day.aiNotes || "";
+      // keep typing normal: real textarea, not contenteditable tricks
+      notes.value = day.notes || "";
+      notes.oninput = () => {
+        day.notes = notes.value;
+        saveState();
+      };
     }
 
-    renderJobsTable();
+    // Jobs table (if present)
+    renderJobsTable(day);
   }
 
-  function computeWarningsForDay(dateStr) {
-    const day = ensureDay(dateStr);
-    const warns = [];
+  function renderJobsTable(day) {
+    const tableBody =
+      $("#jobsTableBody") ||
+      $("#jobsBody") ||
+      $("#jobsTable tbody") ||
+      $("#jobs tbody");
 
-    (day.jobs || []).forEach((j, idx) => {
-      const id = j.jobId || `Job #${idx + 1}`;
-      if (!j.customer) warns.push(`${id} missing customer`);
-      if (!j.pickup) warns.push(`${id} missing pickup`);
-      if (!j.dropoff) warns.push(`${id} missing dropoff`);
-      if (!j.volume) warns.push(`${id} missing volume`);
-    });
+    // If your HTML doesn’t have the table yet, we don’t crash.
+    if (!tableBody) return;
 
-    return warns;
-  }
-
-  function addJobRow() {
-    const day = ensureDay(state.selectedDate);
-    const nextNum = (day.jobs.length + 1);
-    const jobId = `J-${String(nextNum).padStart(4, "0")}`;
-
-    day.jobs.push({
-      jobId,
-      customer: "",
-      pickup: "",
-      dropoff: "",
-      volume: "",
-      notes: ""
-    });
-
-    saveState();
-    renderDay();
-  }
-
-  function renderJobsTable() {
-    const tbody = $("#jobsTbody");
-    if (!tbody) return;
-
-    const day = ensureDay(state.selectedDate);
-    tbody.innerHTML = "";
+    tableBody.innerHTML = "";
 
     day.jobs.forEach((job, idx) => {
       const tr = document.createElement("tr");
-      tr.dataset.row = String(idx);
 
-      tr.appendChild(makeCell("jobId", job.jobId, true));   // locked by default
-      tr.appendChild(makeCell("customer", job.customer));
-      tr.appendChild(makeCell("pickup", job.pickup));
-      tr.appendChild(makeCell("dropoff", job.dropoff));
-      tr.appendChild(makeCell("volume", job.volume));
-      tr.appendChild(makeCell("notes", job.notes));
+      // columns we expect (safe defaults)
+      const jobId = job.jobId ?? `J-${pad2(idx + 1)}`;
+      const customer = job.customer ?? "";
+      const pickup = job.pickup ?? "";
+      const dropoff = job.dropoff ?? "";
+      const volume = job.volume ?? "";
 
-      tbody.appendChild(tr);
+      tr.innerHTML = `
+        <td><input class="cell" data-k="jobId" data-i="${idx}" value="${escapeAttr(jobId)}" /></td>
+        <td><input class="cell" data-k="customer" data-i="${idx}" value="${escapeAttr(customer)}" /></td>
+        <td><input class="cell" data-k="pickup" data-i="${idx}" value="${escapeAttr(pickup)}" /></td>
+        <td><input class="cell" data-k="dropoff" data-i="${idx}" value="${escapeAttr(dropoff)}" /></td>
+        <td><input class="cell" data-k="volume" data-i="${idx}" value="${escapeAttr(volume)}" /></td>
+      `;
+
+      tableBody.appendChild(tr);
     });
-  }
 
-  function makeCell(field, value, locked = false) {
-    const td = document.createElement("td");
-    td.className = "cell";
-    td.dataset.field = field;
-    td.dataset.locked = locked ? "1" : "0";
-
-    const div = document.createElement("div");
-    div.className = "cell-value";
-    div.textContent = value || "";
-    td.appendChild(div);
-
-    return td;
-  }
-
-  // Editor overlay (real input/textarea so iPad Safari stops acting cursed)
-  function beginEditCell(td) {
-    if (!td) return;
-    if (td.dataset.locked === "1") return;
-
-    const tr = td.closest("tr");
-    if (!tr) return;
-
-    const rowIdx = Number(tr.dataset.row);
-    const field = td.dataset.field;
-
-    const day = ensureDay(state.selectedDate);
-    const job = day.jobs[rowIdx];
-    if (!job) return;
-
-    // Prevent multiple editors
-    if (td.querySelector("input,textarea")) return;
-
-    const current = job[field] || "";
-
-    const isLong = (field === "notes" || current.length > 30);
-    const editor = document.createElement(isLong ? "textarea" : "input");
-    editor.className = "cell-editor";
-    editor.value = current;
-
-    // Replace display with editor
-    td.innerHTML = "";
-    td.appendChild(editor);
-    editor.focus();
-    editor.setSelectionRange?.(editor.value.length, editor.value.length);
-
-    const commit = () => {
-      job[field] = editor.value.trim();
-      saveState();
-      renderDay();
-      renderDashboard(); // keeps warnings/snapshot current if user goes back
-    };
-
-    const cancel = () => {
-      renderDay();
-    };
-
-    editor.addEventListener("blur", commit);
-
-    editor.addEventListener("keydown", (e) => {
-      // Enter commits (Shift+Enter for newline in textarea)
-      if (e.key === "Enter" && !(editor.tagName === "TEXTAREA" && e.shiftKey)) {
-        e.preventDefault();
-        editor.blur();
-        return;
-      }
-
-      // Escape cancels
-      if (e.key === "Escape") {
-        e.preventDefault();
-        cancel();
-        return;
-      }
-
-      // Tab to next cell (spreadsheet-ish)
-      if (e.key === "Tab") {
-        e.preventDefault();
-        commit();
-        focusNextCell(rowIdx, field, e.shiftKey ? -1 : 1);
-      }
-
-      // Arrow nav
-      if (e.key === "ArrowRight") { e.preventDefault(); commit(); focusNextCell(rowIdx, field, 1); }
-      if (e.key === "ArrowLeft")  { e.preventDefault(); commit(); focusNextCell(rowIdx, field, -1); }
-      if (e.key === "ArrowDown")  { e.preventDefault(); commit(); focusRowCell(rowIdx + 1, field); }
-      if (e.key === "ArrowUp")    { e.preventDefault(); commit(); focusRowCell(rowIdx - 1, field); }
-    });
-  }
-
-  const JOB_FIELDS = ["jobId", "customer", "pickup", "dropoff", "volume", "notes"];
-
-  function focusNextCell(rowIdx, field, delta) {
-    const colIdx = JOB_FIELDS.indexOf(field);
-    let nextCol = colIdx + delta;
-    let nextRow = rowIdx;
-
-    if (nextCol < 0) { nextCol = JOB_FIELDS.length - 1; nextRow = rowIdx - 1; }
-    if (nextCol >= JOB_FIELDS.length) { nextCol = 0; nextRow = rowIdx + 1; }
-
-    focusRowCell(nextRow, JOB_FIELDS[nextCol]);
-  }
-
-  function focusRowCell(rowIdx, field) {
-    const tbody = $("#jobsTbody");
-    if (!tbody) return;
-    const tr = tbody.querySelector(`tr[data-row="${rowIdx}"]`);
-    if (!tr) return;
-    const td = tr.querySelector(`td[data-field="${field}"]`);
-    if (!td) return;
-    beginEditCell(td);
-  }
-
-  // ---------- Toolbar navigation ----------
-  function goToday() {
-    const now = new Date();
-    state.selectedDate = ymd(now);
-    state.calCursor = monthKey(now);
-    saveState();
-    if (state.view === "calendar") renderCalendar();
-    if (state.view === "day") renderDay();
-    renderDashboard();
-  }
-
-  function calPrev() {
-    const d = parseMonthKey(state.calCursor);
-    d.setMonth(d.getMonth() - 1);
-    state.calCursor = monthKey(d);
-    saveState();
-    if (state.view === "calendar") renderCalendar();
-    renderDashboard();
-  }
-
-  function calNext() {
-    const d = parseMonthKey(state.calCursor);
-    d.setMonth(d.getMonth() + 1);
-    state.calCursor = monthKey(d);
-    saveState();
-    if (state.view === "calendar") renderCalendar();
-    renderDashboard();
-  }
-
-  // ---------- Boot ----------
-  let state = loadState();
-
-  function boot() {
-    updateStoragePill();
-    startClock();
-
-    // Sidebar navigation
-    document.addEventListener("click", (e) => {
-      const nav = e.target.closest(".navbtn");
-      if (nav) {
-        const view = nav.dataset.view;
-        if (view) switchView(view);
-        return;
-      }
-
-      // Dashboard quick buttons
-      if (e.target.closest("#btnOpenToday")) {
-        switchView("day");
-        return;
-      }
-      if (e.target.closest("#btnOpenCalendar")) {
-        switchView("calendar");
-        return;
-      }
-
-      // Toolbar
-      if (e.target.closest("#btnToday")) { goToday(); return; }
-      if (e.target.closest("#btnPrev")) { calPrev(); return; }
-      if (e.target.closest("#btnNext")) { calNext(); return; }
-
-      if (e.target.closest("#btnAddJob")) { addJobRow(); switchView("day"); return; }
-      if (e.target.closest("#btnAddJobRow")) { addJobRow(); return; }
-
-      if (e.target.closest("#btnAddNote")) {
-        switchView("day");
-        // force notes tab
-        setDayTab("notes");
-        return;
-      }
-      if (e.target.closest("#btnAddReceipt")) {
-        alert("Receipts: next module. (Not wired yet.)");
-        return;
-      }
-      if (e.target.closest("#btnExport")) { alert("Export: later."); return; }
-      if (e.target.closest("#btnSync")) { alert("Sync: later."); return; }
-
-      // Calendar day tile
-      const tile = e.target.closest(".day-tile");
-      if (tile && tile.dataset.date) {
-        state.selectedDate = tile.dataset.date;
+    // cell edits
+    $$(".cell", tableBody).forEach(inp => {
+      inp.addEventListener("input", (e) => {
+        const i = Number(e.target.dataset.i);
+        const k = e.target.dataset.k;
+        day.jobs[i] = day.jobs[i] || {};
+        day.jobs[i][k] = e.target.value;
         saveState();
-        switchView("day");
-        return;
-      }
-
-      // Jobs table cell editing
-      const td = e.target.closest("#jobsTable td.cell");
-      if (td) {
-        beginEditCell(td);
-        return;
-      }
-
-      // Tabs in day workspace
-      const tab = e.target.closest("#dayTabs .tab");
-      if (tab) {
-        setDayTab(tab.dataset.tab);
-      }
-    });
-
-    // Notes persistence
-    const notes = $("#aiNotes");
-    if (notes) {
-      notes.addEventListener("input", () => {
-        const day = ensureDay(state.selectedDate);
-        day.aiNotes = notes.value;
-        saveState();
+        refreshWarnings();
       });
-    }
 
-    // Restore view
-    switchView(state.view || "dashboard");
-    renderDashboard();
-
-    // Debug: if you want, you can comment this out later
-    // alert("app_v4.js loaded");
-  }
-
-  function setDayTab(tabName) {
-    const tabs = $$("#dayTabs .tab");
-    const panes = $$(".tabpane");
-    tabs.forEach(t => t.classList.toggle("is-active", t.dataset.tab === tabName));
-    panes.forEach(p => p.classList.toggle("is-active", p.dataset.tabpane === tabName));
-  }
-
-  document.addEventListener("DOMContentLoaded", boot);
-})();
+      // spreadsheet-like navigation
+      inp.addEventListener("keydown", (e) => {
+        const key = e.key;
+        if (!["Enter", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) return;
