@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FleetPro Dashboard</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>FleetPro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
 <div class="app">
@@ -12,6 +14,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo">FLEETPRO</div>
+
     <nav>
       <button onclick="showView('calendar')">Calendar</button>
       <button onclick="showView('drivers')">Drivers</button>
@@ -23,47 +26,57 @@
     </nav>
   </aside>
 
-  <!-- MAIN -->
+  <!-- MAIN CONTENT -->
   <main class="main">
 
-    <!-- HEADER -->
     <header class="topbar">
       <span id="clock"></span>
-      <span class="status live">SYSTEM LIVE</span>
+      <span class="status">SYSTEM LIVE</span>
     </header>
 
-    <!-- VIEWS -->
-
+    <!-- CALENDAR -->
     <section id="calendar" class="view active">
       <h2>Fleet Calendar</h2>
-      <div id="calendarGrid"></div>
+      <div id="calendarGrid" class="calendar-grid"></div>
     </section>
 
+    <!-- DRIVERS -->
     <section id="drivers" class="view">
       <h2>Drivers</h2>
       <table>
         <thead>
-          <tr><th>Name</th><th>Status</th><th>Hours</th></tr>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Hours</th>
+          </tr>
         </thead>
         <tbody id="driversTable"></tbody>
       </table>
     </section>
 
+    <!-- TRUCKS -->
     <section id="trucks" class="view">
-      <h2>Truck Units</h2>
+      <h2>Trucks</h2>
       <table>
         <thead>
-          <tr><th>ID</th><th>Status</th><th>Mileage</th></tr>
+          <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Mileage</th>
+          </tr>
         </thead>
         <tbody id="trucksTable"></tbody>
       </table>
     </section>
 
+    <!-- DISPATCH -->
     <section id="dispatch" class="view">
       <h2>Dispatch</h2>
-      <p>Drag jobs onto calendar dates (phase 2).</p>
+      <p>Job assignment coming next.</p>
     </section>
 
+    <!-- FINANCE -->
     <section id="finance" class="view">
       <h2>Finance</h2>
       <div class="card">
@@ -72,20 +85,23 @@
       </div>
     </section>
 
+    <!-- INVENTORY -->
     <section id="inventory" class="view">
-      <h2>Inventory Audit</h2>
+      <h2>Inventory</h2>
       <div class="card">
         <div class="amount">0.0 ft³</div>
         <button>Run Neural Inventory Audit</button>
       </div>
     </section>
 
+    <!-- AI -->
     <section id="ai" class="view">
       <h2>AI Scanner</h2>
       <div class="card warning">AI SYNC DELAY</div>
     </section>
 
   </main>
+
 </div>
 
 <script src="app.js"></script>
