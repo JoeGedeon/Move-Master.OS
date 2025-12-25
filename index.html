@@ -5,11 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>FleetPro</title>
 
-  <!-- keep your CSS filename -->
+  <!-- Keep your CSS filename as-is -->
   <link rel="stylesheet" href="./styles.css?v=20251225_9999" />
-
-  <!-- IMPORTANT: correct JS file name + cache-buster -->
-  <script src="./app_v5.js?v=20251225_9999" defer></script>
 </head>
 
 <body>
@@ -19,13 +16,13 @@
       <div class="brand">
         <div class="brand-mark"></div>
         <div class="brand-text">
-          <div class="brand-name">FLEETPRO</div>
-          <div class="brand-sub">Move-Master.OS</div>
+          <div class="brand-title">FLEETPRO</div>
+          <div class="brand-subtitle">Move-Master.OS</div>
         </div>
       </div>
 
       <nav class="nav">
-        <button class="navbtn" data-view="dashboard">Dashboard</button>
+        <button class="navbtn active" data-view="dashboard">Dashboard</button>
         <button class="navbtn" data-view="calendar">Calendar</button>
         <button class="navbtn" data-view="day">Day Workspace</button>
 
@@ -47,7 +44,7 @@
 
     <!-- MAIN -->
     <main class="main">
-      <!-- HEADER / TOPBAR -->
+      <!-- TOPBAR -->
       <header class="topbar">
         <div class="topbar-left">
           <div class="h1">Operations</div>
@@ -60,148 +57,176 @@
             <span>SYSTEM LIVE</span>
           </div>
 
-          <!-- THIS is the “JS loaded” pill the script updates -->
-          <div class="badge js" id="jsPill">JS: not loaded</div>
+          <!-- IMPORTANT: JS badge needs an ID so JS can flip it -->
+          <div class="badge js-status" id="jsPill">JS: not loaded</div>
         </div>
       </header>
 
       <!-- TOOLBAR -->
-      <section class="toolbar" id="toolbar">
-        <button class="toolbtn" id="todayBtn">Today</button>
-        <button class="toolbtn" id="prevBtn">◀</button>
-        <button class="toolbtn" id="nextBtn">▶</button>
+      <section class="toolbar">
+        <div class="toolbar-row">
+          <button class="toolbtn" id="btnToday">Today</button>
+          <button class="toolbtn" id="btnPrev">◀</button>
+          <button class="toolbtn" id="btnNext">▶</button>
 
-        <div class="tool-sep"></div>
+          <button class="toolbtn primary" id="btnAddJob">+ Job (Day)</button>
+          <button class="toolbtn" id="btnAddReceipt">+ Receipt (Day)</button>
+          <button class="toolbtn" id="btnAddNote">+ Note (Day)</button>
 
-        <button class="toolbtn primary" id="addJobBtn">+ Job (Day)</button>
-        <button class="toolbtn" id="addReceiptBtn">+ Receipt (Day)</button>
-        <button class="toolbtn" id="addNoteBtn">+ Note (Day)</button>
+          <div class="spacer"></div>
 
-        <div class="tool-sep"></div>
-
-        <button class="toolbtn" id="exportBtn" disabled>Export (later)</button>
-        <button class="toolbtn" id="syncBtn" disabled>Sync (later)</button>
+          <button class="toolbtn ghost" id="btnExport">Export (later)</button>
+          <button class="toolbtn ghost" id="btnSync">Sync (later)</button>
+        </div>
       </section>
 
-      <!-- CONTENT -->
-      <section class="content" id="content">
-        <!-- DASHBOARD VIEW -->
-        <section class="view" id="dashboardView">
-          <div class="card">
-            <h2>Today</h2>
-            <div class="muted" id="dashTodayLine">Loading…</div>
-            <div class="row">
-              <button class="toolbtn" id="openTodayBtn">Open Today</button>
-              <button class="toolbtn" id="openCalendarBtn">Open Calendar</button>
+      <!-- VIEWS -->
+      <section class="views">
+        <!-- DASHBOARD -->
+        <section class="view active" id="view-dashboard" data-view-panel="dashboard">
+          <div class="grid">
+            <div class="card">
+              <h2>Today</h2>
+              <div class="muted" id="todayLine">Loading…</div>
+              <div class="row">
+                <button class="toolbtn" id="openToday">Open Today</button>
+                <button class="toolbtn" id="openCalendar">Open Calendar</button>
+              </div>
             </div>
-          </div>
 
-          <div class="card">
-            <h2>Pressure Points</h2>
-            <ul id="pressureList">
-              <li>Overbooked drivers: AI later</li>
-              <li>Truck maintenance conflicts: rules later</li>
-              <li>Receipts missing: driver app later</li>
-            </ul>
-          </div>
-
-          <div class="card">
-            <h2>This Month Snapshot</h2>
-            <div class="grid2">
-              <div class="stat"><div class="k">Jobs (month)</div><div class="v" id="mJobs">0</div></div>
-              <div class="stat"><div class="k">Receipts (month)</div><div class="v" id="mReceipts">0</div></div>
-              <div class="stat"><div class="k">Expenses (month)</div><div class="v" id="mExpenses">$0</div></div>
-              <div class="stat"><div class="k">Warnings</div><div class="v" id="mWarnings">0</div></div>
+            <div class="card">
+              <h2>Pressure Points</h2>
+              <ul class="muted">
+                <li>Overbooked drivers: AI later</li>
+                <li>Truck maintenance conflicts: rules later</li>
+                <li>Receipts missing: driver app later</li>
+              </ul>
             </div>
-          </div>
 
-          <div class="card">
-            <h2>Calendar (quick)</h2>
-            <div class="muted">Tap a day to open Day Workspace.</div>
-            <div id="dashCalendarGrid" class="calendar-grid"></div>
+            <div class="card">
+              <h2>Calendar (quick)</h2>
+              <div class="muted">Tap a day to open Day Workspace.</div>
+              <div id="dashboardCalendar" class="calendar-grid"></div>
+            </div>
+
+            <div class="card">
+              <h2>This Month Snapshot</h2>
+              <div class="muted" id="monthSnapshot">Jobs: 0 · Receipts: 0 · Expenses: $0</div>
+            </div>
           </div>
         </section>
 
-        <!-- CALENDAR VIEW -->
-        <section class="view" id="calendarView" hidden>
+        <!-- CALENDAR -->
+        <section class="view" id="view-calendar" data-view-panel="calendar">
           <div class="card">
             <h2 id="calTitle">Calendar</h2>
-            <div class="row">
-              <button class="toolbtn" id="calPrevBtn">◀</button>
-              <div class="muted" id="calMonthLabel">—</div>
-              <button class="toolbtn" id="calNextBtn">▶</button>
-            </div>
+            <div class="muted">Tap a day to open the Day Workspace.</div>
             <div id="calendarGrid" class="calendar-grid"></div>
           </div>
         </section>
 
-        <!-- DAY WORKSPACE VIEW -->
-        <section class="view" id="dayView" hidden>
+        <!-- DAY WORKSPACE -->
+        <section class="view" id="view-day" data-view-panel="day">
           <div class="card">
             <h2 id="dayTitle">Day Workspace</h2>
             <div class="tabs">
-              <button class="tabbtn" data-tab="jobs">Jobs</button>
+              <button class="tabbtn active" data-tab="jobs">Jobs</button>
               <button class="tabbtn" data-tab="receipts">Receipts</button>
               <button class="tabbtn" data-tab="notes">Notes</button>
             </div>
 
-            <div class="tab" id="tab-jobs">
-              <div class="row">
-                <button class="toolbtn primary" id="addJobInlineBtn">+ Add Job</button>
-                <div class="muted">Edit fields normally (not one character at a time).</div>
-              </div>
-              <div class="sheet">
-                <div class="sheet-head">
-                  <div>JOB ID</div><div>CUSTOMER</div><div>PICKUP</div><div>DROPOFF</div><div>AMOUNT</div>
+            <div class="tabpanes">
+              <div class="tabpane active" id="tab-jobs">
+                <div class="row">
+                  <button class="toolbtn primary" id="btnAddJobInline">+ Add Job</button>
+                  <div class="muted">Edit fields normally (not one character at a time).</div>
                 </div>
-                <div class="sheet-body" id="jobsBody"></div>
+                <div class="tablewrap">
+                  <table class="sheet" id="jobsTable">
+                    <thead>
+                      <tr>
+                        <th>JOB ID</th>
+                        <th>CUSTOMER</th>
+                        <th>PICKUP</th>
+                        <th>DROPOFF</th>
+                        <th>AMOUNT</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            <div class="tab" id="tab-receipts" hidden>
-              <div class="muted">Receipts (placeholder)</div>
-            </div>
+              <div class="tabpane" id="tab-receipts">
+                <div class="muted">Receipts UI placeholder (next step).</div>
+              </div>
 
-            <div class="tab" id="tab-notes" hidden>
-              <label class="muted" for="dayNotes">Notes</label>
-              <textarea id="dayNotes" rows="8" placeholder="Notes for this day…"></textarea>
+              <div class="tabpane" id="tab-notes">
+                <textarea id="dayNotes" class="notes" placeholder="Notes for the day…"></textarea>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- PLACEHOLDER VIEWS -->
-        <section class="view" id="driversView" hidden><div class="card"><h2>Drivers</h2><div class="muted">Coming soon.</div></div></section>
-        <section class="view" id="trucksView" hidden><div class="card"><h2>Trucks</h2><div class="muted">Coming soon.</div></div></section>
-        <section class="view" id="dispatchView" hidden><div class="card"><h2>Dispatch</h2><div class="muted">Coming soon.</div></div></section>
-        <section class="view" id="financeView" hidden><div class="card"><h2>Finance</h2><div class="muted">Coming soon.</div></div></section>
-        <section class="view" id="inventoryView" hidden><div class="card"><h2>Inventory</h2><div class="muted">Coming soon.</div></div></section>
-        <section class="view" id="aiView" hidden><div class="card"><h2>AI Scanner</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-drivers" data-view-panel="drivers"><div class="card"><h2>Drivers</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-trucks" data-view-panel="trucks"><div class="card"><h2>Trucks</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-dispatch" data-view-panel="dispatch"><div class="card"><h2>Dispatch</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-finance" data-view-panel="finance"><div class="card"><h2>Finance</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-inventory" data-view-panel="inventory"><div class="card"><h2>Inventory</h2><div class="muted">Coming soon.</div></div></section>
+        <section class="view" id="view-ai" data-view-panel="ai"><div class="card"><h2>AI Scanner</h2><div class="muted">Coming soon.</div></div></section>
       </section>
     </main>
   </div>
 
-  <!-- MODAL -->
-  <div class="modal-backdrop" id="modalBackdrop" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-head">
-        <div class="modal-title" id="modalTitle">Add Job</div>
-        <button class="iconbtn" id="modalCloseBtn" aria-label="Close">×</button>
-      </div>
+  <!-- MODAL OVERLAY (MUST START HIDDEN) -->
+  <div class="modal-overlay" id="modalOverlay" hidden></div>
 
-      <div class="modal-body">
-        <label>Date <input id="jobDate" type="date" /></label>
-        <label>Customer <input id="jobCustomer" type="text" placeholder="Customer name" /></label>
-        <label>Pickup <input id="jobPickup" type="text" placeholder="Pickup address" /></label>
-        <label>Dropoff <input id="jobDropoff" type="text" placeholder="Dropoff address" /></label>
-        <label>Amount <input id="jobAmount" type="number" inputmode="decimal" placeholder="0" /></label>
-        <label>Notes <textarea id="jobNotes" rows="3" placeholder="Optional notes"></textarea></label>
-      </div>
+  <div class="modal" id="jobModal" hidden aria-hidden="true">
+    <div class="modal-head">
+      <div class="modal-title">Add Job</div>
+      <button class="modal-x" id="jobModalClose" aria-label="Close">×</button>
+    </div>
 
-      <div class="modal-foot">
-        <button class="toolbtn" id="modalCancelBtn">Cancel</button>
-        <button class="toolbtn primary" id="modalSaveBtn">Save Job</button>
-      </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Date</span>
+        <input id="jobDate" type="date" />
+      </label>
+
+      <label class="field">
+        <span>Customer</span>
+        <input id="jobCustomer" placeholder="Customer name" />
+      </label>
+
+      <label class="field">
+        <span>Pickup</span>
+        <input id="jobPickup" placeholder="Pickup address" />
+      </label>
+
+      <label class="field">
+        <span>Dropoff</span>
+        <input id="jobDropoff" placeholder="Dropoff address" />
+      </label>
+
+      <label class="field">
+        <span>Amount</span>
+        <input id="jobAmount" type="number" inputmode="decimal" placeholder="0" />
+      </label>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="jobNotes" placeholder="Optional notes"></textarea>
+      </label>
+    </div>
+
+    <div class="modal-foot">
+      <button class="toolbtn" id="jobCancel">Cancel</button>
+      <button class="toolbtn primary" id="jobSave">Save Job</button>
     </div>
   </div>
+
+  <!-- IMPORTANT: Load JS at the end so DOM exists -->
+  <script src="./app_v5.js?v=20251225_0300"></script>
 </body>
 </html>
