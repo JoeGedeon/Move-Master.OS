@@ -748,3 +748,76 @@ body {
   display: block;
   text-align: center;
 }
+
+/* ===== FORCE Calendar view to use full width and grid correctly ===== */
+
+/* Make sure the calendar view card isn't acting like a narrow column */
+#view-calendar .card,
+#view-calendar .calendar-card,
+#view-calendar .card * {
+  box-sizing: border-box;
+}
+
+/* If your calendar view uses the common .card wrapper */
+#view-calendar .card {
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
+}
+
+/* The month header row (Month title + nav buttons) should stretch */
+#view-calendar .row,
+#view-calendar .space-between,
+#view-calendar .row.space-between {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+/* The month calendar containers must take full width */
+#monthCalendar,
+.calendar-month,
+#calendarGrid,
+.calendar-grid,
+.calendar-grid.full {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* THIS is the key: force the full month grid into a 7-column grid */
+#calendarGrid,
+.calendar-grid.full {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(34px, 1fr)) !important;
+  gap: 10px !important;
+  align-items: stretch;
+}
+
+/* Weekday headers should each occupy a grid cell */
+#calendarGrid .dow,
+#calendarGrid .weekday,
+#calendarGrid .week-day {
+  display: block !important;
+  text-align: center;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+/* Day cells (pills/buttons) should fill their grid cell */
+#calendarGrid .day,
+#calendarGrid .cell,
+#calendarGrid button,
+#calendarGrid .pill {
+  width: 100% !important;
+  justify-self: stretch;
+}
+
+/* If something is causing the calendar to "float left", kill that */
+#calendarGrid,
+#monthCalendar,
+.calendar-month {
+  float: none !important;
+}
