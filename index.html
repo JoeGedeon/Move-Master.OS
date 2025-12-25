@@ -219,6 +219,31 @@
         <textarea id="jobNotes" placeholder="Optional notes"></textarea>
       </label>
     </div>
+    <!-- ADD JOB MODAL -->
+<div id="jobModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Add Job</div>
+      <button id="jobClose" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-body">
+      <label>Date <input id="jobDate" type="date"></label>
+      <label>Customer <input id="jobCustomer" type="text" placeholder="Customer name"></label>
+      <label>Pickup <input id="jobPickup" type="text" placeholder="Pickup address"></label>
+      <label>Dropoff <input id="jobDropoff" type="text" placeholder="Dropoff address"></label>
+      <label>Amount <input id="jobAmount" type="number" inputmode="decimal" value="0"></label>
+      <label>Notes <textarea id="jobNotes" placeholder="Optional notes"></textarea></label>
+
+      <div id="jobError" class="form-error" hidden></div>
+    </div>
+
+    <div class="modal-foot">
+      <button id="jobCancel" type="button">Cancel</button>
+      <button id="jobSave" type="button">Save Job</button>
+    </div>
+  </div>
+</div>
 
     <div class="modal-foot">
       <button class="toolbtn" id="jobCancel">Cancel</button>
