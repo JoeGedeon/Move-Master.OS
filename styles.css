@@ -543,3 +543,83 @@ html, body {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
 }
+/* ================================
+   SCROLL + LAYOUT FIX (iPad/Safari)
+   Paste at END of styles.css
+================================== */
+
+/* 1) Make the app shell a real full-height container */
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden; /* body should not scroll; inner panes should */
+}
+
+/* If your app wrapper is .app-shell (your screenshots show it is) */
+.app-shell {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden; /* prevent double scroll */
+}
+
+/* 2) Sidebar scrolling */
+.sidebar {
+  height: 100vh;                 /* anchor a scroll box */
+  overflow-y: auto;              /* allow scroll */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* If your nav list is inside sidebar and is the thing that should scroll */
+.sidebar nav {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 3) Main content should scroll (dashboard/calendar/day workspace) */
+.main {
+  height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* 4) Keep topbar visible without blocking content */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+}
+
+/* Prevent content from sliding under the sticky topbar */
+.main {
+  padding-top: 12px; /* small buffer; increase if your topbar is taller */
+}
+
+/* 5) OPTIONAL: make the topbar span the entire viewport width
+   (This is the “straight across the top” fix without touching HTML.)
+   If you want it only over the main area, delete this block.
+*/
+.topbar {
+  width: 100vw;
+  left: 0;
+  right: 0;
+}
+
+/* When topbar becomes 100vw, it visually overlaps sidebar column.
+   This adds breathing room so it doesn't look like a mistake.
+   Adjust the value if your sidebar width differs. */
+:root {
+  --sidebar-w: 260px; /* change to match your real sidebar width */
+}
+
+.topbar .topbar-left,
+.topbar .topbar-right {
+  padding-left: var(--sidebar-w);
+}
+
+/* If your topbar doesn’t have these inner wrappers, this does nothing harmlessly. */
