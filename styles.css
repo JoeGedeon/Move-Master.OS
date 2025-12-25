@@ -382,3 +382,31 @@ body {
   justify-content: flex-end;
   align-items: center;
 }
+/* Calendar polish: marker chips + tooltip */
+.markerbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.chip {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.20);
+}
+.chip-jobs { border-color: rgba(120,160,255,0.25); }
+.chip-receipts { border-color: rgba(120,255,220,0.22); }
+
+.cal-tip {
+  position: fixed;
+  z-index: 9999;
+  width: 240px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10, 14, 28, 0.92);
+  backdrop-filter: blur(10px);
+  padding: 10px;
+}
+.cal-tip-title { font-weight: 900; margin-bottom: 6px; }
+.cal-tip-row { font-size: 12px; opacity: 0.9; margin: 3px 0; }
