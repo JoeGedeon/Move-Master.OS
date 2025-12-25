@@ -441,3 +441,47 @@ body{
   .sidebar{ display:none; }
   .sheet{ min-width: 640px; }
 }
+/* ===== Scroll Fix (keep layout, restore scrolling) ===== */
+
+/* Lock the app to the viewport */
+html, body {
+  height: 100%;
+  overflow: hidden; /* prevents the whole page from scrolling weirdly */
+}
+
+/* Your main grid wrapper */
+.app-shell {
+  height: 100vh;
+  min-height: 100vh;
+}
+
+/* Sidebar: allow scrolling inside it */
+.sidebar {
+  height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Main area: set up a proper scroll container */
+.main {
+  height: 100vh;
+  overflow: hidden; /* main itself doesn't scroll, the content inside does */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Topbar stays visible */
+.topbar {
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+/* This is the scrollable content area under the topbar */
+.views, .content, .main-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0; /* critical for iOS + flex scrolling */
+  -webkit-overflow-scrolling: touch;
+}
