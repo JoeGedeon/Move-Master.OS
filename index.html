@@ -2,106 +2,279 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FleetPro</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetPro Foundation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
 
 <div class="app">
-
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo">FLEETPRO</div>
 
-    <nav>
-      <button onclick="showView('calendar')">Calendar</button>
-      <button onclick="showView('drivers')">Drivers</button>
-      <button onclick="showView('trucks')">Trucks</button>
-      <button onclick="showView('dispatch')">Dispatch</button>
-      <button onclick="showView('finance')">Finance</button>
-      <button onclick="showView('inventory')">Inventory</button>
-      <button onclick="showView('ai')">AI Scanner</button>
+    <nav class="nav">
+      <button class="navbtn" data-view="dashboard">Dashboard</button>
+      <button class="navbtn" data-view="calendar">Calendar</button>
+      <button class="navbtn" data-view="day">Day Workspace</button>
+
+      <div class="nav-divider"></div>
+
+      <button class="navbtn" data-view="drivers">Drivers</button>
+      <button class="navbtn" data-view="trucks">Trucks</button>
+      <button class="navbtn" data-view="dispatch">Dispatch</button>
+      <button class="navbtn" data-view="finance">Finance</button>
+      <button class="navbtn" data-view="inventory">Inventory</button>
+      <button class="navbtn" data-view="ai">AI Scanner</button>
     </nav>
+
+    <div class="sidebar-footer">
+      <div class="pill">Local Storage: ON</div>
+      <div class="tiny">Foundation build</div>
+    </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
+  <!-- MAIN -->
   <main class="main">
-
     <header class="topbar">
-      <span id="clock"></span>
-      <span class="status">SYSTEM LIVE</span>
+      <div class="topbar-left">
+        <div class="title">Operations</div>
+        <div class="subtitle" id="activeContext">Loading...</div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="pill live">SYSTEM LIVE</div>
+      </div>
     </header>
 
-    <!-- CALENDAR -->
-    <section id="calendar" class="view active">
-      <h2>Fleet Calendar</h2>
-      <div id="calendarGrid" class="calendar-grid"></div>
-    </section>
+    <!-- TOOLBAR (scrollable) -->
+    <div class="toolbar">
+      <div class="toolbar-scroll">
+        <button class="toolbtn" id="btnToday">Today</button>
+        <button class="toolbtn" id="btnPrev">◀</button>
+        <button class="toolbtn" id="btnNext">▶</button>
+        <div class="tool-sep"></div>
+        <button class="toolbtn" id="btnAddJob">+ Job (Day)</button>
+        <button class="toolbtn" id="btnAddReceipt">+ Receipt (Day)</button>
+        <button class="toolbtn" id="btnAddNote">+ Note (Day)</button>
+        <div class="tool-sep"></div>
+        <button class="toolbtn ghost" id="btnExport">Export (later)</button>
+        <button class="toolbtn ghost" id="btnSync">Sync (later)</button>
+      </div>
+    </div>
 
-    <!-- DRIVERS -->
-    <section id="drivers" class="view">
-      <h2>Drivers</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Hours</th>
-          </tr>
-        </thead>
-        <tbody id="driversTable"></tbody>
-      </table>
-    </section>
+    <!-- VIEWS -->
+    <section class="view active" id="view-dashboard">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Today</div>
+          <div class="big" id="todayDate">—</div>
+          <div class="muted" id="todaySummary">—</div>
+          <div class="row">
+            <button class="primary" id="openToday">Open Today</button>
+            <button class="secondary" id="openCalendar">Open Calendar</button>
+          </div>
+        </div>
 
-    <!-- TRUCKS -->
-    <section id="trucks" class="view">
-      <h2>Trucks</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Mileage</th>
-          </tr>
-        </thead>
-        <tbody id="trucksTable"></tbody>
-      </table>
-    </section>
+        <div class="card">
+          <div class="card-title">Pressure Points (placeholder)</div>
+          <ul class="list">
+            <li>Overbooked drivers: <span class="muted">AI later</span></li>
+            <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
+            <li>Receipts missing: <span class="muted">driver app later</span></li>
+          </ul>
+        </div>
+      </div>
 
-    <!-- DISPATCH -->
-    <section id="dispatch" class="view">
-      <h2>Dispatch</h2>
-      <p>Job assignment coming next.</p>
-    </section>
-
-    <!-- FINANCE -->
-    <section id="finance" class="view">
-      <h2>Finance</h2>
-      <div class="card">
-        <div class="amount">$0.00</div>
-        <button>Analyze Receipts</button>
+      <div class="card wide">
+        <div class="card-title">This Month Snapshot</div>
+        <div class="stats" id="monthStats"></div>
       </div>
     </section>
 
-    <!-- INVENTORY -->
-    <section id="inventory" class="view">
-      <h2>Inventory</h2>
-      <div class="card">
-        <div class="amount">0.0 ft³</div>
-        <button>Run Neural Inventory Audit</button>
+    <section class="view" id="view-calendar">
+      <div class="calendar-head">
+        <div class="h2" id="monthLabel">Month</div>
+        <div class="muted">Click any day tile to enter the Day Workspace.</div>
+      </div>
+
+      <div class="calendar-shell">
+        <div class="dow">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
       </div>
     </section>
 
-    <!-- AI -->
-    <section id="ai" class="view">
-      <h2>AI Scanner</h2>
-      <div class="card warning">AI SYNC DELAY</div>
+    <section class="view" id="view-day">
+      <div class="day-head">
+        <div>
+          <div class="h2" id="dayLabel">Day Workspace</div>
+          <div class="muted" id="dayMeta">—</div>
+        </div>
+        <div class="day-totals" id="dayTotals"></div>
+      </div>
+
+      <!-- Tabs (scrollable) -->
+      <div class="tabs">
+        <div class="tabs-scroll" id="tabs">
+          <button class="tab active" data-tab="jobs">Jobs</button>
+          <button class="tab" data-tab="drivers">Drivers</button>
+          <button class="tab" data-tab="trucks">Trucks</button>
+          <button class="tab" data-tab="records">Records</button>
+          <button class="tab" data-tab="media">Media</button>
+          <button class="tab" data-tab="ai">AI Notes</button>
+        </div>
+      </div>
+
+      <div class="tabpanes">
+        <!-- JOBS -->
+        <div class="pane active" id="pane-jobs">
+          <div class="pane-actions">
+            <button class="primary" id="addJobRow">+ Add Job</button>
+            <span class="muted">Spreadsheet-style. Edit cells directly.</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>Customer</th>
+                  <th>Pickup</th>
+                  <th>Dropoff</th>
+                  <th>Volume (cu ft)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="jobsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- DRIVERS -->
+        <div class="pane" id="pane-drivers">
+          <div class="pane-actions">
+            <button class="primary" id="addDriverRow">+ Add Driver</button>
+            <span class="muted">Assign drivers to this day (not global directory yet).</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Driver</th>
+                  <th>Status</th>
+                  <th>Hours</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="driversBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TRUCKS -->
+        <div class="pane" id="pane-trucks">
+          <div class="pane-actions">
+            <button class="primary" id="addTruckRow">+ Add Truck</button>
+            <span class="muted">Attach trucks to this day (capacity rules later).</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Truck ID</th>
+                  <th>Status</th>
+                  <th>Capacity (cu ft)</th>
+                  <th>Mileage</th>
+                </tr>
+              </thead>
+              <tbody id="trucksBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RECORDS -->
+        <div class="pane" id="pane-records">
+          <div class="pane-actions">
+            <button class="primary" id="addRecordRow">+ Add Record</button>
+            <span class="muted">Append-only: receipts, notes, adjustments, etc.</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Source</th>
+                  <th>Linked Entity</th>
+                  <th>Raw Data</th>
+                  <th>Approved</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MEDIA -->
+        <div class="pane" id="pane-media">
+          <div class="pane-actions">
+            <button class="secondary" id="addMediaPlaceholder">+ Add Media Placeholder</button>
+            <span class="muted">Customer camera uploads plug in here later.</span>
+          </div>
+          <div class="table-wrap">
+            <table class="sheet">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Filename/URL</th>
+                  <th>Linked Record</th>
+                  <th>Notes</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="mediaBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- AI -->
+        <div class="pane" id="pane-ai">
+          <div class="card">
+            <div class="card-title">AI Notes (annotation-only)</div>
+            <div class="muted">
+              AI will read Records + Media and attach annotations here. It never edits “truth” records directly.
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table class="sheet">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Confidence</th>
+                    <th>Summary</th>
+                    <th>Warnings</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody id="aiBody"></tbody>
+              </table>
+            </div>
+            <div class="muted" style="margin-top:10px;">(AI wiring later. This is the socket.)</div>
+          </div>
+        </div>
+      </div>
     </section>
+
+    <!-- Placeholder views -->
+    <section class="view" id="view-drivers"><div class="card"><div class="card-title">Drivers (global)</div><div class="muted">Coming later.</div></div></section>
+    <section class="view" id="view-trucks"><div class="card"><div class="card-title">Trucks (global)</div><div class="muted">Coming later.</div></div></section>
+    <section class="view" id="view-dispatch"><div class="card"><div class="card-title">Dispatch</div><div class="muted">Coming later.</div></div></section>
+    <section class="view" id="view-finance"><div class="card"><div class="card-title">Finance</div><div class="muted">Coming later.</div></div></section>
+    <section class="view" id="view-inventory"><div class="card"><div class="card-title">Inventory</div><div class="muted">Coming later.</div></div></section>
+    <section class="view" id="view-ai"><div class="card"><div class="card-title">AI Scanner</div><div class="muted">Coming later.</div></div></section>
 
   </main>
-
 </div>
 
 <script src="app.js"></script>
