@@ -294,3 +294,29 @@ html, body {
   box-shadow: inset 0 0 0 3px rgba(42,60,255,0.55);
   border-radius: 6px;
 }
+/* ===== Fix: contenteditable text runs off-screen (iPad Safari) ===== */
+
+/* Let editable cells wrap instead of running infinitely to the right */
+.sheet td[contenteditable="true"]{
+  white-space: pre-wrap;      /* keep spaces + wrap lines */
+  word-break: break-word;     /* break long tokens */
+  overflow-wrap: anywhere;    /* Safari-friendly wrapping */
+}
+
+/* Give columns a reasonable readable width so wrapping feels natural */
+.sheet td, .sheet th{
+  max-width: 320px;           /* adjust if you want wider columns */
+}
+
+/* Make sure the table container can be scrolled horizontally on iPad */
+.table-wrap{
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+/* Optional: make the job table feel less cramped */
+.sheet{
+  table-layout: fixed;        /* forces wrapping instead of stretching forever */
+}
