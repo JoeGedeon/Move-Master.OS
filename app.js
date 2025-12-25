@@ -1,11 +1,11 @@
-/* FleetPro Smart Engine v1.2
-   - Fixes "one character then blur" by NOT re-rendering tables on each keystroke
-   - Debounced smart refresh (totals/warnings/calendar/dashboard) without rebuilding active table
-   - Spreadsheet-like nav: Tab/Shift+Tab, Enter/Shift+Enter
-   Persistence: localStorage
+/* FleetPro Smart Engine v1.3
+   - Dashboard / Calendar / Day Workspace (existing)
+   - Adds: Drivers directory, Trucks directory, Dispatch view
+   - Fixes: iPad typing focus loss (no table re-render while typing)
+   - LocalStorage persistence
 */
 
-const STORAGE_KEY = "fleetpro_smart_v1_2";
+const STORAGE_KEY = "fleetpro_smart_v1_3";
 
 const state = loadState() ?? seedState();
 
@@ -16,33 +16,131 @@ let ui = {
   activeTab: "jobs",
 };
 
-// Which table is currently being edited (so we don't rebuild it mid-typing)
 let editing = {
   active: false,
   tab: null,
   tbodyId: null,
 };
 
-const TABLES = {
-  jobs:   { tab: "jobs",   tbodyId: "jobsBody",    columns: ["id","customer","pickup","dropoff","volume","status"] },
+const DAY_TABLES = {
+  jobs:   { tab: "jobs",   tbodyId: "jobsBody",    columns: ["id","customer","pickup","dropoff","volume","status","driverId","truckId"] },
   drivers:{ tab: "drivers",tbodyId: "driversBody", columns: ["name","status","hours","notes"] },
   trucks: { tab: "trucks", tbodyId: "trucksBody",  columns: ["id","status","capacity","mileage"] },
   records:{ tab: "records",tbodyId: "recordsBody", columns: ["type","source","linkedEntity","rawData","approved","created"] },
 };
 
-// Debounced smart refresh so we don't thrash UI while typing
+const DIR_TABLES = {
+  driversDir: { tab: "driversDir", tbodyId: "driversDirBody", columns: ["id","name","phone","role","status","payType","notes"] },
+  trucksDir:  { tab: "trucksDir",  tbodyId: "trucksDirBody",  columns: ["id","unit","capacity","status","mileage","lastService","notes"] },
+};
+
 const debouncedSmartRefresh = debounce(() => {
   recomputeAll();
-  // Update smart UI without rebuilding tables
-  renderDashboard(false);
+  renderDashboard(true);
   renderCalendar();
-  renderDaySmartOnly();
+  if (ui.activeView === "day") renderDaySmartOnly();
+  if (ui.activeView === "dispatch") renderDispatch();
 }, 180);
 
+document.addEventListener("DOMContentLoaded", () => {
+  setInterval(() => {
+    const el = document.getElementById("clock");
+    if (el) el.textContent = new Date().toLocaleTimeString();
+  }, 1000);
+
+  document.querySelectorAll(".navbtn").forEach(btn => {
+    btn.addEventListener("click", () => setView(btn.dataset.view));
+  });
+
+  const safeOn = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", fn);
+  };
+
+  safeOn("btnToday", () => {
+    ui.activeDate = toISODate(new Date());
+    ui.calendarMonth = monthStartISO(new Date());
+    ensureDay(ui.activeDate);
+    recomputeAll();
+    renderAll();
+  });
+
+  safeOn("btnPrev", () => {
+    if (ui.activeView === "calendar") {
+      ui.calendarMonth = addMonths(ui.calendarMonth, -1);
+      renderCalendar();
+    } else {
+      const dt = new Date(ui.activeDate);
+      dt.setDate(dt.getDate() - 1);
+      ui.activeDate = toISODate(dt);
+      ensureDay(ui.activeDate);
+      recomputeAll();
+      if (ui.activeView === "day") renderDay();
+      if (ui.activeView === "dispatch") renderDispatch();
+      renderCalendar();
+      renderDashboard(true);
+    }
+  });
+
+  safeOn("btnNext", () => {
+    if (ui.activeView === "calendar") {
+      ui.calendarMonth = addMonths(ui.calendarMonth, +1);
+      renderCalendar();
+    } else {
+      const dt = new Date(ui.activeDate);
+      dt.setDate(dt.getDate() + 1);
+      ui.activeDate = toISODate(dt);
+      ensureDay(ui.activeDate);
+      recomputeAll();
+      if (ui.activeView === "day") renderDay();
+      if (ui.activeView === "dispatch") renderDispatch();
+      renderCalendar();
+      renderDashboard(true);
+    }
+  });
+
+  safeOn("btnAddJob", () => { addJob(ui.activeDate); setView("day"); setTab("jobs"); });
+  safeOn("btnAddReceipt", () => { addRecord(ui.activeDate, { type: "receipt", source: "driver", linkedEntity: "driver", rawData: "Vendor=, Amount=, Category=" }); setView("day"); setTab("records"); });
+  safeOn("btnAddNote", () => { addRecord(ui.activeDate, { type: "note", source: "dispatcher", linkedEntity: "day", rawData: "Note=" }); setView("day"); setTab("records"); });
+
+  safeOn("openToday", () => { ui.activeDate = toISODate(new Date()); ensureDay(ui.activeDate); recomputeAll(); setView("day"); });
+  safeOn("openCalendar", () => setView("calendar"));
+
+  const tabs = document.getElementById("tabs");
+  if (tabs) {
+    tabs.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab");
+      if (!btn) return;
+      setTab(btn.dataset.tab);
+    });
+  }
+
+  safeOn("addJobRow", () => addJob(ui.activeDate));
+  safeOn("addDriverRow", () => addDriver(ui.activeDate));
+  safeOn("addTruckRow", () => addTruck(ui.activeDate));
+  safeOn("addRecordRow", () => addRecord(ui.activeDate, { type: "note", source: "dispatcher", linkedEntity: "day", rawData: "Note=" }));
+
+  // Directory buttons (injected by JS if views exist)
+  // Safe: if not present, nothing happens.
+
+  ensureDay(ui.activeDate);
+  recomputeAll();
+  renderAll();
+});
+
+/* ---------------- Seed / State ---------------- */
 function seedState() {
   const today = toISODate(new Date());
   return {
     company: { name: "FleetPro", currency: "USD" },
+    directories: {
+      drivers: [
+        { id:"D-0001", name:"Marcus Thorne", phone:"", role:"Driver", status:"active", payType:"1099", notes:"" },
+      ],
+      trucks: [
+        { id:"T-0001", unit:"010-2020", capacity:"1200", status:"active", mileage:"", lastService:"", notes:"" },
+      ],
+    },
     days: { [today]: makeDay(today) }
   };
 }
@@ -63,7 +161,7 @@ function makeDay(dateISO) {
       receiptsCount: 0,
       expensesSum: 0,
       net: 0,
-      warnings: [] // {level, code, message, tab, row, key}
+      warnings: []
     }
   };
 }
@@ -114,19 +212,17 @@ function isoFromParts(y, m1to12, d) {
   return `${y}-${String(m1to12).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-/* ---------------- Smart Engine ---------------- */
+/* ---------------- Parsing / Smart ---------------- */
 function matchKV(raw, key) {
   if (!raw) return "";
   const re = new RegExp(`${key}\\s*=\\s*([^,\\n\\r]+)`, "i");
   const m = raw.match(re);
   return m ? String(m[1]).trim() : "";
 }
-
 function parseReceipt(rawData) {
   const vendor = matchKV(rawData, "vendor");
   const category = matchKV(rawData, "category");
   const amountStr = matchKV(rawData, "amount");
-
   let amount = null;
   if (amountStr) {
     const cleaned = amountStr.replace(/\$/g, "").replace(/,/g, "").trim();
@@ -135,17 +231,14 @@ function parseReceipt(rawData) {
   }
   return { vendor, category, amount };
 }
-
 function numOrZero(v) {
   if (v === null || v === undefined) return 0;
   const n = Number(String(v).replace(/,/g, "").trim());
   return Number.isFinite(n) ? n : 0;
 }
-
 function warn(level, code, message, tab, row = null, key = null) {
   return { level, code, message, tab, row, key };
 }
-
 function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
 
 function computeDerivedForDay(day) {
@@ -169,75 +262,21 @@ function computeDerivedForDay(day) {
 
     const jobLabel = j.id ? j.id : `Job #${idx + 1}`;
 
-    if (!String(j.customer ?? "").trim()) {
-      derived.warnings.push(warn("danger", "JOB_MISSING_CUSTOMER", `${jobLabel} missing customer`, "jobs", idx, "customer"));
-    }
-    if (!String(j.pickup ?? "").trim()) {
-      derived.warnings.push(warn("warn", "JOB_MISSING_PICKUP", `${jobLabel} missing pickup`, "jobs", idx, "pickup"));
-    }
-    if (!String(j.dropoff ?? "").trim()) {
-      derived.warnings.push(warn("warn", "JOB_MISSING_DROPOFF", `${jobLabel} missing dropoff`, "jobs", idx, "dropoff"));
-    }
+    if (!String(j.customer ?? "").trim()) derived.warnings.push(warn("danger", "JOB_MISSING_CUSTOMER", `${jobLabel} missing customer`, "jobs", idx, "customer"));
+    if (!String(j.pickup ?? "").trim()) derived.warnings.push(warn("warn", "JOB_MISSING_PICKUP", `${jobLabel} missing pickup`, "jobs", idx, "pickup"));
+    if (!String(j.dropoff ?? "").trim()) derived.warnings.push(warn("warn", "JOB_MISSING_DROPOFF", `${jobLabel} missing dropoff`, "jobs", idx, "dropoff"));
+    if (!String(j.driverId ?? "").trim()) derived.warnings.push(warn("warn", "JOB_MISSING_DRIVER", `${jobLabel} missing driver assignment`, "jobs", idx, "driverId"));
+    if (!String(j.truckId ?? "").trim()) derived.warnings.push(warn("warn", "JOB_MISSING_TRUCK", `${jobLabel} missing truck assignment`, "jobs", idx, "truckId"));
 
-    if (volRaw && !Number.isFinite(Number(volRaw.replace(/,/g, "")))) {
-      derived.warnings.push(warn("danger", "JOB_INVALID_VOLUME", `${jobLabel} volume is not a number`, "jobs", idx, "volume"));
-    }
-    if (Number.isFinite(Number(volRaw.replace(/,/g, ""))) && Number(volRaw.replace(/,/g, "")) < 0) {
-      derived.warnings.push(warn("danger", "JOB_NEGATIVE_VOLUME", `${jobLabel} volume is negative`, "jobs", idx, "volume"));
-    }
-    if (!volRaw) {
-      derived.warnings.push(warn("warn", "JOB_MISSING_VOLUME", `${jobLabel} missing volume`, "jobs", idx, "volume"));
-    }
+    if (volRaw && !Number.isFinite(Number(volRaw.replace(/,/g, "")))) derived.warnings.push(warn("danger", "JOB_INVALID_VOLUME", `${jobLabel} volume is not a number`, "jobs", idx, "volume"));
+    if (!volRaw) derived.warnings.push(warn("warn", "JOB_MISSING_VOLUME", `${jobLabel} missing volume`, "jobs", idx, "volume"));
   });
   derived.totalVolume = round2(volSum);
 
+  // Day truck capacity from day table (optional)
   let capSum = 0;
-  day.trucks.forEach((t, idx) => {
-    const capRaw = String(t.capacity ?? "").trim();
-    const cap = numOrZero(t.capacity);
-    capSum += cap;
-
-    const truckLabel = t.id ? t.id : `Truck #${idx + 1}`;
-
-    if (capRaw && !Number.isFinite(Number(capRaw.replace(/,/g, "")))) {
-      derived.warnings.push(warn("warn", "TRUCK_INVALID_CAPACITY", `${truckLabel} capacity not a number`, "trucks", idx, "capacity"));
-    }
-    if (Number.isFinite(Number(capRaw.replace(/,/g, ""))) && Number(capRaw.replace(/,/g, "")) < 0) {
-      derived.warnings.push(warn("danger", "TRUCK_NEGATIVE_CAPACITY", `${truckLabel} capacity negative`, "trucks", idx, "capacity"));
-    }
-    if (!capRaw) {
-      derived.warnings.push(warn("warn", "TRUCK_MISSING_CAPACITY", `${truckLabel} missing capacity`, "trucks", idx, "capacity"));
-    }
-  });
+  day.trucks.forEach((t) => capSum += numOrZero(t.capacity));
   derived.totalTruckCapacity = round2(capSum);
-
-  if (derived.totalVolume > 0 && derived.totalTruckCapacity > 0 && derived.totalVolume > derived.totalTruckCapacity) {
-    derived.warnings.push(warn("danger", "OVER_CAPACITY",
-      `Over capacity: volume ${derived.totalVolume} > capacity ${derived.totalTruckCapacity}`,
-      "trucks"
-    ));
-  } else if (derived.totalVolume > 0 && derived.totalTruckCapacity === 0) {
-    derived.warnings.push(warn("warn", "NO_TRUCK_CAPACITY",
-      `Volume ${derived.totalVolume} but no truck capacity entered`,
-      "trucks"
-    ));
-  }
-
-  const seen = new Map();
-  day.drivers.forEach((d, idx) => {
-    const name = String(d.name ?? "").trim();
-    const k = name.toLowerCase();
-
-    if (!name) {
-      derived.warnings.push(warn("warn", "DRIVER_MISSING_NAME", `Driver row ${idx + 1} missing name`, "drivers", idx, "name"));
-      return;
-    }
-    if (seen.has(k)) {
-      derived.warnings.push(warn("danger", "DRIVER_DUPLICATE", `Driver "${name}" appears multiple times this day`, "drivers", idx, "name"));
-    } else {
-      seen.set(k, true);
-    }
-  });
 
   const receipts = day.records.filter(r => String(r.type || "").toLowerCase() === "receipt");
   derived.receiptsCount = receipts.length;
@@ -245,11 +284,8 @@ function computeDerivedForDay(day) {
   let expenses = 0;
   receipts.forEach((r, idx) => {
     const parsed = parseReceipt(r.rawData || "");
-    if (parsed.amount === null) {
-      derived.warnings.push(warn("warn", "RECEIPT_PARSE_FAIL", `Receipt ${idx + 1} missing/invalid Amount=`, "records", idx, "rawData"));
-    } else {
-      expenses += parsed.amount;
-    }
+    if (parsed.amount === null) derived.warnings.push(warn("warn", "RECEIPT_PARSE_FAIL", `Receipt ${idx + 1} missing/invalid Amount=`, "records", idx, "rawData"));
+    else expenses += parsed.amount;
   });
 
   derived.expensesSum = round2(expenses);
@@ -258,110 +294,7 @@ function computeDerivedForDay(day) {
   day.derived = derived;
 }
 
-/* ---------------- UI wiring ---------------- */
-document.addEventListener("DOMContentLoaded", () => {
-  setInterval(() => {
-    const el = document.getElementById("clock");
-    if (el) el.textContent = new Date().toLocaleTimeString();
-  }, 1000);
-
-  document.querySelectorAll(".navbtn").forEach(btn => {
-    btn.addEventListener("click", () => setView(btn.dataset.view));
-  });
-
-  const safeOn = (id, fn) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("click", fn);
-  };
-
-  safeOn("btnToday", () => {
-    ui.activeDate = toISODate(new Date());
-    ui.calendarMonth = monthStartISO(new Date());
-    ensureDay(ui.activeDate);
-    recomputeAll();
-    renderAll();
-  });
-
-  safeOn("btnPrev", () => {
-    if (ui.activeView === "calendar") {
-      ui.calendarMonth = addMonths(ui.calendarMonth, -1);
-      renderCalendar();
-    } else {
-      const dt = new Date(ui.activeDate);
-      dt.setDate(dt.getDate() - 1);
-      ui.activeDate = toISODate(dt);
-      ensureDay(ui.activeDate);
-      recomputeAll();
-      renderDay(); // safe, not while typing
-      renderCalendar();
-    }
-  });
-
-  safeOn("btnNext", () => {
-    if (ui.activeView === "calendar") {
-      ui.calendarMonth = addMonths(ui.calendarMonth, +1);
-      renderCalendar();
-    } else {
-      const dt = new Date(ui.activeDate);
-      dt.setDate(dt.getDate() + 1);
-      ui.activeDate = toISODate(dt);
-      ensureDay(ui.activeDate);
-      recomputeAll();
-      renderDay(); // safe, not while typing
-      renderCalendar();
-    }
-  });
-
-  safeOn("btnAddJob", () => {
-    ensureDay(ui.activeDate);
-    addJob(ui.activeDate);
-    setView("day");
-    setTab("jobs");
-  });
-
-  safeOn("btnAddReceipt", () => {
-    ensureDay(ui.activeDate);
-    addRecord(ui.activeDate, { type: "receipt", source: "driver", linkedEntity: "driver", rawData: "Vendor=, Amount=, Category=" });
-    setView("day");
-    setTab("records");
-  });
-
-  safeOn("btnAddNote", () => {
-    ensureDay(ui.activeDate);
-    addRecord(ui.activeDate, { type: "note", source: "dispatcher", linkedEntity: "day", rawData: "Note=" });
-    setView("day");
-    setTab("records");
-  });
-
-  safeOn("openToday", () => {
-    ui.activeDate = toISODate(new Date());
-    ensureDay(ui.activeDate);
-    recomputeAll();
-    setView("day");
-  });
-
-  safeOn("openCalendar", () => setView("calendar"));
-
-  const tabs = document.getElementById("tabs");
-  if (tabs) {
-    tabs.addEventListener("click", (e) => {
-      const btn = e.target.closest(".tab");
-      if (!btn) return;
-      setTab(btn.dataset.tab);
-    });
-  }
-
-  safeOn("addJobRow", () => addJob(ui.activeDate));
-  safeOn("addDriverRow", () => addDriver(ui.activeDate));
-  safeOn("addTruckRow", () => addTruck(ui.activeDate));
-  safeOn("addRecordRow", () => addRecord(ui.activeDate, { type: "note", source: "dispatcher", linkedEntity: "day", rawData: "Note=" }));
-
-  ensureDay(ui.activeDate);
-  recomputeAll();
-  renderAll();
-});
-
-/* ---------------- Navigation ---------------- */
+/* ---------------- Navigation / Views ---------------- */
 function setView(view) {
   ui.activeView = view;
 
@@ -375,17 +308,25 @@ function setView(view) {
   if (ctx) {
     if (view === "calendar") ctx.textContent = "Calendar navigation (Month)";
     else if (view === "day") ctx.textContent = `Day Workspace: ${ui.activeDate}`;
+    else if (view === "drivers") ctx.textContent = "Drivers directory";
+    else if (view === "trucks") ctx.textContent = "Trucks directory";
+    else if (view === "dispatch") ctx.textContent = `Dispatch: ${ui.activeDate}`;
     else ctx.textContent = "Foundation mode (Smart)";
   }
 
   if (view === "calendar") renderCalendar();
   if (view === "dashboard") renderDashboard(true);
   if (view === "day") renderDay();
+  if (view === "drivers") renderDriversDirectory();
+  if (view === "trucks") renderTrucksDirectory();
+  if (view === "dispatch") renderDispatch();
+  if (view === "finance") renderPlaceholder(view, "Finance", "Coming next: receipts → categories → driver/company split → exports.");
+  if (view === "inventory") renderPlaceholder(view, "Inventory", "Coming next: room photos → AI inventory list → cubic feet estimate.");
+  if (view === "scanner") renderPlaceholder(view, "AI Scanner", "Coming next: camera upload → AI parse → auto-fill records/jobs.");
 }
 
 function setTab(tab) {
   ui.activeTab = tab;
-
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
   const pane = document.getElementById(`pane-${tab}`);
@@ -398,7 +339,7 @@ function recomputeAll() {
   save();
 }
 
-/* ---------------- Render ---------------- */
+/* ---------------- Render: Core ---------------- */
 function renderAll() {
   renderDashboard(true);
   renderCalendar();
@@ -406,7 +347,7 @@ function renderAll() {
   setView(ui.activeView);
 }
 
-function renderDashboard(full = true) {
+function renderDashboard() {
   const todayISO = toISODate(new Date());
   ensureDay(todayISO);
   computeDerivedForDay(state.days[todayISO]);
@@ -416,11 +357,8 @@ function renderDashboard(full = true) {
 
   const d = state.days[todayISO];
   const sumEl = document.getElementById("todaySummary");
-  if (sumEl) {
-    sumEl.textContent = `${d.derived.jobsCount} job(s), ${d.derived.receiptsCount} receipt(s), ${d.drivers.length} driver(s), ${d.trucks.length} truck(s)`;
-  }
+  if (sumEl) sumEl.textContent = `${d.derived.jobsCount} job(s), ${d.derived.receiptsCount} receipt(s), ${d.drivers.length} driver(s), ${d.trucks.length} truck(s)`;
 
-  // Month snapshot
   const monthISO = ui.calendarMonth;
   const [y, m] = monthISO.split("-").map(Number);
   const totalDays = daysInMonth(y, m);
@@ -440,7 +378,6 @@ function renderDashboard(full = true) {
 
   const statsEl = document.getElementById("monthStats");
   if (statsEl) {
-    // Safe to rebuild this, doesn't affect typing
     statsEl.innerHTML = "";
     const stats = [
       ["Jobs (month)", String(jobsCount)],
@@ -451,69 +388,10 @@ function renderDashboard(full = true) {
     stats.forEach(([k, v]) => {
       const div = document.createElement("div");
       div.className = "stat";
-      div.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+      div.innerHTML = `<div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div>`;
       statsEl.appendChild(div);
     });
   }
-
-  if (full) injectPressurePoints();
-  else injectPressurePoints(); // still ok; doesn't touch tables
-}
-
-function injectPressurePoints() {
-  const titles = Array.from(document.querySelectorAll(".card-title"));
-  const t = titles.find(x => (x.textContent || "").toLowerCase().includes("pressure points"));
-  if (!t) return;
-
-  const card = t.closest(".card");
-  if (!card) return;
-
-  let ul = card.querySelector("ul.list");
-  if (!ul) {
-    ul = document.createElement("ul");
-    ul.className = "list";
-    card.appendChild(ul);
-  }
-
-  const start = new Date();
-  const points = [];
-
-  for (let i = 0; i < 7; i++) {
-    const dt = new Date(start);
-    dt.setDate(dt.getDate() + i);
-    const iso = toISODate(dt);
-    const day = state.days[iso];
-    if (!day) continue;
-
-    computeDerivedForDay(day);
-    const dangers = day.derived.warnings.filter(w => w.level === "danger");
-    const warns = day.derived.warnings.filter(w => w.level === "warn");
-
-    if (dangers.length || warns.length) {
-      points.push({
-        iso,
-        danger: dangers.length,
-        warn: warns.length,
-        top: (dangers[0]?.message || warns[0]?.message || "")
-      });
-    }
-  }
-
-  ul.innerHTML = "";
-  if (points.length === 0) {
-    ul.innerHTML = `<li>No pressure points detected in the next 7 days. Suspiciously calm.</li>`;
-    return;
-  }
-
-  points.slice(0, 6).forEach(p => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <span class="${p.danger ? "wlvl-danger" : "wlvl-warn"}">${p.danger ? "DANGER" : "WARN"}</span>
-      <span class="muted">(${p.iso})</span> ${escapeHtml(p.top)}
-      <span class="muted"> • ${p.danger} danger / ${p.warn} warn</span>
-    `;
-    ul.appendChild(li);
-  });
 }
 
 function renderCalendar() {
@@ -559,7 +437,6 @@ function renderCalendar() {
 
     if (dayObj) {
       computeDerivedForDay(dayObj);
-
       if (dayObj.jobs.length) badges.push({ text: `${dayObj.jobs.length} job`, kind: "" });
 
       dangerCount = dayObj.derived.warnings.filter(w => w.level === "danger").length;
@@ -579,7 +456,7 @@ function renderCalendar() {
     div.innerHTML = `
       <div class="daynum">${dayNum}</div>
       <div class="badges">
-        ${badges.map(b => `<span class="badge ${b.kind}">${b.text}</span>`).join("")}
+        ${badges.map(b => `<span class="badge ${b.kind}">${escapeHtml(b.text)}</span>`).join("")}
       </div>
     `;
 
@@ -595,7 +472,7 @@ function renderCalendar() {
   }
 }
 
-// Full day render (builds tables). Safe when not typing.
+/* ---------------- Render: Day Workspace ---------------- */
 function renderDay() {
   ensureDay(ui.activeDate);
   const dayObj = state.days[ui.activeDate];
@@ -606,32 +483,29 @@ function renderDay() {
   if (dayLabel) dayLabel.textContent = formatDateLong(ui.activeDate);
 
   const dayMeta = document.getElementById("dayMeta");
-  if (dayMeta) {
-    dayMeta.textContent = `${dayObj.jobs.length} job(s) • ${dayObj.records.length} record(s) • ${dayObj.drivers.length} drivers • ${dayObj.trucks.length} trucks`;
-  }
+  if (dayMeta) dayMeta.textContent = `${dayObj.jobs.length} job(s) • ${dayObj.records.length} record(s) • ${dayObj.drivers.length} drivers • ${dayObj.trucks.length} trucks`;
 
   renderDaySmartOnly();
 
-  // Build tables
-  renderEditableTable("jobsBody", dayObj.jobs, TABLES.jobs, (row, key, value) => {
+  renderEditableTable("jobsBody", dayObj.jobs, DAY_TABLES.jobs, (row, key, value) => {
     dayObj.jobs[row][key] = value;
     save();
     debouncedSmartRefresh();
-  }, (r,k,td) => validateCellJobs(dayObj, r, k, td));
+  });
 
-  renderEditableTable("driversBody", dayObj.drivers, TABLES.drivers, (row, key, value) => {
+  renderEditableTable("driversBody", dayObj.drivers, DAY_TABLES.drivers, (row, key, value) => {
     dayObj.drivers[row][key] = value;
     save();
     debouncedSmartRefresh();
-  }, (r,k,td) => validateCellDrivers(dayObj, r, k, td));
+  });
 
-  renderEditableTable("trucksBody", dayObj.trucks, TABLES.trucks, (row, key, value) => {
+  renderEditableTable("trucksBody", dayObj.trucks, DAY_TABLES.trucks, (row, key, value) => {
     dayObj.trucks[row][key] = value;
     save();
     debouncedSmartRefresh();
-  }, (r,k,td) => validateCellTrucks(dayObj, r, k, td));
+  });
 
-  renderEditableTable("recordsBody", dayObj.records, TABLES.records, (row, key, value) => {
+  renderEditableTable("recordsBody", dayObj.records, DAY_TABLES.records, (row, key, value) => {
     if (key === "created") return;
     dayObj.records[row][key] = value;
     save();
@@ -641,9 +515,7 @@ function renderDay() {
   setTab(ui.activeTab);
 }
 
-// Smart-only render (totals + warnings). Safe during typing.
 function renderDaySmartOnly() {
-  ensureDay(ui.activeDate);
   const dayObj = state.days[ui.activeDate];
   computeDerivedForDay(dayObj);
 
@@ -652,7 +524,6 @@ function renderDaySmartOnly() {
     totalsEl.innerHTML = `
       <div class="total-pill">Jobs: ${dayObj.derived.jobsCount}</div>
       <div class="total-pill">Volume: ${dayObj.derived.totalVolume}</div>
-      <div class="total-pill">Capacity: ${dayObj.derived.totalTruckCapacity}</div>
       <div class="total-pill">Receipts: ${dayObj.derived.receiptsCount}</div>
       <div class="total-pill">Expenses: $${dayObj.derived.expensesSum}</div>
     `;
@@ -695,7 +566,7 @@ function injectDayWarningsPanel(dayObj) {
     </div>
 
     ${warnings.length === 0
-      ? `<div class="muted">No warnings. Calm. Suspicious, but calm.</div>`
+      ? `<div class="muted">No warnings. You’ve done the impossible.</div>`
       : `<ul class="warnings-list">
           ${warnings.slice(0, 18).map(w => {
             const cls = w.level === "danger" ? "wlvl-danger" : "wlvl-warn";
@@ -715,12 +586,179 @@ function injectDayWarningsPanel(dayObj) {
   `;
 }
 
-/* ---------------- Editable tables (FIXED) ---------------- */
-function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
+/* ---------------- Render: Directory pages ---------------- */
+function renderDriversDirectory() {
+  const root = document.getElementById("view-drivers");
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="card wide">
+      <div class="card-title">Drivers Directory</div>
+      <div class="muted">Master list of drivers (global). Use Dispatch to assign drivers to jobs.</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="addDriverDirRow" type="button">+ Add Driver</button>
+      </div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="sheet">
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Phone</th><th>Role</th><th>Status</th><th>Pay Type</th><th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="driversDirBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("addDriverDirRow").addEventListener("click", () => {
+    const id = `D-${String((state.directories.drivers.length + 1)).padStart(4,"0")}`;
+    state.directories.drivers.push({ id, name:"", phone:"", role:"Driver", status:"active", payType:"1099", notes:"" });
+    save();
+    renderDriversDirectory();
+  });
+
+  renderEditableTable("driversDirBody", state.directories.drivers, DIR_TABLES.driversDir, (row, key, value) => {
+    state.directories.drivers[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  });
+}
+
+function renderTrucksDirectory() {
+  const root = document.getElementById("view-trucks");
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="card wide">
+      <div class="card-title">Trucks Directory</div>
+      <div class="muted">Master list of trucks (global). Use Dispatch to assign trucks to jobs.</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="addTruckDirRow" type="button">+ Add Truck</button>
+      </div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="sheet">
+          <thead>
+            <tr>
+              <th>ID</th><th>Unit</th><th>Capacity</th><th>Status</th><th>Mileage</th><th>Last Service</th><th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="trucksDirBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("addTruckDirRow").addEventListener("click", () => {
+    const id = `T-${String((state.directories.trucks.length + 1)).padStart(4,"0")}`;
+    state.directories.trucks.push({ id, unit:"", capacity:"", status:"active", mileage:"", lastService:"", notes:"" });
+    save();
+    renderTrucksDirectory();
+  });
+
+  renderEditableTable("trucksDirBody", state.directories.trucks, DIR_TABLES.trucksDir, (row, key, value) => {
+    state.directories.trucks[row][key] = value;
+    save();
+    debouncedSmartRefresh();
+  });
+}
+
+/* ---------------- Render: Dispatch ---------------- */
+function renderDispatch() {
+  const root = document.getElementById("view-dispatch");
+  if (!root) return;
+
+  ensureDay(ui.activeDate);
+  const dayObj = state.days[ui.activeDate];
+  computeDerivedForDay(dayObj);
+
+  const driverOptions = state.directories.drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || d.id)}</option>`).join("");
+  const truckOptions  = state.directories.trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.unit || t.id)}</option>`).join("");
+
+  root.innerHTML = `
+    <div class="card wide">
+      <div class="card-title">Dispatch</div>
+      <div class="muted">${formatDateLong(ui.activeDate)} • Assign driver + truck per job</div>
+
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="sheet">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Customer</th>
+              <th>Pickup</th>
+              <th>Dropoff</th>
+              <th>Volume</th>
+              <th>Driver</th>
+              <th>Truck</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dispatchBody">
+            ${dayObj.jobs.map((j, idx) => {
+              const dSel = j.driverId || "";
+              const tSel = j.truckId || "";
+              return `
+                <tr data-idx="${idx}">
+                  <td>${escapeHtml(j.id || `Job #${idx+1}`)}</td>
+                  <td>${escapeHtml(j.customer || "")}</td>
+                  <td>${escapeHtml(j.pickup || "")}</td>
+                  <td>${escapeHtml(j.dropoff || "")}</td>
+                  <td>${escapeHtml(String(j.volume || ""))}</td>
+                  <td>
+                    <select class="dispatchSel" data-kind="driver">
+                      <option value="">(unassigned)</option>
+                      ${driverOptions}
+                    </select>
+                  </td>
+                  <td>
+                    <select class="dispatchSel" data-kind="truck">
+                      <option value="">(unassigned)</option>
+                      ${truckOptions}
+                    </select>
+                  </td>
+                  <td>${escapeHtml(j.status || "open")}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="help muted">
+        Tip: If drivers/trucks dropdowns are empty, add them in Drivers/Trucks tabs first.
+      </div>
+    </div>
+  `;
+
+  // Set dropdown values and attach handlers
+  root.querySelectorAll("#dispatchBody tr").forEach(tr => {
+    const idx = Number(tr.dataset.idx);
+    const job = dayObj.jobs[idx];
+
+    const dSel = tr.querySelector("select[data-kind='driver']");
+    const tSel = tr.querySelector("select[data-kind='truck']");
+
+    if (dSel) dSel.value = job.driverId || "";
+    if (tSel) tSel.value = job.truckId || "";
+
+    const onChange = () => {
+      job.driverId = dSel ? dSel.value : "";
+      job.truckId  = tSel ? tSel.value : "";
+      save();
+      debouncedSmartRefresh();
+    };
+
+    if (dSel) dSel.addEventListener("change", onChange);
+    if (tSel) tSel.addEventListener("change", onChange);
+  });
+}
+
+/* ---------------- Editable tables (focus-safe) ---------------- */
+function renderEditableTable(tbodyId, rows, cfg, onCommit) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
 
-  // If user is actively typing in this table, do not rebuild it.
   if (editing.active && editing.tbodyId === tbodyId) return;
 
   tbody.innerHTML = "";
@@ -736,7 +774,6 @@ function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
       td.setAttribute("contenteditable", readonly ? "false" : "true");
       if (readonly) td.style.color = "#7e89b8";
 
-      // Stamp coordinates for navigation
       td.dataset.row = String(rIndex);
       td.dataset.col = String(cIndex);
       td.dataset.key = key;
@@ -744,18 +781,15 @@ function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
       td.dataset.tbody = tbodyId;
 
       if (!readonly) {
-        // Start editing mode when focused
         td.addEventListener("focus", () => {
           editing.active = true;
           editing.tab = cfg.tab;
           editing.tbodyId = tbodyId;
         });
 
-        // Commit only on blur OR explicit Enter/Tab handler
         td.addEventListener("blur", () => {
           const val = td.textContent.trim();
           onCommit(rIndex, key, val);
-          // End editing shortly after blur so clicks feel natural
           setTimeout(() => {
             editing.active = false;
             editing.tab = null;
@@ -764,7 +798,6 @@ function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
         });
 
         td.addEventListener("keydown", (e) => {
-          // Spreadsheet behavior
           if (e.key === "Enter") {
             e.preventDefault();
             commitCell(td, onCommit);
@@ -774,19 +807,11 @@ function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
             commitCell(td, onCommit);
             moveCell(td, e.shiftKey ? "left" : "right");
           } else {
-            // normal typing, but update smart panels lightly (debounced)
             debouncedSmartRefresh();
           }
         });
 
-        // For mouse typing: keep totals updated without re-rendering table
-        td.addEventListener("input", () => {
-          debouncedSmartRefresh();
-        });
-      }
-
-      if (typeof onValidateCell === "function") {
-        queueMicrotask(() => onValidateCell(rIndex, key, td));
+        td.addEventListener("input", () => debouncedSmartRefresh());
       }
 
       tr.appendChild(td);
@@ -797,11 +822,10 @@ function renderEditableTable(tbodyId, rows, cfg, onCommit, onValidateCell) {
 }
 
 function commitCell(td, onCommit) {
-  const tab = td.dataset.tab;
   const row = Number(td.dataset.row);
   const key = td.dataset.key;
   const value = td.textContent.trim();
-  if (!tab || Number.isNaN(row) || !key) return;
+  if (Number.isNaN(row) || !key) return;
   onCommit(row, key, value);
 }
 
@@ -814,13 +838,11 @@ function moveCell(td, dir) {
   const c = Number(td.dataset.col);
 
   let nr = r, nc = c;
-
   if (dir === "right") nc = c + 1;
   if (dir === "left") nc = c - 1;
   if (dir === "down") nr = r + 1;
   if (dir === "up") nr = r - 1;
 
-  // Clamp
   nr = Math.max(0, Math.min(nr, tbody.rows.length - 1));
   nc = Math.max(0, Math.min(nc, tbody.rows[0]?.cells.length - 1));
 
@@ -828,9 +850,7 @@ function moveCell(td, dir) {
   if (!target) return;
 
   target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-  requestAnimationFrame(() => {
-    try { target.focus(); } catch {}
-  });
+  requestAnimationFrame(() => { try { target.focus(); } catch {} });
 }
 
 /* ---------------- Jump-to-fix ---------------- */
@@ -838,10 +858,9 @@ function jumpToIssue(tab, row, key) {
   setView("day");
   setTab(tab);
 
-  const cfg = TABLES[tab];
+  const cfg = DAY_TABLES[tab];
   if (!cfg || row === null || row === undefined || !key) return;
 
-  // Rebuild day view safely (only if not editing)
   if (!editing.active) renderDay();
 
   const tbody = document.getElementById(cfg.tbodyId);
@@ -859,53 +878,9 @@ function jumpToIssue(tab, row, key) {
   cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   requestAnimationFrame(() => {
     try { cell.focus(); } catch {}
-    flashCell(cell);
+    cell.classList.add("jump-flash");
+    setTimeout(() => cell.classList.remove("jump-flash"), 900);
   });
-}
-
-function flashCell(td) {
-  td.classList.add("jump-flash");
-  setTimeout(() => td.classList.remove("jump-flash"), 900);
-}
-
-/* ---------------- Validators ---------------- */
-function clearCellMarks(td) {
-  td.classList.remove("cell-bad");
-  td.classList.remove("cell-warn");
-}
-function validateCellJobs(dayObj, rowIndex, key, td) {
-  clearCellMarks(td);
-  const j = dayObj.jobs[rowIndex];
-  if (!j) return;
-
-  if (key === "customer" && !String(j.customer || "").trim()) td.classList.add("cell-bad");
-  if ((key === "pickup" || key === "dropoff") && !String(j[key] || "").trim()) td.classList.add("cell-warn");
-
-  if (key === "volume") {
-    const raw = String(j.volume || "").trim();
-    if (!raw) td.classList.add("cell-warn");
-    const n = Number(raw.replace(/,/g, ""));
-    if (raw && !Number.isFinite(n)) td.classList.add("cell-bad");
-    if (Number.isFinite(n) && n < 0) td.classList.add("cell-bad");
-  }
-}
-function validateCellDrivers(dayObj, rowIndex, key, td) {
-  clearCellMarks(td);
-  const d = dayObj.drivers[rowIndex];
-  if (!d) return;
-  if (key === "name" && !String(d.name || "").trim()) td.classList.add("cell-warn");
-}
-function validateCellTrucks(dayObj, rowIndex, key, td) {
-  clearCellMarks(td);
-  const t = dayObj.trucks[rowIndex];
-  if (!t) return;
-  if (key === "capacity") {
-    const raw = String(t.capacity || "").trim();
-    if (!raw) td.classList.add("cell-warn");
-    const n = Number(raw.replace(/,/g, ""));
-    if (raw && !Number.isFinite(n)) td.classList.add("cell-bad");
-    if (Number.isFinite(n) && n < 0) td.classList.add("cell-bad");
-  }
 }
 
 /* ---------------- Add rows ---------------- */
@@ -918,11 +893,13 @@ function addJob(dateISO) {
     dropoff: "",
     volume: "",
     status: "open",
+    driverId: "",
+    truckId: "",
   });
   save();
   recomputeAll();
-  // Safe rebuild (user isn't typing when adding row via button)
-  renderDay();
+  if (ui.activeView === "day") renderDay();
+  if (ui.activeView === "dispatch") renderDispatch();
   renderCalendar();
   renderDashboard(true);
 }
@@ -933,8 +910,6 @@ function addDriver(dateISO) {
   save();
   recomputeAll();
   renderDay();
-  renderCalendar();
-  renderDashboard(true);
 }
 
 function addTruck(dateISO) {
@@ -943,8 +918,6 @@ function addTruck(dateISO) {
   save();
   recomputeAll();
   renderDay();
-  renderCalendar();
-  renderDashboard(true);
 }
 
 function addRecord(dateISO, partial) {
@@ -960,11 +933,21 @@ function addRecord(dateISO, partial) {
   save();
   recomputeAll();
   renderDay();
-  renderCalendar();
-  renderDashboard(true);
 }
 
-/* ---------------- Utilities ---------------- */
+/* ---------------- Placeholder views ---------------- */
+function renderPlaceholder(view, title, text) {
+  const root = document.getElementById(`view-${view}`);
+  if (!root) return;
+  root.innerHTML = `
+    <div class="card wide">
+      <div class="card-title">${escapeHtml(title)}</div>
+      <div class="muted">${escapeHtml(text)}</div>
+    </div>
+  `;
+}
+
+/* ---------------- Utils ---------------- */
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
