@@ -656,3 +656,22 @@ html, body { height: 100%; }
 /* Sidebar nav scrolls (the list of buttons) */
 .sidebar { min-height: 0; overflow: hidden; }
 .sidebar nav { overflow: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+body {
+  overflow: hidden;
+}
+
+.app-shell {
+  height: 100vh;
+  display: flex;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar {
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
