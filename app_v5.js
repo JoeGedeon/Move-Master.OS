@@ -17,6 +17,23 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+   function calculateDayTotals(dateStr) {
+  let totals = {
+    scheduled: { count: 0, amount: 0 },
+    completed: { count: 0, amount: 0 },
+    cancelled: { count: 0, amount: 0 }
+  };
+
+  state.jobs.forEach(j => {
+    if (j.date !== dateStr) return;
+    totals[j.status].count += 1;
+    if (j.status !== "cancelled") {
+      totals[j.status].amount += Number(j.amount || 0);
+    }
+  });
+
+  return totals;
+}
   const log = (...a) => console.log("[FleetPro]", ...a);
   const warn = (...a) => console.warn("[FleetPro]", ...a);
   const error = (...a) => console.error("[FleetPro]", ...a);
@@ -447,6 +464,17 @@
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
     list.innerHTML = "";
+     const totals = calculateDayTotals(dateStr);
+
+const totalsBar = document.createElement("div");
+totalsBar.className = "day-totals";
+totalsBar.innerHTML = `
+  <strong>Totals</strong><br>
+  Scheduled: ${totals.scheduled.count} · $${totals.scheduled.amount.toFixed(2)}<br>
+  Completed: ${totals.completed.count} · $${totals.completed.amount.toFixed(2)}<br>
+  Cancelled: ${totals.cancelled.count}
+`;
+list.appendChild(totalsBar);
 
     // Stats line (optional)
     const stats = document.createElement("div");
