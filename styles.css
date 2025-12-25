@@ -410,3 +410,6 @@ body {
 }
 .cal-tip-title { font-weight: 900; margin-bottom: 6px; }
 .cal-tip-row { font-size: 12px; opacity: 0.9; margin: 3px 0; }
+
+/* Dashboard intelligence: make bullets readable */
+.card-body div { line-height: 1.35; }
