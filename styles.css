@@ -275,3 +275,22 @@ html, body {
 .warnings-list li { margin: 6px 0; }
 .wlvl-danger { color: #ffb3b3; }
 .wlvl-warn { color: #ffcf8c; }
+/* Click-to-fix warning links */
+.warnlink{
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.warnlink:hover { opacity: 0.9; }
+
+/* Flash highlight when jumping to a cell */
+.jump-flash{
+  box-shadow: inset 0 0 0 3px rgba(42,60,255,0.55);
+  border-radius: 6px;
+}
