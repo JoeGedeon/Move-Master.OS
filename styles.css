@@ -1,397 +1,721 @@
-* { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+/* =========================================================
+   FleetPro styles.css (FULL)
+   Dark, glassy dashboard + calendar + sheet tables
+   Built to match the provided index.html + app.js expectations
+   ========================================================= */
 
-html, body {
-  height: 100%;
-  margin: 0;
-  background: #05070c;
-  color: #eaeef7;
+:root{
+  --bg0:#070a14;
+  --bg1:#0b1020;
+  --bg2:#0f1730;
+  --panel:#0b1326;
+  --panel2:#0e1933;
+
+  --line: rgba(255,255,255,0.08);
+  --line2: rgba(255,255,255,0.12);
+
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+
+  --blue:#4a6bff;
+  --blue2: rgba(74,107,255,0.18);
+
+  --good:#2fd070;
+  --warn:#ffbf3f;
+  --danger:#ff5a5a;
+
+  --shadow: 0 20px 60px rgba(0,0,0,0.45);
+  --r12: 12px;
+  --r14: 14px;
+  --r18: 18px;
+
+  --gap: 16px;
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+*{ box-sizing:border-box; }
+
+html, body{
+  height:100%;
+  margin:0;
+  background: radial-gradient(1000px 700px at 30% 10%, rgba(74,107,255,0.18), transparent 55%),
+              radial-gradient(900px 650px at 80% 30%, rgba(74,107,255,0.10), transparent 60%),
+              linear-gradient(180deg, var(--bg0), var(--bg1) 45%, #070a14);
+  color:var(--text);
+  font-family: var(--font);
+}
+
+code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  color: rgba(255,255,255,0.85);
+}
+
+a{ color: var(--blue); }
+
+.muted{ color: var(--muted); }
+.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+}
+
+/* =========================================================
+   App layout
+   ========================================================= */
+
+.app{
+  height:100%;
+  display:flex;
+}
+
+.sidebar{
+  width: 260px;
+  padding: 18px 14px;
+  background: linear-gradient(180deg, rgba(11,16,32,0.96), rgba(9,14,28,0.96));
+  border-right: 1px solid var(--line);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.10);
   overflow: hidden;
+  display:flex;
+  flex-direction: column;
 }
 
-.app { display: flex; height: 100dvh; width: 100%; }
-
-/* Sidebar */
-.sidebar {
-  width: 250px;
-  background: #0b1020;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid #151d3a;
-  min-height: 0;
+.brand{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 10px;
 }
-.logo { font-weight: 900; letter-spacing: 2px; margin-bottom: 14px; }
 
-.nav {
-  display: flex;
+.brand-mark{
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), transparent 55%),
+              linear-gradient(145deg, rgba(74,107,255,0.9), rgba(74,107,255,0.15));
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 28px rgba(74,107,255,0.25);
+}
+
+.brand-name{
+  letter-spacing: 0.18em;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.brand-sub{
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.nav{
+  display:flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  padding: 8px 4px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  min-height: 0;
-  padding-right: 6px;
 }
-.nav-divider { height: 1px; background: #151d3a; margin: 10px 0; }
 
-.navbtn {
+.nav-sep{
+  height: 10px;
+}
+
+.navbtn{
   width: 100%;
-  background: transparent;
-  border: 1px solid transparent;
-  color: #8aa4ff;
+  text-align:left;
   padding: 10px 12px;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255,255,255,0.76);
+  font-size: 13px;
+  cursor:pointer;
 }
-.navbtn:hover { background: #121a33; }
-.navbtn.active { border-color: #2a3cff; background: rgba(42,60,255,0.12); }
 
-.sidebar-footer { margin-top: auto; padding-top: 12px; }
-.pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #121a33; color: #cbd6ff; font-size: 12px; }
-.pill.live { background: rgba(60,255,127,0.12); color: #3cff7f; border: 1px solid rgba(60,255,127,0.25); }
-.tiny { margin-top: 8px; font-size: 12px; color: #7e89b8; }
+.navbtn:hover{
+  background: rgba(255,255,255,0.04);
+}
 
-/* Main */
-.main {
-  flex: 1;
-  display: flex;
+.navbtn.active{
+  background: rgba(74,107,255,0.12);
+  border-color: rgba(74,107,255,0.28);
+  color: rgba(255,255,255,0.92);
+  box-shadow: inset 0 0 0 1px rgba(74,107,255,0.14);
+}
+
+.navbtn:disabled{
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.main{
+  flex:1;
+  min-width:0; /* CRUCIAL for horizontal scrolling children */
+  display:flex;
   flex-direction: column;
-  min-height: 0;
-  padding: 18px;
 }
 
-/* Topbar */
-.topbar {
-  display: flex;
-  align-items: center;
+.topbar{
+  display:flex;
+  align-items:center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  flex: 0 0 auto;
+  padding: 18px 18px 10px;
+  gap: 16px;
 }
-.title { font-weight: 800; font-size: 18px; }
-.subtitle { font-size: 12px; color: #7e89b8; margin-top: 4px; }
-.clock { font-variant-numeric: tabular-nums; color: #cbd6ff; }
 
-/* Toolbar */
-.toolbar { flex: 0 0 auto; margin-bottom: 12px; }
-.toolbar-scroll {
-  display: flex;
+.page-title{
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.page-sub{
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.topbar-right{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+}
+
+.clock{
+  font-size: 12px;
+  color: rgba(255,255,255,0.72);
+}
+
+.status{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(47,208,112,0.25);
+  background: rgba(47,208,112,0.08);
+  color: rgba(255,255,255,0.88);
+  font-weight: 650;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.status .dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--good);
+  box-shadow: 0 0 0 4px rgba(47,208,112,0.15);
+}
+
+/* =========================================================
+   Toolbar (scrollable horizontally)
+   ========================================================= */
+
+.toolbar{
+  padding: 0 18px 12px;
+}
+
+.toolbar-inner{
+  display:flex;
+  align-items:center;
   gap: 10px;
+  padding: 10px;
+  border-radius: var(--r18);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--line);
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
-  padding: 10px;
-  border: 1px solid #151d3a;
-  border-radius: 12px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
-}
-.toolbtn {
-  flex: 0 0 auto;
+  touch-action: pan-x pan-y;
   white-space: nowrap;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #1c2445;
-  background: #0f152b;
-  color: #eaeef7;
-  cursor: pointer;
-}
-.toolbtn:hover { background: #182057; }
-.toolbtn.ghost { opacity: 0.65; cursor: default; }
-.tool-sep { width: 1px; background: #1c2445; align-self: stretch; }
-
-/* Content scroll */
-.content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-right: 2px;
 }
 
-/* Views */
-.view { display: none; }
-.view.active { display: block; }
-
-/* UI */
-.h2 { font-size: 18px; font-weight: 800; }
-.muted { color: #7e89b8; font-size: 12px; }
-
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
-
-.card {
-  border: 1px solid #151d3a;
-  border-radius: 14px;
-  padding: 14px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
+.tool-sep{
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.10);
+  margin: 0 4px;
 }
-.card.wide { margin-top: 14px; }
-.card-title { font-weight: 800; margin-bottom: 10px; }
-.big { font-size: 26px; font-weight: 900; margin: 6px 0; }
-.row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-.primary, .secondary { padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1px solid #1c2445; }
-.primary { background: #2a3cff; color: white; border-color: rgba(42,60,255,0.6); }
-.secondary { background: #0f152b; color: #eaeef7; }
-.list { margin: 0; padding-left: 18px; }
 
-.stats { display: grid; grid-template-columns: repeat(4, minmax(140px,1fr)); gap: 10px; }
-@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(140px,1fr)); } }
-.stat { border: 1px solid #1c2445; background: #0f152b; border-radius: 12px; padding: 12px; }
-.stat .k { font-size: 12px; color: #7e89b8; }
-.stat .v { font-size: 18px; font-weight: 900; margin-top: 6px; }
-
-/* Calendar */
-.calendar-shell {
-  border: 1px solid #151d3a;
-  border-radius: 14px;
-  padding: 12px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
-}
-.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 8px 6px 10px; color: #7e89b8; font-size: 12px; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-.daycell {
-  min-height: 95px;
-  border: 1px solid #1c2445;
-  border-radius: 12px;
-  background: #0f152b;
-  padding: 10px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.daycell:hover { background: #182057; }
-.daynum { font-weight: 900; }
-.badges { display: flex; gap: 6px; flex-wrap: wrap; }
-.badge {
-  font-size: 11px;
-  padding: 4px 8px;
+/* Buttons */
+.btn{
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.9);
+  padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(42,60,255,0.5);
-  background: rgba(42,60,255,0.12);
-  color: #cbd6ff;
-}
-.badge.warn {
-  border-color: rgba(255,179,71,0.45);
-  background: rgba(255,179,71,0.10);
-  color: #ffcf8c;
-}
-.badge.danger {
-  border-color: rgba(255,90,90,0.55);
-  background: rgba(255,90,90,0.12);
-  color: #ffb3b3;
+  font-size: 13px;
+  cursor:pointer;
+  white-space: nowrap;
 }
 
-.daycell.off { opacity: 0.45; }
-.daycell.today { outline: 2px solid rgba(60,255,127,0.35); }
-.daycell.hasWarn { outline: 2px solid rgba(255,179,71,0.30); }
-.daycell.hasDanger { outline: 2px solid rgba(255,90,90,0.35); }
-
-/* Day workspace */
-.day-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.day-totals { display: flex; gap: 10px; flex-wrap: wrap; }
-.total-pill {
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid #1c2445;
-  background: #0f152b;
-  font-size: 12px;
-  color: #cbd6ff;
+.btn:hover{
+  background: rgba(255,255,255,0.06);
 }
 
-/* Tabs */
-.tabs { margin: 10px 0; }
-.tabs-scroll {
-  display: flex; gap: 8px;
-  overflow-x: auto; overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
-  padding: 8px;
-  border: 1px solid #151d3a;
-  border-radius: 12px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
+.btn.primary{
+  background: linear-gradient(180deg, rgba(74,107,255,0.95), rgba(74,107,255,0.40));
+  border-color: rgba(74,107,255,0.40);
+  box-shadow: 0 12px 30px rgba(74,107,255,0.20);
 }
-.tab { flex: 0 0 auto; white-space: nowrap; padding: 10px 12px; border-radius: 10px; border: 1px solid #1c2445; background: #0f152b; color: #eaeef7; cursor: pointer; }
-.tab.active { border-color: rgba(42,60,255,0.8); background: rgba(42,60,255,0.14); }
-.tab:hover { background: #182057; }
 
-.pane { display: none; }
-.pane.active { display: block; }
-.pane-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+.btn.primary:hover{
+  filter: brightness(1.02);
+}
 
-/* Tables */
-.table-wrap {
-  border: 1px solid #151d3a;
-  border-radius: 14px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
+.btn.ghost{
+  background: transparent;
+  border-color: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.75);
+}
+
+.btn:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+}
+
+/* =========================================================
+   Content + views
+   ========================================================= */
+
+.content{
+  flex:1;
+  min-width:0; /* CRUCIAL */
+  padding: 0 18px 18px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 55vh;
-}
-.sheet { width: 100%; border-collapse: collapse; min-width: 760px; }
-.sheet th, .sheet td { padding: 10px; border-bottom: 1px solid #1c2445; }
-.sheet th { position: sticky; top: 0; background: #0b1020; z-index: 1; text-align: left; font-size: 12px; color: #cbd6ff; }
-.sheet td { background: rgba(5,7,12,0.6); }
-.sheet td[contenteditable="true"] { outline: none; }
-.sheet td[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(42,60,255,0.45); border-radius: 6px; }
-
-/* Smart validation highlights */
-.cell-bad {
-  box-shadow: inset 0 0 0 2px rgba(255,90,90,0.45);
-  border-radius: 6px;
-}
-.cell-warn {
-  box-shadow: inset 0 0 0 2px rgba(255,179,71,0.35);
-  border-radius: 6px;
 }
 
-/* Injected warnings panel */
-.warnings-card {
-  border: 1px solid rgba(255,179,71,0.25);
-  background: rgba(255,179,71,0.08);
+.view{
+  display:none;
+  min-width:0;
 }
-.warnings-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
+
+.view.active{
+  display:block;
 }
-.warnings-count {
+
+/* =========================================================
+   Cards + grids
+   ========================================================= */
+
+.grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap);
+}
+
+.card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid var(--line);
+  border-radius: var(--r18);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  min-width:0;
+}
+
+.card.wide{
+  width: 100%;
+}
+
+.card-title{
+  font-weight: 750;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 10px;
+}
+
+.h1{
+  font-size: 32px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  margin: 6px 0 6px;
+}
+
+.list{
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(255,255,255,0.78);
+}
+
+.stats{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat{
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.08);
+  min-width:0;
+}
+
+.stat .k{
   font-size: 12px;
-  color: #ffcf8c;
-  border: 1px solid rgba(255,179,71,0.35);
-  background: rgba(255,179,71,0.08);
+  color: rgba(255,255,255,0.62);
+}
+
+.stat .v{
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   Calendar layout
+   ========================================================= */
+
+#view-calendar .card-title{
+  margin-bottom: 6px;
+}
+
+.cal-head{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.cal-dow{
+  display:block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.62);
+  padding: 6px 8px;
+}
+
+.calendar-grid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.daycell{
+  position: relative;
+  min-height: 92px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  padding: 10px;
+  overflow: hidden;
+  cursor:pointer;
+}
+
+.daycell:hover{
+  background: rgba(255,255,255,0.045);
+}
+
+.daycell.off{ opacity: 0.45; }
+.daycell.today{
+  outline: 2px solid rgba(74,107,255,0.45);
+  outline-offset: 0;
+}
+
+.daycell.hasDanger{ box-shadow: inset 0 0 0 2px rgba(255,90,90,0.22); }
+.daycell.hasWarn{ box-shadow: inset 0 0 0 2px rgba(255,191,63,0.18); }
+
+.daynum{
+  font-size: 16px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.88);
+}
+
+.badges{
+  position:absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge{
+  display:inline-block;
+  font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.85);
 }
-.warnings-list { margin: 0; padding-left: 18px; }
-.warnings-list li { margin: 6px 0; }
-.wlvl-danger { color: #ffb3b3; }
-.wlvl-warn { color: #ffcf8c; }
-/* Click-to-fix warning links */
+
+.badge.warn{
+  border-color: rgba(255,191,63,0.30);
+  background: rgba(255,191,63,0.08);
+}
+.badge.danger{
+  border-color: rgba(255,90,90,0.30);
+  background: rgba(255,90,90,0.08);
+}
+
+/* =========================================================
+   Day workspace header + totals
+   ========================================================= */
+
+.day-head{
+  display:flex;
+  justify-content: space-between;
+  align-items:flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+  min-width:0;
+}
+
+.day-head-left{ min-width:0; }
+
+.day-head-right{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content:flex-end;
+  min-width:0;
+}
+
+.total-pill{
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.20);
+  color: rgba(255,255,255,0.82);
+  font-size: 12px;
+}
+
+/* =========================================================
+   Tabs + panes
+   ========================================================= */
+
+.tabs{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0 12px;
+}
+
+.tab{
+  appearance:none;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.78);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor:pointer;
+}
+
+.tab:hover{ background: rgba(255,255,255,0.05); }
+
+.tab.active{
+  background: rgba(74,107,255,0.14);
+  border-color: rgba(74,107,255,0.30);
+  color: rgba(255,255,255,0.92);
+}
+
+.panes{
+  min-width:0;
+}
+
+.pane{
+  display:none;
+  min-width:0;
+  overflow-x:auto; /* allow horizontal scroll inside panes */
+  -webkit-overflow-scrolling: touch;
+}
+
+.pane.active{
+  display:block;
+}
+
+.pane-bar{
+  display:flex;
+  gap: 12px;
+  align-items:center;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   Tables (spreadsheet feel)
+   ========================================================= */
+
+.table-wrap{
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  border-radius: var(--r18);
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.18);
+  padding: 10px;
+  min-width:0;
+}
+
+/* THE critical flex fix: allow this to shrink so overflow can happen */
+.main, .content, .view, .pane, .card { min-width:0; }
+
+.sheet{
+  width: max-content;     /* can exceed container so it scrolls */
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;    /* wrap instead of forcing infinite width */
+}
+
+.sheet th, .sheet td{
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 10px 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.86);
+  vertical-align: top;
+}
+
+.sheet th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(10,16,35,0.92);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.78);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 750;
+}
+
+/* column sizing to prevent "stuck at dropoff" */
+.sheet th:nth-child(1), .sheet td:nth-child(1){ width: 120px; }
+.sheet th:nth-child(2), .sheet td:nth-child(2){ width: 220px; }
+.sheet th:nth-child(3), .sheet td:nth-child(3){ width: 220px; }
+.sheet th:nth-child(4), .sheet td:nth-child(4){ width: 220px; }
+.sheet th:nth-child(5), .sheet td:nth-child(5){ width: 120px; }
+.sheet th:nth-child(6), .sheet td:nth-child(6){ width: 140px; }
+
+/* Editable cells */
+.sheet td[contenteditable="true"]{
+  outline: none;
+  border-radius: 10px;
+  white-space: pre-wrap;      /* wrap */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Make focus obvious */
+.sheet td[contenteditable="true"]:focus{
+  box-shadow: inset 0 0 0 2px rgba(74,107,255,0.45);
+  background: rgba(74,107,255,0.10);
+}
+
+/* Validation marks (used by JS) */
+.cell-bad{
+  box-shadow: inset 0 0 0 2px rgba(255,90,90,0.45) !important;
+  background: rgba(255,90,90,0.10) !important;
+}
+
+.cell-warn{
+  box-shadow: inset 0 0 0 2px rgba(255,191,63,0.35) !important;
+  background: rgba(255,191,63,0.08) !important;
+}
+
+/* Jump highlight (used by JS) */
+.jump-flash{
+  box-shadow: inset 0 0 0 3px rgba(74,107,255,0.55) !important;
+}
+
+/* =========================================================
+   Warnings panel (injected by JS)
+   ========================================================= */
+
+.warnings-card{
+  margin-bottom: 14px;
+}
+
+.warnings-title{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.warnings-count{
+  font-size: 12px;
+  color: rgba(255,255,255,0.62);
+}
+
+.warnings-list{
+  margin: 0;
+  padding-left: 16px;
+}
+
+.wlvl-danger{ color: rgba(255,120,120,0.95); }
+.wlvl-warn{ color: rgba(255,210,120,0.95); }
+
 .warnlink{
-  appearance: none;
-  border: 0;
+  appearance:none;
+  border:0;
   background: transparent;
   color: inherit;
   font: inherit;
   padding: 0;
-  text-align: left;
   cursor: pointer;
   text-decoration: underline;
-}
-.warnlink:hover { opacity: 0.9; }
-
-/* Flash highlight when jumping to a cell */
-.jump-flash{
-  box-shadow: inset 0 0 0 3px rgba(42,60,255,0.55);
-  border-radius: 6px;
-}
-/* ===== Fix: contenteditable text runs off-screen (iPad Safari) ===== */
-
-/* Let editable cells wrap instead of running infinitely to the right */
-.sheet td[contenteditable="true"]{
-  white-space: pre-wrap;      /* keep spaces + wrap lines */
-  word-break: break-word;     /* break long tokens */
-  overflow-wrap: anywhere;    /* Safari-friendly wrapping */
+  text-underline-offset: 2px;
 }
 
-/* Give columns a reasonable readable width so wrapping feels natural */
-.sheet td, .sheet th{
-  max-width: 320px;           /* adjust if you want wider columns */
+.warnlink:hover{ opacity: 0.9; }
+
+.help{
+  margin-top: 10px;
+  font-size: 12px;
 }
 
-/* Make sure the table container can be scrolled horizontally on iPad */
-.table-wrap{
-  overflow-x: auto;
-  overflow-y: auto;
+/* =========================================================
+   iPad Safari horizontal scroll hardening
+   ========================================================= */
+
+/* Flex children need min-width:0 or scrolling dies */
+.main, .content, .workspace, .view, .pane, .card { min-width:0; }
+
+/* Make sure scroll containers are allowed */
+.table-wrap, .pane, .content{
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
 }
 
-/* Optional: make the job table feel less cramped */
-.sheet{
-  table-layout: fixed;        /* forces wrapping instead of stretching forever */
-}
-/* ===== HARD FIX: allow full horizontal scroll for job tables ===== */
+/* =========================================================
+   Responsive
+   ========================================================= */
 
-/* Ensure the Day Workspace pane itself can scroll horizontally */
-.pane {
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
+@media (max-width: 980px){
+  .sidebar{ width: 230px; }
+  .stats{ grid-template-columns: 1fr; }
+  .h1{ font-size: 28px; }
 }
 
-/* Force table wrapper to allow full width scrolling */
-.table-wrap {
-  max-width: 100%;
-  overflow-x: auto !important;
-  overflow-y: auto;
-  touch-action: pan-x pan-y;
-}
-
-/* Let the table be as wide as it needs to be */
-.sheet {
-  width: max-content;
-  min-width: 100%;
-  table-layout: fixed;
-}
-
-/* Prevent cells from visually clipping text */
-.sheet td,
-.sheet th {
-  overflow: visible;
-}
-/* ===== iPad + Flexbox + Table horizontal scroll hard-fix ===== */
-
-/* In flex layouts, children default to min-width:auto which blocks scrolling.
-   This is the #1 reason tables "hit a wall" on the right. */
-.main,
-.content,
-.workspace,
-.view,
-.pane,
-.card {
-  min-width: 0;
-}
-
-/* Force the actual table area to allow horizontal pan */
-.table-wrap,
-.sheet-wrap,
-.sheet-container,
-.pane,
-.pane.active,
-.pane .card,
-.pane .card .body,
-.pane .card-content {
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-}
-
-/* Make the table take the width it needs so scrolling actually has something to scroll */
-.sheet {
-  width: max-content !important;
-  min-width: 100% !important;
-  table-layout: fixed;
-}
-
-/* Prevent the table from being clipped by some ancestor */
-.sheet,
-.sheet * {
-  max-width: none !important;
-}
-
-/* Cell behavior: wrap long text instead of running off-screen */
-.sheet td[contenteditable="true"]{
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+@media (max-width: 760px){
+  .sidebar{ display:none; }
+  .topbar{ padding: 14px 14px 10px; }
+  .toolbar{ padding: 0 14px 12px; }
+  .content{ padding: 0 14px 14px; }
 }
