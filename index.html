@@ -5,12 +5,13 @@
   <title>FleetPro Foundation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Cache-bust for iPad Safari / GitHub Pages -->
-  <link rel="stylesheet" href="styles.css?v=2">
+  <!-- Cache bust -->
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
 <div class="app">
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo">FLEETPRO</div>
@@ -38,6 +39,8 @@
 
   <!-- MAIN -->
   <main class="main">
+
+    <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
         <div class="title">Operations</div>
@@ -50,9 +53,9 @@
       </div>
     </header>
 
-    <!-- TOOLBAR (scrollable) -->
+    <!-- TOOLBAR (horizontal scroll) -->
     <div class="toolbar">
-      <div class="toolbar-scroll">
+      <div class="toolbar-scroll" id="toolbarScroll">
         <button class="toolbtn" id="btnToday">Today</button>
         <button class="toolbtn" id="btnPrev">◀</button>
         <button class="toolbtn" id="btnNext">▶</button>
@@ -63,234 +66,203 @@
         <div class="tool-sep"></div>
         <button class="toolbtn ghost" id="btnExport">Export (later)</button>
         <button class="toolbtn ghost" id="btnSync">Sync (later)</button>
+        <button class="toolbtn ghost">More (later)</button>
+        <button class="toolbtn ghost">Even More (later)</button>
       </div>
     </div>
 
-    <!-- VIEWS -->
-    <section class="view active" id="view-dashboard">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">Today</div>
-          <div class="big" id="todayDate">—</div>
-          <div class="muted" id="todaySummary">—</div>
-          <div class="row">
-            <button class="primary" id="openToday">Open Today</button>
-            <button class="secondary" id="openCalendar">Open Calendar</button>
-          </div>
-        </div>
+    <!-- CONTENT (vertical scroll lives HERE) -->
+    <div class="content">
 
-        <div class="card">
-          <div class="card-title">Pressure Points (placeholder)</div>
-          <ul class="list">
-            <li>Overbooked drivers: <span class="muted">AI later</span></li>
-            <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
-            <li>Receipts missing: <span class="muted">driver app later</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="card wide">
-        <div class="card-title">This Month Snapshot</div>
-        <div class="stats" id="monthStats"></div>
-      </div>
-
-      <!-- Extra space content so you can verify main scroll easily -->
-      <div class="card wide">
-        <div class="card-title">Scroll Test</div>
-        <div class="muted">If you can scroll down to see this, the dashboard scroll is working.</div>
-      </div>
-    </section>
-
-    <section class="view" id="view-calendar">
-      <div class="calendar-head">
-        <div class="h2" id="monthLabel">Month</div>
-        <div class="muted">Click any day tile to enter the Day Workspace.</div>
-      </div>
-
-      <div class="calendar-shell">
-        <div class="dow">
-          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-        </div>
-        <div class="calendar-grid" id="calendarGrid"></div>
-      </div>
-
-      <div class="card wide">
-        <div class="card-title">Scroll Test</div>
-        <div class="muted">If you can scroll down to see this, calendar view scroll is working.</div>
-      </div>
-    </section>
-
-    <section class="view" id="view-day">
-      <div class="day-head">
-        <div>
-          <div class="h2" id="dayLabel">Day Workspace</div>
-          <div class="muted" id="dayMeta">—</div>
-        </div>
-        <div class="day-totals" id="dayTotals"></div>
-      </div>
-
-      <!-- Tabs (scrollable) -->
-      <div class="tabs">
-        <div class="tabs-scroll" id="tabs">
-          <button class="tab active" data-tab="jobs">Jobs</button>
-          <button class="tab" data-tab="drivers">Drivers</button>
-          <button class="tab" data-tab="trucks">Trucks</button>
-          <button class="tab" data-tab="records">Records</button>
-          <button class="tab" data-tab="media">Media</button>
-          <button class="tab" data-tab="ai">AI Notes</button>
-        </div>
-      </div>
-
-      <div class="tabpanes">
-        <!-- JOBS -->
-        <div class="pane active" id="pane-jobs">
-          <div class="pane-actions">
-            <button class="primary" id="addJobRow">+ Add Job</button>
-            <span class="muted">Spreadsheet-style. Edit cells directly.</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet">
-              <thead>
-                <tr>
-                  <th>Job ID</th>
-                  <th>Customer</th>
-                  <th>Pickup</th>
-                  <th>Dropoff</th>
-                  <th>Volume (cu ft)</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="jobsBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- DRIVERS -->
-        <div class="pane" id="pane-drivers">
-          <div class="pane-actions">
-            <button class="primary" id="addDriverRow">+ Add Driver</button>
-            <span class="muted">Assign drivers to this day (not global directory yet).</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet">
-              <thead>
-                <tr>
-                  <th>Driver</th>
-                  <th>Status</th>
-                  <th>Hours</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody id="driversBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- TRUCKS -->
-        <div class="pane" id="pane-trucks">
-          <div class="pane-actions">
-            <button class="primary" id="addTruckRow">+ Add Truck</button>
-            <span class="muted">Attach trucks to this day (capacity rules later).</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet">
-              <thead>
-                <tr>
-                  <th>Truck ID</th>
-                  <th>Status</th>
-                  <th>Capacity (cu ft)</th>
-                  <th>Mileage</th>
-                </tr>
-              </thead>
-              <tbody id="trucksBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- RECORDS -->
-        <div class="pane" id="pane-records">
-          <div class="pane-actions">
-            <button class="primary" id="addRecordRow">+ Add Record</button>
-            <span class="muted">Append-only: receipts, notes, adjustments, etc.</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Source</th>
-                  <th>Linked Entity</th>
-                  <th>Raw Data</th>
-                  <th>Approved</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody id="recordsBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- MEDIA -->
-        <div class="pane" id="pane-media">
-          <div class="pane-actions">
-            <button class="secondary" id="addMediaPlaceholder">+ Add Media Placeholder</button>
-            <span class="muted">Customer camera uploads plug in here later.</span>
-          </div>
-          <div class="table-wrap">
-            <table class="sheet">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Filename/URL</th>
-                  <th>Linked Record</th>
-                  <th>Notes</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody id="mediaBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- AI -->
-        <div class="pane" id="pane-ai">
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="grid-2">
           <div class="card">
-            <div class="card-title">AI Notes (annotation-only)</div>
-            <div class="muted">
-              AI will read Records + Media and attach annotations here. It never edits “truth” records directly.
+            <div class="card-title">Today</div>
+            <div class="big" id="todayDate">—</div>
+            <div class="muted" id="todaySummary">—</div>
+            <div class="row">
+              <button class="primary" id="openToday">Open Today</button>
+              <button class="secondary" id="openCalendar">Open Calendar</button>
             </div>
-            <div class="table-wrap" style="margin-top:12px;">
+          </div>
+
+          <div class="card">
+            <div class="card-title">Pressure Points (placeholder)</div>
+            <ul class="list">
+              <li>Overbooked drivers: <span class="muted">AI later</span></li>
+              <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
+              <li>Receipts missing: <span class="muted">driver app later</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card wide">
+          <div class="card-title">This Month Snapshot</div>
+          <div class="stats" id="monthStats"></div>
+        </div>
+
+        <!-- This forces enough height so you can prove vertical scroll works -->
+        <div class="card wide">
+          <div class="card-title">Scroll Proof</div>
+          <div class="muted">If you can reach this card by scrolling, vertical scroll is working.</div>
+          <div style="height: 900px;"></div>
+          <div class="muted">You hit the bottom. Scroll works.</div>
+        </div>
+      </section>
+
+      <!-- CALENDAR -->
+      <section class="view" id="view-calendar">
+        <div class="calendar-head">
+          <div class="h2" id="monthLabel">Month</div>
+          <div class="muted">Click any day tile to enter the Day Workspace.</div>
+        </div>
+
+        <div class="calendar-shell">
+          <div class="dow">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <div class="card wide">
+          <div class="card-title">Scroll Proof</div>
+          <div class="muted">If you can reach this by scrolling, calendar vertical scroll is working.</div>
+          <div style="height: 800px;"></div>
+        </div>
+      </section>
+
+      <!-- DAY WORKSPACE -->
+      <section class="view" id="view-day">
+        <div class="day-head">
+          <div>
+            <div class="h2" id="dayLabel">Day Workspace</div>
+            <div class="muted" id="dayMeta">—</div>
+          </div>
+          <div class="day-totals" id="dayTotals"></div>
+        </div>
+
+        <div class="tabs">
+          <div class="tabs-scroll" id="tabs">
+            <button class="tab active" data-tab="jobs">Jobs</button>
+            <button class="tab" data-tab="drivers">Drivers</button>
+            <button class="tab" data-tab="trucks">Trucks</button>
+            <button class="tab" data-tab="records">Records</button>
+            <button class="tab" data-tab="media">Media</button>
+            <button class="tab" data-tab="ai">AI Notes</button>
+          </div>
+        </div>
+
+        <div class="tabpanes">
+
+          <div class="pane active" id="pane-jobs">
+            <div class="pane-actions">
+              <button class="primary" id="addJobRow">+ Add Job</button>
+              <span class="muted">Edit cells directly.</span>
+            </div>
+            <div class="table-wrap">
               <table class="sheet">
                 <thead>
                   <tr>
-                    <th>Model</th>
-                    <th>Confidence</th>
-                    <th>Summary</th>
-                    <th>Warnings</th>
-                    <th>Created</th>
+                    <th>Job ID</th><th>Customer</th><th>Pickup</th><th>Dropoff</th><th>Volume</th><th>Status</th>
                   </tr>
                 </thead>
-                <tbody id="aiBody"></tbody>
+                <tbody id="jobsBody"></tbody>
               </table>
             </div>
-            <div class="muted" style="margin-top:10px;">(AI wiring later. This is the socket.)</div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Placeholder views -->
-    <section class="view" id="view-drivers"><div class="card"><div class="card-title">Drivers (global)</div><div class="muted">Coming later.</div></div></section>
-    <section class="view" id="view-trucks"><div class="card"><div class="card-title">Trucks (global)</div><div class="muted">Coming later.</div></div></section>
-    <section class="view" id="view-dispatch"><div class="card"><div class="card-title">Dispatch</div><div class="muted">Coming later.</div></div></section>
-    <section class="view" id="view-finance"><div class="card"><div class="card-title">Finance</div><div class="muted">Coming later.</div></div></section>
-    <section class="view" id="view-inventory"><div class="card"><div class="card-title">Inventory</div><div class="muted">Coming later.</div></div></section>
-    <section class="view" id="view-ai"><div class="card"><div class="card-title">AI Scanner</div><div class="muted">Coming later.</div></div></section>
+          <div class="pane" id="pane-drivers">
+            <div class="pane-actions">
+              <button class="primary" id="addDriverRow">+ Add Driver</button>
+              <span class="muted">Day-level assignments for now.</span>
+            </div>
+            <div class="table-wrap">
+              <table class="sheet">
+                <thead>
+                  <tr><th>Driver</th><th>Status</th><th>Hours</th><th>Notes</th></tr>
+                </thead>
+                <tbody id="driversBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pane" id="pane-trucks">
+            <div class="pane-actions">
+              <button class="primary" id="addTruckRow">+ Add Truck</button>
+              <span class="muted">Day-level truck usage for now.</span>
+            </div>
+            <div class="table-wrap">
+              <table class="sheet">
+                <thead>
+                  <tr><th>Truck ID</th><th>Status</th><th>Capacity</th><th>Mileage</th></tr>
+                </thead>
+                <tbody id="trucksBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pane" id="pane-records">
+            <div class="pane-actions">
+              <button class="primary" id="addRecordRow">+ Add Record</button>
+              <span class="muted">Append-only record stream.</span>
+            </div>
+            <div class="table-wrap">
+              <table class="sheet">
+                <thead>
+                  <tr><th>Type</th><th>Source</th><th>Linked</th><th>Raw Data</th><th>Approved</th><th>Created</th></tr>
+                </thead>
+                <tbody id="recordsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pane" id="pane-media">
+            <div class="pane-actions">
+              <button class="secondary" id="addMediaPlaceholder">+ Add Media Placeholder</button>
+              <span class="muted">Camera uploads plug in later.</span>
+            </div>
+            <div class="table-wrap">
+              <table class="sheet">
+                <thead>
+                  <tr><th>Type</th><th>Ref</th><th>Linked Record</th><th>Notes</th><th>Created</th></tr>
+                </thead>
+                <tbody id="mediaBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pane" id="pane-ai">
+            <div class="card">
+              <div class="card-title">AI Notes</div>
+              <div class="muted">Annotation-only. No mutation.</div>
+              <div class="table-wrap" style="margin-top:12px;">
+                <table class="sheet">
+                  <thead>
+                    <tr><th>Model</th><th>Confidence</th><th>Summary</th><th>Warnings</th><th>Created</th></tr>
+                  </thead>
+                  <tbody id="aiBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- PLACEHOLDERS -->
+      <section class="view" id="view-drivers"><div class="card"><div class="card-title">Drivers (global)</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+      <section class="view" id="view-trucks"><div class="card"><div class="card-title">Trucks (global)</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+      <section class="view" id="view-dispatch"><div class="card"><div class="card-title">Dispatch</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+      <section class="view" id="view-finance"><div class="card"><div class="card-title">Finance</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+      <section class="view" id="view-inventory"><div class="card"><div class="card-title">Inventory</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+      <section class="view" id="view-ai"><div class="card"><div class="card-title">AI Scanner</div><div class="muted">Coming later.</div><div style="height:900px;"></div></div></section>
+
+    </div><!-- /content -->
 
   </main>
 </div>
 
-<!-- Cache-bust JS too -->
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
