@@ -1,4 +1,3 @@
-/* ---------- Global / iOS Safari sanity ---------- */
 * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
 
 html, body {
@@ -6,17 +5,16 @@ html, body {
   margin: 0;
   background: #05070c;
   color: #eaeef7;
-  overflow: hidden; /* IMPORTANT: scrolling happens in .main */
+  overflow: hidden; /* scrolling happens in .main */
 }
 
-/* Use dynamic viewport height to avoid iOS Safari 100vh lies */
 .app {
   display: flex;
-  height: 100dvh; /* iOS-friendly */
+  height: 100dvh; /* iPad Safari-friendly */
   width: 100%;
 }
 
-/* ---------- Sidebar ---------- */
+/* Sidebar */
 .sidebar {
   width: 250px;
   background: #0b1020;
@@ -24,9 +22,7 @@ html, body {
   display: flex;
   flex-direction: column;
   border-right: 1px solid #151d3a;
-
-  /* allow inner scroll areas to actually scroll */
-  min-height: 0;
+  min-height: 0; /* IMPORTANT for scroll children */
 }
 
 .logo { font-weight: 900; letter-spacing: 2px; margin-bottom: 14px; }
@@ -35,11 +31,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-
-  /* THIS enables sidebar scrolling if it overflows */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-
   padding-right: 6px;
   min-height: 0;
 }
@@ -60,95 +53,57 @@ html, body {
 .navbtn.active { border-color: #2a3cff; background: rgba(42,60,255,0.12); }
 
 .sidebar-footer { margin-top: auto; padding-top: 12px; }
-.pill {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #121a33;
-  color: #cbd6ff;
-  font-size: 12px;
-}
-.pill.live {
-  background: rgba(60,255,127,0.12);
-  color: #3cff7f;
-  border: 1px solid rgba(60,255,127,0.25);
-}
+.pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #121a33; color: #cbd6ff; font-size: 12px; }
+.pill.live { background: rgba(60,255,127,0.12); color: #3cff7f; border: 1px solid rgba(60,255,127,0.25); }
 .tiny { margin-top: 8px; font-size: 12px; color: #7e89b8; }
 
-/* ---------- Main layout (this is where vertical scroll happens) ---------- */
+/* Main (vertical scrolling lives here) */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 18px 18px 24px;
-
-  /* KEY: allow flex children to shrink so overflow works */
-  min-height: 0;
-
-  /* KEY: vertical scrolling lives here */
-  overflow-y: auto;
+  min-height: 0;               /* IMPORTANT */
+  overflow-y: auto;            /* IMPORTANT */
   -webkit-overflow-scrolling: touch;
 }
 
-/* Topbar fixed in the flow (not sticky). If you want sticky later, we can. */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  flex: 0 0 auto;
-}
-
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex: 0 0 auto; }
 .title { font-weight: 800; font-size: 18px; }
 .subtitle { font-size: 12px; color: #7e89b8; margin-top: 4px; }
 .clock { font-variant-numeric: tabular-nums; color: #cbd6ff; }
 
-/* ---------- Toolbar (horizontal scroll) ---------- */
-.toolbar {
-  margin-bottom: 14px;
-  flex: 0 0 auto;
-}
-
-/* Make toolbar clearly scrollable and smooth on iOS */
+/* Toolbar (horizontal scroll) */
+.toolbar { margin-bottom: 14px; flex: 0 0 auto; }
 .toolbar-scroll {
   display: flex;
   gap: 10px;
-
   overflow-x: auto;
   overflow-y: hidden;
-
-  -webkit-overflow-scrolling: touch; /* momentum scrolling iOS */
-  scroll-snap-type: x proximity;
-
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
   border: 1px solid #151d3a;
   border-radius: 12px;
   background: rgba(15,21,43,0.55);
   backdrop-filter: blur(8px);
 }
-
-/* Prevent buttons from shrinking into mush */
 .toolbtn {
   flex: 0 0 auto;
   white-space: nowrap;
-
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #1c2445;
   background: #0f152b;
   color: #eaeef7;
   cursor: pointer;
-  scroll-snap-align: start;
 }
 .toolbtn:hover { background: #182057; }
 .toolbtn.ghost { opacity: 0.65; cursor: default; }
 .tool-sep { width: 1px; background: #1c2445; align-self: stretch; }
 
-/* ---------- Views ---------- */
 .view { display: none; }
 .view.active { display: block; }
 
-/* ---------- Cards / dashboard ---------- */
 .h2 { font-size: 18px; font-weight: 800; }
 .muted { color: #7e89b8; font-size: 12px; }
 
@@ -166,31 +121,18 @@ html, body {
 .card-title { font-weight: 800; margin-bottom: 10px; }
 .big { font-size: 26px; font-weight: 900; margin: 6px 0; }
 .row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-
-.primary, .secondary {
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 1px solid #1c2445;
-}
+.primary, .secondary { padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1px solid #1c2445; }
 .primary { background: #2a3cff; color: white; border-color: rgba(42,60,255,0.6); }
 .secondary { background: #0f152b; color: #eaeef7; }
-
 .list { margin: 0; padding-left: 18px; }
 
 .stats { display: grid; grid-template-columns: repeat(4, minmax(140px,1fr)); gap: 10px; }
 @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(140px,1fr)); } }
-
-.stat {
-  border: 1px solid #1c2445;
-  background: #0f152b;
-  border-radius: 12px;
-  padding: 12px;
-}
+.stat { border: 1px solid #1c2445; background: #0f152b; border-radius: 12px; padding: 12px; }
 .stat .k { font-size: 12px; color: #7e89b8; }
 .stat .v { font-size: 18px; font-weight: 900; margin-top: 6px; }
 
-/* ---------- Calendar ---------- */
+/* Calendar */
 .calendar-shell {
   border: 1px solid #151d3a;
   border-radius: 14px;
@@ -198,156 +140,5 @@ html, body {
   background: rgba(15,21,43,0.55);
   backdrop-filter: blur(8px);
 }
-
 .dow {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  padding: 8px 6px 10px;
-  color: #7e89b8;
-  font-size: 12px;
-}
-
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-}
-
-.daycell {
-  min-height: 95px;
-  border: 1px solid #1c2445;
-  border-radius: 12px;
-  background: #0f152b;
-  padding: 10px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.daycell:hover { background: #182057; }
-.daynum { font-weight: 900; }
-.badges { display: flex; gap: 6px; flex-wrap: wrap; }
-
-.badge {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(42,60,255,0.5);
-  background: rgba(42,60,255,0.12);
-  color: #cbd6ff;
-}
-.badge.warn {
-  border-color: rgba(255,179,71,0.45);
-  background: rgba(255,179,71,0.10);
-  color: #ffcf8c;
-}
-
-.daycell.off { opacity: 0.45; }
-.daycell.today { outline: 2px solid rgba(60,255,127,0.35); }
-
-/* ---------- Day workspace ---------- */
-.day-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.day-totals { display: flex; gap: 10px; flex-wrap: wrap; }
-.total-pill {
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid #1c2445;
-  background: #0f152b;
-  font-size: 12px;
-  color: #cbd6ff;
-}
-
-/* Tabs scroll */
-.tabs { margin: 10px 0; }
-.tabs-scroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-
-  padding: 8px;
-  border: 1px solid #151d3a;
-  border-radius: 12px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
-}
-
-.tab {
-  flex: 0 0 auto;
-  white-space: nowrap;
-
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #1c2445;
-  background: #0f152b;
-  color: #eaeef7;
-  cursor: pointer;
-}
-.tab.active { border-color: rgba(42,60,255,0.8); background: rgba(42,60,255,0.14); }
-.tab:hover { background: #182057; }
-
-/* Panes */
-.pane { display: none; }
-.pane.active { display: block; }
-
-.pane-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 10px 0;
-}
-
-/* Table area scroll */
-.table-wrap {
-  border: 1px solid #151d3a;
-  border-radius: 14px;
-  background: rgba(15,21,43,0.55);
-  backdrop-filter: blur(8px);
-
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-
-  max-height: 55vh;
-}
-
-/* Sheets */
-.sheet {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 760px;
-}
-
-.sheet th, .sheet td {
-  padding: 10px;
-  border-bottom: 1px solid #1c2445;
-}
-
-.sheet th {
-  position: sticky;
-  top: 0;
-  background: #0b1020;
-  z-index: 1;
-  text-align: left;
-  font-size: 12px;
-  color: #cbd6ff;
-}
-
-.sheet td { background: rgba(5,7,12,0.6); }
-
-.sheet td[contenteditable="true"] { outline: none; }
-.sheet td[contenteditable="true"]:focus {
-  box-shadow: inset 0 0 0 2px rgba(42,60,255,0.45);
-  border-radius: 6px;
-}
+  display
