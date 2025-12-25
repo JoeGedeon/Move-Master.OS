@@ -15,7 +15,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo"></div>
+        <div class="brand-icon"></div>
         <div class="brand-text">
           <div class="brand-name">FLEETPRO</div>
           <div class="brand-sub">Move-Master.OS</div>
@@ -23,14 +23,12 @@
       </div>
 
       <nav class="nav">
-        <!-- Core app views -->
         <button class="navbtn active" data-view="dashboard">Dashboard</button>
         <button class="navbtn" data-view="calendar">Calendar</button>
         <button class="navbtn" data-view="day">Day Workspace</button>
 
         <div class="nav-sep"></div>
 
-        <!-- Placeholder views (wire up later) -->
         <button class="navbtn" data-view="drivers">Drivers</button>
         <button class="navbtn" data-view="trucks">Trucks</button>
         <button class="navbtn" data-view="dispatch">Dispatch</button>
@@ -61,13 +59,13 @@
             <span>SYSTEM LIVE</span>
           </div>
 
-          <!-- IMPORTANT: JS badge must have an ID so JS can flip it -->
+          <!-- IMPORTANT: JS badge must have this ID -->
           <div class="badge js-status" id="jsPill">JS: not loaded</div>
         </div>
       </header>
 
       <!-- TOOLBAR -->
-      <section class="toolbar" aria-label="Toolbar">
+      <section class="toolbar">
         <div class="toolbar-row">
           <button class="toolbtn" id="btnToday" type="button">Today</button>
           <button class="toolbtn" id="btnPrev" type="button">◀</button>
@@ -79,18 +77,17 @@
 
           <div class="spacer"></div>
 
-          <button class="toolbtn ghost" id="btnExport" type="button" disabled>Export (later)</button>
-          <button class="toolbtn ghost" id="btnSync" type="button" disabled>Sync (later)</button>
+          <button class="toolbtn ghost" id="btnExport" type="button">Export (later)</button>
+          <button class="toolbtn ghost" id="btnSync" type="button">Sync (later)</button>
         </div>
       </section>
 
       <!-- VIEWS -->
-      <section class="views">
+      <section class="views" id="viewsRoot">
 
-        <!-- DASHBOARD (default active) -->
+        <!-- DASHBOARD -->
         <section class="view active" id="view-dashboard" data-view-panel="dashboard">
           <div class="grid">
-
             <div class="card">
               <h2>Today</h2>
               <div class="muted" id="todayLine">Loading…</div>
@@ -119,40 +116,45 @@
               <h2>This Month Snapshot</h2>
               <div class="muted" id="monthSnapshot">Jobs: 0 · Receipts: 0 · Expenses: $0</div>
             </div>
-
           </div>
         </section>
 
-        <!-- CALENDAR (full month) -->
-        <section class="view" id="view-calendar" data-view-panel="calendar" hidden>
+        <!-- CALENDAR -->
+        <section class="view" id="view-calendar" data-view-panel="calendar">
           <div class="card">
-            <h2 id="calendarTitle">December 2025</h2>
-            <div class="muted">Tap a day to open Day Workspace.</div>
-            <div id="calendarMonth" class="calendar-grid"></div>
+            <div class="row space-between">
+              <h2 id="monthLabel">Month</h2>
+              <div class="row">
+                <button class="toolbtn" id="calPrev" type="button">◀</button>
+                <button class="toolbtn" id="calToday" type="button">Today</button>
+                <button class="toolbtn" id="calNext" type="button">▶</button>
+              </div>
+            </div>
+            <div id="monthCalendar" class="calendar-month"></div>
           </div>
         </section>
 
         <!-- DAY WORKSPACE -->
-        <section class="view" id="view-day" data-view-panel="day" hidden>
+        <section class="view" id="view-day" data-view-panel="day">
           <div class="card">
             <h2>Day Workspace</h2>
-            <div class="muted" id="dayDateLine">—</div>
+            <div class="muted" id="dayTitle">Pick a day.</div>
 
-            <div class="tabs" role="tablist" aria-label="Day Tabs">
-              <button class="tab active" type="button" data-tab="jobs">Jobs</button>
-              <button class="tab" type="button" data-tab="receipts">Receipts</button>
-              <button class="tab" type="button" data-tab="notes">Notes</button>
+            <div class="tabs">
+              <button class="tab active" data-tab="jobs" type="button">Jobs</button>
+              <button class="tab" data-tab="receipts" type="button">Receipts</button>
+              <button class="tab" data-tab="notes" type="button">Notes</button>
             </div>
 
-            <div class="tabpanes">
-              <section class="pane active" data-pane="jobs">
+            <div class="tabpanels">
+              <div class="tabpanel active" data-tabpanel="jobs">
                 <div class="row">
                   <button class="toolbtn primary" id="btnAddJobInline" type="button">+ Add Job</button>
                   <div class="muted">Edit fields normally (not one character at a time).</div>
                 </div>
 
                 <div class="table-wrap">
-                  <table class="table" id="jobsTable">
+                  <table class="sheet">
                     <thead>
                       <tr>
                         <th>JOB ID</th>
@@ -160,49 +162,50 @@
                         <th>PICKUP</th>
                         <th>DROPOFF</th>
                         <th>AMOUNT</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody id="jobsTbody">
-                      <!-- JS will render rows -->
+                      <!-- JS fills -->
                     </tbody>
                   </table>
                 </div>
-              </section>
+              </div>
 
-              <section class="pane" data-pane="receipts" hidden>
-                <div class="muted">Receipts: coming next.</div>
-              </section>
+              <div class="tabpanel" data-tabpanel="receipts">
+                <div class="muted">Receipts coming next.</div>
+              </div>
 
-              <section class="pane" data-pane="notes" hidden>
-                <div class="muted">Notes: coming next.</div>
-              </section>
+              <div class="tabpanel" data-tabpanel="notes">
+                <div class="muted">Notes coming next.</div>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- PLACEHOLDER VIEWS -->
-        <section class="view" id="view-drivers" data-view-panel="drivers" hidden>
-          <div class="card"><h2>Drivers</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-drivers" data-view-panel="drivers">
+          <div class="card"><h2>Drivers</h2><div class="muted">Coming soon.</div></div>
         </section>
 
-        <section class="view" id="view-trucks" data-view-panel="trucks" hidden>
-          <div class="card"><h2>Trucks</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-trucks" data-view-panel="trucks">
+          <div class="card"><h2>Trucks</h2><div class="muted">Coming soon.</div></div>
         </section>
 
-        <section class="view" id="view-dispatch" data-view-panel="dispatch" hidden>
-          <div class="card"><h2>Dispatch</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-dispatch" data-view-panel="dispatch">
+          <div class="card"><h2>Dispatch</h2><div class="muted">Coming soon.</div></div>
         </section>
 
-        <section class="view" id="view-finance" data-view-panel="finance" hidden>
-          <div class="card"><h2>Finance</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-finance" data-view-panel="finance">
+          <div class="card"><h2>Finance</h2><div class="muted">Coming soon.</div></div>
         </section>
 
-        <section class="view" id="view-inventory" data-view-panel="inventory" hidden>
-          <div class="card"><h2>Inventory</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-inventory" data-view-panel="inventory">
+          <div class="card"><h2>Inventory</h2><div class="muted">Coming soon.</div></div>
         </section>
 
-        <section class="view" id="view-ai" data-view-panel="ai" hidden>
-          <div class="card"><h2>AI Scanner</h2><div class="muted">Placeholder</div></div>
+        <section class="view" id="view-ai" data-view-panel="ai">
+          <div class="card"><h2>AI Scanner</h2><div class="muted">Coming soon.</div></div>
         </section>
 
       </section>
@@ -212,8 +215,8 @@
   <!-- MODAL OVERLAY (MUST START HIDDEN) -->
   <div class="modal-overlay" id="modalOverlay" hidden></div>
 
-  <!-- JOB MODAL (MUST START HIDDEN) -->
-  <div class="modal" id="jobModal" hidden aria-hidden="true" role="dialog" aria-label="Add Job">
+  <!-- ADD JOB MODAL (MUST START HIDDEN) -->
+  <div class="modal" id="jobModal" hidden aria-hidden="true">
     <div class="modal-head">
       <div class="modal-title">Add Job</div>
       <button class="modal-x" id="jobModalClose" type="button" aria-label="Close">×</button>
@@ -253,14 +256,13 @@
       <div id="jobError" class="form-error" hidden></div>
     </div>
 
-    <!-- ONE footer. ONE set of IDs. Humans can handle that. -->
     <div class="modal-foot">
       <button class="toolbtn" id="jobCancel" type="button">Cancel</button>
       <button class="toolbtn primary" id="jobSave" type="button">Save Job</button>
     </div>
   </div>
 
-  <!-- IMPORTANT: Load JS at the end so DOM exists -->
+  <!-- IMPORTANT: load JS at the very end so DOM exists -->
   <script src="./app_v5.js?v=20251225_0300"></script>
 </body>
 </html>
