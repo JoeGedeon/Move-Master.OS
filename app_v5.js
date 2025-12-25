@@ -568,3 +568,6 @@
     }
   });
 })();
+window.addEventListener("error", (e) => {
+  alert("JS ERROR: " + (e.message || "unknown"));
+});
