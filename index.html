@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>FleetPro</title>
 
-  <!-- Cache-bust: change this number any time you edit CSS/JS -->
-  <link rel="stylesheet" href="styles.css?v=20251224_2405" />
-<script src="app.js?v=20251224_2405" defer></script>
+  <!-- IMPORTANT: project-site safe relative paths -->
+  <link rel="stylesheet" href="./styles.css?v=20251224_9999" />
 </head>
 
 <body>
@@ -19,7 +18,7 @@
         <div class="brand-title">FLEETPRO</div>
       </div>
 
-      <nav class="nav">
+      <nav class="nav" id="nav">
         <button class="navbtn active" data-view="dashboard" type="button">Dashboard</button>
         <button class="navbtn" data-view="calendar" type="button">Calendar</button>
         <button class="navbtn" data-view="day" type="button">Day Workspace</button>
@@ -55,15 +54,13 @@
             <span class="dot"></span>
             <span>SYSTEM LIVE</span>
           </div>
-
-          <!-- JS load indicator: turns green only if app.js actually runs -->
           <div class="js-indicator" id="jsIndicator">JS: not loaded</div>
         </div>
       </header>
 
-      <!-- TOOLBAR -->
+      <!-- TOOLBAR (scrollable horizontally on iPad) -->
       <section class="toolbar">
-        <div class="toolbar-inner">
+        <div class="toolbar-inner" id="toolbarInner">
           <button class="btn" id="btnToday" type="button">Today</button>
           <button class="btn icon" id="btnPrev" type="button">◀</button>
           <button class="btn icon" id="btnNext" type="button">▶</button>
@@ -97,11 +94,9 @@
           </div>
 
           <div class="card wide">
-            <div class="card-title">Pressure Points (placeholder)</div>
-            <ul class="bullets">
-              <li>Overbooked drivers: <span class="muted">AI later</span></li>
-              <li>Truck maintenance conflicts: <span class="muted">rules later</span></li>
-              <li>Receipts missing: <span class="muted">driver app later</span></li>
+            <div class="card-title">Pressure Points</div>
+            <ul class="bullets" id="pressureList">
+              <li class="muted">Loading…</li>
             </ul>
           </div>
 
@@ -117,7 +112,7 @@
             <div class="row spread">
               <div>
                 <div class="card-title" id="monthLabel">Month</div>
-                <div class="muted">Click any day tile to enter the Day Workspace.</div>
+                <div class="muted">Tap a day tile to enter the Day Workspace.</div>
               </div>
             </div>
 
@@ -148,8 +143,13 @@
               <button class="tab" type="button" data-tab="drivers">Drivers</button>
               <button class="tab" type="button" data-tab="trucks">Trucks</button>
               <button class="tab" type="button" data-tab="records">Records</button>
-              <button class="tab" type="button" data-tab="media">Media</button>
               <button class="tab" type="button" data-tab="ai">AI Notes</button>
+            </div>
+
+            <!-- Warnings -->
+            <div class="warnbox" id="warnBox" hidden>
+              <div class="warn-title">Warnings</div>
+              <ul class="warn-list" id="warnList"></ul>
             </div>
 
             <!-- PANE: JOBS -->
@@ -158,18 +158,20 @@
                 <button class="btn primary" id="addJobRow" type="button">+ Add Job</button>
                 <div class="muted">Edit cells directly. Tab/Enter moves between cells.</div>
               </div>
+
               <div class="table-wrap">
-                <table class="sheet">
+                <table class="sheet" id="jobsTable">
                   <thead>
                     <tr>
                       <th>Job ID</th>
                       <th>Customer</th>
-                      <th>Pickup</th>
-                      <th>Dropoff</th>
-                      <th>Volume</th>
+                      <th>Pickup Address</th>
+                      <th>Dropoff Address</th>
+                      <th>Volume (ft³)</th>
                       <th>Status</th>
                       <th>Driver</th>
                       <th>Truck</th>
+                      <th>Notes</th>
                     </tr>
                   </thead>
                   <tbody id="jobsBody"></tbody>
@@ -181,7 +183,7 @@
             <div class="pane" id="pane-drivers">
               <div class="row">
                 <button class="btn primary" id="addDriverRow" type="button">+ Add Driver (Day)</button>
-                <div class="muted">This is day-level notes, not the master directory.</div>
+                <div class="muted">Day-level staffing notes (not the master directory yet).</div>
               </div>
               <div class="table-wrap">
                 <table class="sheet">
@@ -195,27 +197,32 @@
             <div class="pane" id="pane-trucks">
               <div class="row">
                 <button class="btn primary" id="addTruckRow" type="button">+ Add Truck (Day)</button>
-                <div class="muted">This is day-level notes, not the master directory.</div>
+                <div class="muted">Day-level truck assignments (not the master directory yet).</div>
               </div>
               <div class="table-wrap">
                 <table class="sheet">
-                  <thead><tr><th>ID</th><th>Status</th><th>Capacity</th><th>Mileage</th></tr></thead>
+                  <thead><tr><th>Truck ID</th><th>Status</th><th>Capacity</th><th>Mileage</th><th>Notes</th></tr></thead>
                   <tbody id="trucksBody"></tbody>
                 </table>
               </div>
             </div>
 
-            <!-- PANE: RECORDS -->
+            <!-- PANE: RECORDS (Receipts/Expenses/etc) -->
             <div class="pane" id="pane-records">
               <div class="row">
                 <button class="btn primary" id="addRecordRow" type="button">+ Add Record</button>
-                <div class="muted">Use Type=receipt with Amount= to track expenses.</div>
+                <div class="muted">Use Type=receipt and Amount= to track expenses.</div>
               </div>
               <div class="table-wrap">
                 <table class="sheet">
                   <thead>
                     <tr>
-                      <th>Type</th><th>Source</th><th>Linked</th><th>Raw Data</th><th>Approved</th><th>Created</th>
+                      <th>Type</th>
+                      <th>Vendor</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                      <th>Notes</th>
+                      <th>Created</th>
                     </tr>
                   </thead>
                   <tbody id="recordsBody"></tbody>
@@ -223,68 +230,42 @@
               </div>
             </div>
 
-            <!-- PANE: MEDIA -->
-            <div class="pane" id="pane-media">
-              <div class="muted">Media intake is coming next (uploads + AI).</div>
-            </div>
-
             <!-- PANE: AI -->
             <div class="pane" id="pane-ai">
-              <div class="muted">AI Notes placeholder. No mutation. Annotation-only.</div>
+              <div class="muted">
+                AI Notes placeholder. This is where receipt parsing + estimate intelligence plugs in later.
+              </div>
+              <div class="ai-note" id="aiNoteBox"></div>
             </div>
           </div>
         </div>
 
-        <!-- DRIVERS DIRECTORY -->
-        <div class="view" id="view-drivers"></div>
-
-        <!-- TRUCKS DIRECTORY -->
-        <div class="view" id="view-trucks"></div>
-
-        <!-- DISPATCH -->
-        <div class="view" id="view-dispatch"></div>
-
-        <!-- FINANCE / INVENTORY / SCANNER placeholders -->
-        <div class="view" id="view-finance"></div>
-        <div class="view" id="view-inventory"></div>
-        <div class="view" id="view-scanner"></div>
+        <!-- PLACEHOLDER VIEWS -->
+        <div class="view" id="view-drivers"><div class="card wide"><div class="card-title">Drivers</div><div class="muted">Directory coming next.</div></div></div>
+        <div class="view" id="view-trucks"><div class="card wide"><div class="card-title">Trucks</div><div class="muted">Directory coming next.</div></div></div>
+        <div class="view" id="view-dispatch"><div class="card wide"><div class="card-title">Dispatch</div><div class="muted">Dispatch board coming next.</div></div></div>
+        <div class="view" id="view-finance"><div class="card wide"><div class="card-title">Finance</div><div class="muted">Finance dashboard coming next.</div></div></div>
+        <div class="view" id="view-inventory"><div class="card wide"><div class="card-title">Inventory</div><div class="muted">Inventory tools coming next.</div></div></div>
+        <div class="view" id="view-scanner"><div class="card wide"><div class="card-title">AI Scanner</div><div class="muted">Camera + AI intake coming next.</div></div></div>
 
       </section>
     </main>
   </div>
 
-  <!-- JS: keep defer, do NOT use type="module" -->
+  <!-- Inline safety: show errors in console instead of silent death -->
   <script>
-    // This flips only if app.js actually runs
     window.__fleetpro_boot = false;
-    window.addEventListener("error", (e) => {
+    window.addEventListener("error", () => {
       const el = document.getElementById("jsIndicator");
       if (el) {
         el.textContent = "JS: ERROR";
         el.style.borderColor = "rgba(255,80,80,0.6)";
         el.style.color = "rgba(255,180,180,0.95)";
       }
-      console.error("FleetPro error:", e?.error || e?.message || e);
     });
   </script>
 
-  <script src="app.js?v=20251224_2359" defer></script>
-
-  <script>
-    // If app.js sets this true, indicator goes green. If not, it stays red.
-    setTimeout(() => {
-      const el = document.getElementById("jsIndicator");
-      if (!el) return;
-      if (window.__fleetpro_boot) {
-        el.textContent = "JS: loaded";
-        el.style.borderColor = "rgba(80,255,160,0.55)";
-        el.style.color = "rgba(180,255,220,0.95)";
-      } else {
-        el.textContent = "JS: not loaded";
-        el.style.borderColor = "rgba(255,80,80,0.6)";
-        el.style.color = "rgba(255,180,180,0.95)";
-      }
-    }, 600);
-  </script>
+  <!-- IMPORTANT: project-site safe relative path -->
+  <script src="./app.js?v=20251224_9999" defer></script>
 </body>
 </html>
