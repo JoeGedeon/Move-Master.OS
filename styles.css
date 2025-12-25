@@ -485,3 +485,31 @@ html, body {
   min-height: 0; /* critical for iOS + flex scrolling */
   -webkit-overflow-scrolling: touch;
 }
+/* ===== Toolbar horizontal scroll (iPad-friendly) ===== */
+
+/* The toolbar row that contains the buttons */
+.toolbar,
+.topbar .toolbar,
+.topbar-right,
+.topbar-center,
+.topbar-actions {
+  min-width: 0;
+}
+
+/* Make the actual button row swipe-scroll horizontally */
+.toolbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  scrollbar-width: none; /* Firefox */
+}
+.toolbar::-webkit-scrollbar {
+  display: none; /* iOS/Safari/Chrome */
+}
+
+/* Keep toolbar items in a single line and not squished */
+.toolbar > * {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
