@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <title>FleetPro Foundation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
+
+  <!-- Cache-bust for iPad Safari / GitHub Pages -->
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 
@@ -91,6 +93,12 @@
         <div class="card-title">This Month Snapshot</div>
         <div class="stats" id="monthStats"></div>
       </div>
+
+      <!-- Extra space content so you can verify main scroll easily -->
+      <div class="card wide">
+        <div class="card-title">Scroll Test</div>
+        <div class="muted">If you can scroll down to see this, the dashboard scroll is working.</div>
+      </div>
     </section>
 
     <section class="view" id="view-calendar">
@@ -104,6 +112,11 @@
           <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
         <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+
+      <div class="card wide">
+        <div class="card-title">Scroll Test</div>
+        <div class="muted">If you can scroll down to see this, calendar view scroll is working.</div>
       </div>
     </section>
 
@@ -277,6 +290,7 @@
   </main>
 </div>
 
-<script src="app.js"></script>
+<!-- Cache-bust JS too -->
+<script src="app.js?v=2"></script>
 </body>
 </html>
