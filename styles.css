@@ -513,3 +513,33 @@ html, body {
   display: inline-flex;
   flex: 0 0 auto;
 }
+/* ===== Sidebar (toolbar) scroll fix ===== */
+
+/* Make the sidebar a full-height column */
+.sidebar{
+  height: 100vh;              /* full viewport height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;           /* prevent whole sidebar from scrolling weirdly */
+}
+
+/* This is the part that should scroll (your menu buttons) */
+.sidebar nav{
+  flex: 1 1 auto;             /* take remaining height */
+  overflow-y: auto;           /* enable vertical scrolling */
+  -webkit-overflow-scrolling: touch; /* iOS momentum scroll */
+  min-height: 0;              /* REQUIRED for flex children to actually scroll */
+}
+
+/* Footer stays pinned at the bottom */
+.sidebar-footer{
+  flex: 0 0 auto;
+}
+
+/* Optional: keep main content scrolling normally */
+.main{
+  height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
