@@ -1,3 +1,4 @@
+window.__fleetpro_boot = true;
 /* FleetPro Smart Engine v1.4
    - Dashboard / Calendar / Day Workspace
    - Drivers / Trucks / Dispatch enabled
