@@ -320,3 +320,32 @@ html, body {
 .sheet{
   table-layout: fixed;        /* forces wrapping instead of stretching forever */
 }
+/* ===== HARD FIX: allow full horizontal scroll for job tables ===== */
+
+/* Ensure the Day Workspace pane itself can scroll horizontally */
+.pane {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Force table wrapper to allow full width scrolling */
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: auto;
+  touch-action: pan-x pan-y;
+}
+
+/* Let the table be as wide as it needs to be */
+.sheet {
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+/* Prevent cells from visually clipping text */
+.sheet td,
+.sheet th {
+  overflow: visible;
+}
