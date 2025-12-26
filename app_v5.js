@@ -1557,3 +1557,384 @@ alert("apps_v5.js LOADED ✅");
     init();
   }
 })();
+
+/* ============================================================
+   INVENTORY HARD-FIX (No HTML edits required)
+   - Forces Inventory tab to open
+   - Auto-creates #view-inventory if missing
+   - Replaces "Coming Soon" label with "Active"
+   - Adds basic Inventory CRUD (items saved in localStorage)
+   ============================================================ */
+(() => {
+  "use strict";
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  const escapeHtml = (s) =>
+    String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const toNum = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const clampMoney = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
+  };
+  const money = (n) => `$${clampMoney(n).toFixed(2)}`;
+
+  function makeId(prefix = "inv") {
+    try { return crypto.randomUUID(); }
+    catch { return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`; }
+  }
+
+  const LS_INVENTORY = "fleet_inventory_v5";
+
+  function loadInventory() {
+    try {
+      const raw = localStorage.getItem(LS_INVENTORY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveInventory(arr) {
+    try { localStorage.setItem(LS_INVENTORY, JSON.stringify(arr)); } catch {}
+  }
+
+  function normalizeItem(it) {
+    const item = { ...(it || {}) };
+    if (!item.id) item.id = makeId("inv");
+    item.name = (item.name || "").trim();
+    item.sku = (item.sku || "").trim();
+    item.category = (item.category || "General").trim() || "General";
+    item.qty = Math.max(0, Math.floor(toNum(item.qty, 0)));
+    item.unitCost = clampMoney(item.unitCost ?? 0);
+    item.lowStock = Math.max(0, Math.floor(toNum(item.lowStock, 0)));
+    item.notes = (item.notes || "").trim();
+    item.active = item.active !== false;
+    item.createdAt = item.createdAt || Date.now();
+    item.updatedAt = item.updatedAt || item.createdAt;
+    return item;
+  }
+
+  // ------------------------------------------------------------
+  // 1) Find Inventory button (handles naming variations)
+  // ------------------------------------------------------------
+  function getInventoryBtn() {
+    return (
+      document.querySelector('[data-view="inventory"]') ||
+      document.querySelector('[data-view="inv"]') ||
+      $$("[data-view]").find(b => (b.textContent || "").toLowerCase().includes("inventory"))
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 2) Replace "Coming Soon" with "Active"
+  // ------------------------------------------------------------
+  function markInventoryActiveLabel() {
+    const btn = getInventoryBtn();
+    if (!btn) return;
+
+    const sub =
+      btn.querySelector(".sub") ||
+      btn.querySelector(".subtext") ||
+      btn.querySelector("small");
+
+    if (sub && /coming\s*soon/i.test(sub.textContent || "")) sub.textContent = "Active";
+    if (/coming\s*soon/i.test(btn.textContent || "")) {
+      btn.innerHTML = btn.innerHTML.replace(/coming\s*soon/gi, "Active");
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 3) Ensure Inventory view container exists
+  // ------------------------------------------------------------
+  function ensureInventoryContainer() {
+    let host = $("#view-inventory") || $("#view-inv");
+    if (host) {
+      if (host.id !== "view-inventory") host.id = "view-inventory";
+      return host;
+    }
+
+    const mount =
+      $("#mainContent") ||
+      $("#main") ||
+      $("main") ||
+      $(".main") ||
+      $(".main-content") ||
+      $(".content") ||
+      $("#content") ||
+      document.body;
+
+    host = document.createElement("section");
+    host.id = "view-inventory";
+    host.style.display = "none";
+    host.className = "view panel-root";
+    mount.appendChild(host);
+    return host;
+  }
+
+  // ------------------------------------------------------------
+  // 4) Non-destructive view switcher
+  // ------------------------------------------------------------
+  function showView(viewId) {
+    const views = $$('[id^="view-"]');
+    if (views.length) views.forEach(v => (v.style.display = "none"));
+
+    const v = document.getElementById(viewId);
+    if (v) v.style.display = "block";
+
+    $$("[data-view]").forEach(btn => btn.classList.remove("active"));
+    const invBtn = getInventoryBtn();
+    if (invBtn) invBtn.classList.add("active");
+  }
+
+  // ------------------------------------------------------------
+  // 5) Render Inventory page
+  // ------------------------------------------------------------
+  function renderInventory() {
+    const host = ensureInventoryContainer();
+
+    let inventory = loadInventory().map(normalizeItem);
+    // seed a couple items if empty
+    if (inventory.length === 0) {
+      inventory = [
+        normalizeItem({ name: "Stretch Wrap", sku: "WRAP-001", category: "Supplies", qty: 12, unitCost: 8.99, lowStock: 5 }),
+        normalizeItem({ name: "Moving Blankets", sku: "BLKT-010", category: "Supplies", qty: 30, unitCost: 12.5, lowStock: 10 }),
+      ];
+      saveInventory(inventory);
+    }
+
+    const total = inventory.length;
+    const lowCount = inventory.filter(i => i.active !== false && i.qty <= (i.lowStock || 0)).length;
+
+    // very simple filter UI (no dependency on your global state)
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Inventory</div>
+          <div class="panel-sub">${total} item(s) · ${lowCount} low-stock</div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <label class="field" style="min-width:220px;">
+            <span>Name</span>
+            <input id="invName" type="text" placeholder="e.g., Tape, Wrap, Dollies" />
+          </label>
+          <label class="field" style="min-width:150px;">
+            <span>SKU</span>
+            <input id="invSku" type="text" placeholder="optional" />
+          </label>
+          <label class="field" style="min-width:160px;">
+            <span>Category</span>
+            <input id="invCat" type="text" placeholder="Supplies" />
+          </label>
+          <label class="field" style="min-width:110px;">
+            <span>Qty</span>
+            <input id="invQty" type="number" step="1" value="0" />
+          </label>
+          <label class="field" style="min-width:130px;">
+            <span>Unit Cost</span>
+            <input id="invCost" type="number" step="0.01" value="0" />
+          </label>
+          <label class="field" style="min-width:130px;">
+            <span>Low Stock</span>
+            <input id="invLow" type="number" step="1" value="0" />
+          </label>
+          <label class="field" style="min-width:260px; flex:1;">
+            <span>Notes</span>
+            <input id="invNotes" type="text" placeholder="optional" />
+          </label>
+          <button class="btn primary" type="button" id="invAdd">Add</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-header">
+          <div class="panel-title">Items</div>
+          <div class="panel-sub">Adjust quantities and keep your crews from improvising with prayer.</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;" id="invList"></div>
+      </div>
+    `;
+
+    const list = $("#invList", host);
+
+    function rerenderList() {
+      inventory = loadInventory().map(normalizeItem);
+
+      list.innerHTML = inventory
+        .filter(i => i.active !== false)
+        .slice()
+        .sort((a,b) => (a.category === b.category ? a.name.localeCompare(b.name) : a.category.localeCompare(b.category)))
+        .map(i => {
+          const low = i.qty <= (i.lowStock || 0);
+          return `
+            <div class="job-row ${low ? "is-cancelled" : ""}">
+              <div class="job-main">
+                <div class="job-title">${escapeHtml(i.name || "Item")} ${i.sku ? `<span class="muted">(${escapeHtml(i.sku)})</span>` : ""}</div>
+                <div class="job-sub">
+                  Category: <strong>${escapeHtml(i.category)}</strong> ·
+                  Qty: <strong>${escapeHtml(i.qty)}</strong>${low ? ` · <strong>LOW</strong>` : ""} ·
+                  Unit Cost: <strong>${money(i.unitCost || 0)}</strong> ·
+                  Low Stock at: <strong>${escapeHtml(i.lowStock || 0)}</strong>
+                </div>
+                ${i.notes ? `<div class="job-sub">${escapeHtml(i.notes)}</div>` : ""}
+              </div>
+              <div class="job-actions">
+                <button class="btn" type="button" data-minus="${escapeHtml(i.id)}">-1</button>
+                <button class="btn" type="button" data-plus="${escapeHtml(i.id)}">+1</button>
+                <button class="btn" type="button" data-edit="${escapeHtml(i.id)}">Edit</button>
+                <button class="btn danger" type="button" data-del="${escapeHtml(i.id)}">Delete</button>
+              </div>
+            </div>
+          `;
+        }).join("") || `<div class="empty muted">No inventory items yet.</div>`;
+
+      // bind buttons
+      $$("[data-plus]", list).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-plus");
+          const arr = loadInventory().map(normalizeItem);
+          const it = arr.find(x => x.id === id);
+          if (!it) return;
+          it.qty = Math.max(0, Math.floor(toNum(it.qty, 0) + 1));
+          it.updatedAt = Date.now();
+          saveInventory(arr);
+          rerenderList();
+        });
+      });
+
+      $$("[data-minus]", list).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-minus");
+          const arr = loadInventory().map(normalizeItem);
+          const it = arr.find(x => x.id === id);
+          if (!it) return;
+          it.qty = Math.max(0, Math.floor(toNum(it.qty, 0) - 1));
+          it.updatedAt = Date.now();
+          saveInventory(arr);
+          rerenderList();
+        });
+      });
+
+      $$("[data-del]", list).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-del");
+          if (!confirm("Delete this inventory item?")) return;
+          const arr = loadInventory().map(normalizeItem).filter(x => x.id !== id);
+          saveInventory(arr);
+          rerenderList();
+        });
+      });
+
+      $$("[data-edit]", list).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-edit");
+          const arr = loadInventory().map(normalizeItem);
+          const it = arr.find(x => x.id === id);
+          if (!it) return;
+
+          const name = prompt("Name:", it.name || "");
+          if (name === null) return;
+          const sku = prompt("SKU:", it.sku || "");
+          if (sku === null) return;
+          const category = prompt("Category:", it.category || "General");
+          if (category === null) return;
+          const qty = prompt("Qty:", String(it.qty ?? 0));
+          if (qty === null) return;
+          const unitCost = prompt("Unit Cost:", String(it.unitCost ?? 0));
+          if (unitCost === null) return;
+          const lowStock = prompt("Low Stock threshold:", String(it.lowStock ?? 0));
+          if (lowStock === null) return;
+          const notes = prompt("Notes:", it.notes || "");
+          if (notes === null) return;
+
+          it.name = (name || "").trim();
+          it.sku = (sku || "").trim();
+          it.category = (category || "General").trim() || "General";
+          it.qty = Math.max(0, Math.floor(toNum(qty, it.qty)));
+          it.unitCost = clampMoney(unitCost);
+          it.lowStock = Math.max(0, Math.floor(toNum(lowStock, it.lowStock)));
+          it.notes = (notes || "").trim();
+          it.updatedAt = Date.now();
+
+          saveInventory(arr);
+          rerenderList();
+        });
+      });
+    }
+
+    rerenderList();
+
+    $("#invAdd", host)?.addEventListener("click", () => {
+      const name = ($("#invName", host)?.value || "").trim();
+      const sku = ($("#invSku", host)?.value || "").trim();
+      const category = ($("#invCat", host)?.value || "General").trim() || "General";
+      const qty = Math.max(0, Math.floor(toNum($("#invQty", host)?.value, 0)));
+      const unitCost = clampMoney($("#invCost", host)?.value || 0);
+      const lowStock = Math.max(0, Math.floor(toNum($("#invLow", host)?.value, 0)));
+      const notes = ($("#invNotes", host)?.value || "").trim();
+
+      if (!name) return;
+
+      const arr = loadInventory().map(normalizeItem);
+      arr.push(normalizeItem({ name, sku, category, qty, unitCost, lowStock, notes, active: true }));
+      saveInventory(arr);
+
+      // clear a couple fields
+      $("#invName", host).value = "";
+      $("#invSku", host).value = "";
+      $("#invNotes", host).value = "";
+
+      rerenderList();
+    });
+  }
+
+  // ------------------------------------------------------------
+  // 6) Bind Inventory click so it ALWAYS opens
+  // ------------------------------------------------------------
+  function bindInventoryNav() {
+    const btn = getInventoryBtn();
+    if (!btn) {
+      console.warn("⚠ Inventory button not found (no [data-view] for inventory).");
+      return;
+    }
+    if (btn.dataset.inventoryBound === "1") return;
+    btn.dataset.inventoryBound = "1";
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      markInventoryActiveLabel();
+      renderInventory();
+      showView("view-inventory");
+    });
+  }
+
+  function init() {
+    markInventoryActiveLabel();
+    ensureInventoryContainer();
+    bindInventoryNav();
+
+    // If inventory view exists and currently shows "coming soon", replace it
+    const host = $("#view-inventory") || $("#view-inv");
+    if (host && /coming\s*soon/i.test(host.textContent || "")) renderInventory();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
