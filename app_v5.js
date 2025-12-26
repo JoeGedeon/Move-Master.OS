@@ -1,3 +1,4 @@
+alert("apps_v5.js is executing ✅");
 document.documentElement.setAttribute("data-js-executed", "YES");
 /* ============================================================
    Fleet CRM — apps_v5.js (SAFE RESTORE)
