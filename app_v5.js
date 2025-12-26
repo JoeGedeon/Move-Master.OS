@@ -1,27 +1,26 @@
-/* ============================================================
-   Fleet CRM — apps_v5.js (NON-DESTRUCTIVE RENDERER)
-   ------------------------------------------------------------
-   Fixes:
-   ✅ Stops nuking your dashboard HTML
-   ✅ Always renders the FULL calendar if #calendarGrid exists
-   ✅ Keeps Quick Calendar (#dashboardCalendar) working
-   ✅ Keeps Day Workspace working
-   ✅ Makes Drivers + Trucks real pages (renders into #view-drivers/#view-trucks if present)
-   ------------------------------------------------------------
-   Design rule:
-   - If your HTML already has content, JS will NOT replace it.
-   - JS only fills known placeholders by ID.
-   ============================================================ */
+/* =========================================================
+   Fleet CRM — apps_v5.js (FULL)
+   Next Update: RECEIPTS MODULE + Job Linking + Totals
+   ---------------------------------------------------------
+   Works with existing layout. No required HTML edits.
+   - Views: dashboard / calendar / day / receipts (if present)
+   - Jobs: status editing (existing day list assumed), safe if absent
+   - Receipts: Add/Edit/Delete, categories, link to job, totals
+   - Month calendar: markers for jobs + receipts
+   - LocalStorage persistence
+   ========================================================= */
 
 (() => {
   "use strict";
-  console.log("✅ apps_v5.js loaded (non-destructive build)");
+
+  console.log("✅ apps_v5.js loaded");
 
   // ---------------------------
   // Helpers
   // ---------------------------
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
   const pad2 = (n) => String(n).padStart(2, "0");
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -30,13 +29,8 @@
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 
-  const escapeHtml = (s) =>
-    String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  const monthName = (m) =>
+    ["January","February","March","April","May","June","July","August","September","October","November","December"][m];
 
   const clampMoney = (v) => {
     const n = Number(v);
@@ -50,13 +44,44 @@
     catch { return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`; }
   }
 
+  const escapeHtml = (s) =>
+    String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  function safe(fn) { try { fn(); } catch (e) { console.error("[Fleet]", e); } }
+
   // ---------------------------
   // Storage
   // ---------------------------
   const LS_JOBS = "fleet_jobs_v5";
   const LS_RECEIPTS = "fleet_receipts_v5";
-  const LS_DRIVERS = "fleet_drivers_v5";
-  const LS_TRUCKS = "fleet_trucks_v5";
+
+  const STATUS = {
+    scheduled: "scheduled",
+    completed: "completed",
+    cancelled: "cancelled",
+  };
+
+  const STATUS_LABEL = {
+    scheduled: "Scheduled",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+
+  const RECEIPT_CATEGORIES = [
+    "Fuel",
+    "Tolls",
+    "Supplies",
+    "Parking",
+    "Meals",
+    "Maintenance",
+    "Lodging",
+    "Other",
+  ];
 
   function loadArray(key) {
     try {
@@ -67,16 +92,14 @@
       return [];
     }
   }
+
   function saveArray(key, arr) {
     try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
   }
 
   // ---------------------------
-  // Domain
+  // Normalizers
   // ---------------------------
-  const STATUS = { scheduled: "scheduled", completed: "completed", cancelled: "cancelled" };
-  const STATUS_LABEL = { scheduled: "Scheduled", completed: "Completed", cancelled: "Cancelled" };
-
   function normalizeJob(j) {
     const job = { ...(j || {}) };
     if (!job.id) job.id = makeId("job");
@@ -87,8 +110,11 @@
     job.pickup = (job.pickup || "").trim();
     job.dropoff = (job.dropoff || "").trim();
     job.amount = clampMoney(job.amount ?? 0);
-    job.driverId = (job.driverId || "").trim();
-    job.truckId = (job.truckId || "").trim();
+    job.notes = (job.notes || "").trim();
+
+    // optional fields (future-proof)
+    job.driver = (job.driver || "").trim();
+    job.truck = (job.truck || "").trim();
 
     if (!job.createdAt) job.createdAt = Date.now();
     job.updatedAt = job.updatedAt || job.createdAt;
@@ -99,38 +125,16 @@
     const rec = { ...(r || {}) };
     if (!rec.id) rec.id = makeId("rcpt");
     if (!rec.date) rec.date = ymd(startOfDay(new Date()));
+
     rec.vendor = (rec.vendor || "").trim();
     rec.category = (rec.category || "").trim();
     rec.amount = clampMoney(rec.amount ?? 0);
     rec.notes = (rec.notes || "").trim();
-    rec.jobId = (rec.jobId || "").trim();
+    rec.jobId = (rec.jobId || "").trim(); // link to job (optional)
+
     if (!rec.createdAt) rec.createdAt = Date.now();
     rec.updatedAt = rec.updatedAt || rec.createdAt;
     return rec;
-  }
-
-  function normalizeDriver(d) {
-    const drv = { ...(d || {}) };
-    if (!drv.id) drv.id = makeId("drv");
-    drv.name = (drv.name || "").trim();
-    drv.phone = (drv.phone || "").trim();
-    drv.active = drv.active !== false;
-    if (!drv.createdAt) drv.createdAt = Date.now();
-    drv.updatedAt = drv.updatedAt || drv.createdAt;
-    return drv;
-  }
-
-  function normalizeTruck(t) {
-    const trk = { ...(t || {}) };
-    if (!trk.id) trk.id = makeId("trk");
-    trk.label = (trk.label || "").trim();
-    trk.plate = (trk.plate || "").trim();
-    trk.type = (trk.type || "").trim();
-    trk.capacity = (trk.capacity || "").trim();
-    trk.active = trk.active !== false;
-    if (!trk.createdAt) trk.createdAt = Date.now();
-    trk.updatedAt = trk.updatedAt || trk.createdAt;
-    return trk;
   }
 
   // ---------------------------
@@ -140,48 +144,47 @@
     view: "dashboard",
     currentDate: startOfDay(new Date()),
     monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-
     jobs: loadArray(LS_JOBS).map(normalizeJob),
     receipts: loadArray(LS_RECEIPTS).map(normalizeReceipt),
-    drivers: loadArray(LS_DRIVERS).map(normalizeDriver),
-    trucks: loadArray(LS_TRUCKS).map(normalizeTruck),
 
-    driverSearch: "",
-    truckSearch: "",
+    // receipt modal state
+    receiptMode: "add",
+    editingReceiptId: null,
   };
 
   function persist() {
     saveArray(LS_JOBS, state.jobs);
     saveArray(LS_RECEIPTS, state.receipts);
-    saveArray(LS_DRIVERS, state.drivers);
-    saveArray(LS_TRUCKS, state.trucks);
   }
 
-  function seedFleetIfEmpty() {
-    if (state.drivers.length === 0) {
-      state.drivers = [
-        normalizeDriver({ name: "Driver 1", phone: "", active: true }),
-        normalizeDriver({ name: "Driver 2", phone: "", active: true }),
-      ];
-    }
-    if (state.trucks.length === 0) {
-      state.trucks = [
-        normalizeTruck({ label: "Truck 1", plate: "", type: "Box Truck", capacity: "26ft", active: true }),
-        normalizeTruck({ label: "Truck 2", plate: "", type: "Sprinter", capacity: "", active: true }),
-      ];
-    }
-    persist();
+  // ---------------------------
+  // View switching (uses your existing view containers if present)
+  // expects: #view-dashboard, #view-calendar, #view-day, #view-receipts (optional)
+  // and nav buttons with [data-view="dashboard"] etc.
+  // ---------------------------
+  function setView(name) {
+    state.view = name;
+
+    $$('[id^="view-"]').forEach((el) => el.classList.remove("active"));
+    const panel = $(`#view-${name}`);
+    if (panel) panel.classList.add("active");
+
+    $$("[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+
+    renderAll();
   }
 
   // ---------------------------
   // Aggregations
   // ---------------------------
   function jobsByDate(dateStr) {
-    return state.jobs.filter(j => j.date === dateStr);
+    return state.jobs.filter((j) => j.date === dateStr);
   }
+
   function receiptsByDate(dateStr) {
-    return state.receipts.filter(r => r.date === dateStr);
+    return state.receipts.filter((r) => r.date === dateStr);
   }
+
   function sumJobRevenue(dateStr) {
     let total = 0;
     for (const j of jobsByDate(dateStr)) {
@@ -190,82 +193,69 @@
     }
     return clampMoney(total);
   }
+
   function sumReceiptExpense(dateStr) {
     let total = 0;
     for (const r of receiptsByDate(dateStr)) total += clampMoney(r.amount);
     return clampMoney(total);
   }
 
-  // ---------------------------
-  // View switching (uses your existing view containers)
-  // Expects: #view-dashboard, #view-calendar, #view-day, etc.
-  // If you don’t have them, it still won’t overwrite your dashboard HTML.
-  // ---------------------------
-  function setView(viewName) {
-    state.view = viewName;
-
-    // If you have view sections, toggle them
-    const viewEls = $$('[id^="view-"]');
-    if (viewEls.length) {
-      viewEls.forEach(el => {
-        el.style.display = "none";
-        el.classList.remove("active");
-      });
-      const panel = $(`#view-${viewName}`);
-      if (panel) {
-        panel.style.display = "block";
-        panel.classList.add("active");
-      }
+  function receiptCategoryTotals(dateStr) {
+    const map = new Map();
+    for (const r of receiptsByDate(dateStr)) {
+      const key = r.category || "Uncategorized";
+      map.set(key, clampMoney((map.get(key) || 0) + clampMoney(r.amount)));
     }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }
 
-    // Highlight nav buttons
-    $$("[data-view]").forEach(btn => {
-      btn.classList.toggle("active", btn.getAttribute("data-view") === viewName);
-    });
-
-    renderAll();
+  function monthTotals(year, monthIndex) {
+    let revenue = 0, expenses = 0;
+    for (const j of state.jobs) {
+      const d = new Date(j.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
+      if (j.status === STATUS.cancelled) continue;
+      revenue += clampMoney(j.amount);
+    }
+    for (const r of state.receipts) {
+      const d = new Date(r.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
+      expenses += clampMoney(r.amount);
+    }
+    return { revenue: clampMoney(revenue), expenses: clampMoney(expenses), net: clampMoney(revenue - expenses) };
   }
 
   // ---------------------------
-  // Renders that do NOT overwrite your layout
-  // They only populate known placeholders.
+  // Dashboard render (uses #dashboardStats if present)
   // ---------------------------
-  function renderDashboardPlaceholders() {
+  function renderDashboard() {
+    const el = $("#dashboardStats") || $("#monthSnapshot");
+    if (!el) return;
+
     const todayStr = ymd(state.currentDate);
-    const rev = sumJobRevenue(todayStr);
-    const exp = sumReceiptExpense(todayStr);
-    const net = clampMoney(rev - exp);
+    const jobsToday = jobsByDate(todayStr);
+    const receiptsToday = receiptsByDate(todayStr);
 
-    // today line
-    if ($("#todayLine")) $("#todayLine").textContent = todayStr;
+    const revToday = sumJobRevenue(todayStr);
+    const expToday = sumReceiptExpense(todayStr);
+    const netToday = clampMoney(revToday - expToday);
 
-    // month snapshot / dashboard stats
-    const stats = $("#monthSnapshot") || $("#dashboardStats");
-    if (stats) {
-      // Only write if it's a placeholder (empty or very short)
-      const txt = (stats.textContent || "").trim();
-      if (txt.length < 6) {
-        stats.innerHTML = `
-          <div><strong>Today:</strong> ${escapeHtml(todayStr)}</div>
-          <div>Revenue: <strong>${money(rev)}</strong> · Expenses: <strong>${money(exp)}</strong> · Net: <strong>${money(net)}</strong></div>
-        `;
-      }
-    }
+    const y = state.monthCursor.getFullYear();
+    const m = state.monthCursor.getMonth();
+    const mt = monthTotals(y, m);
 
-    // pressure points (same rule: fill only if empty)
-    const pp = $("#pressurePoints");
-    if (pp) {
-      const t = (pp.textContent || "").trim();
-      if (t.length < 6) {
-        pp.innerHTML = `
-          <div>• Jobs today: ${jobsByDate(todayStr).length}</div>
-          <div>• Receipts today: ${receiptsByDate(todayStr).length}</div>
-          <div>• Net today: ${money(net)}</div>
-        `;
-      }
-    }
+    el.innerHTML = `
+      <div><strong>Today:</strong> ${todayStr}</div>
+      <div>Jobs: ${jobsToday.length} · Receipts: ${receiptsToday.length}</div>
+      <div>Revenue: <strong>${money(revToday)}</strong> · Expenses: <strong>${money(expToday)}</strong> · Net: <strong>${money(netToday)}</strong></div>
+      <div style="margin-top:8px; opacity:.9;">
+        <strong>${monthName(m)} ${y}</strong> · Revenue ${money(mt.revenue)} · Expenses ${money(mt.expenses)} · Net ${money(mt.net)}
+      </div>
+    `;
 
-    // Quick calendar always renders if container exists
+    // Optional: quick calendar container if you have it
     const quick = $("#dashboardCalendar");
     if (quick) renderQuickCalendar(quick);
   }
@@ -274,9 +264,6 @@
     const y = state.currentDate.getFullYear();
     const m = state.currentDate.getMonth();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-    // do not overwrite if user built custom quick calendar UI
-    if (container.dataset.custom === "1") return;
 
     container.innerHTML = "";
     for (let day = 1; day <= daysInMonth; day++) {
@@ -289,7 +276,7 @@
       btn.textContent = String(day);
 
       if (sameDay(d, state.currentDate)) btn.classList.add("active");
-      if (jobsByDate(dateStr).some(j => j.status !== STATUS.cancelled)) btn.classList.add("has-jobs");
+      if (jobsByDate(dateStr).length) btn.classList.add("has-jobs");
       if (receiptsByDate(dateStr).length) btn.classList.add("has-receipts");
 
       btn.addEventListener("click", () => {
@@ -303,29 +290,22 @@
   }
 
   // ---------------------------
-  // FULL Calendar (IMPORTANT FIX)
-  // Always renders if #calendarGrid exists anywhere in the DOM.
+  // Full month calendar (expects #calendarGrid and #monthLabel or #calendarLabel)
   // ---------------------------
-  function renderFullCalendarIfPresent() {
+  function renderCalendar() {
     const grid = $("#calendarGrid");
-    const label = $("#calendarLabel") || $("#monthLabel");
-
-    if (!grid) return; // you simply don't have a calendar container in HTML
+    const label = $("#monthLabel") || $("#calendarLabel");
+    if (!grid || !label) return;
 
     const y = state.monthCursor.getFullYear();
     const m = state.monthCursor.getMonth();
-    if (label) label.textContent = `${state.monthCursor.toLocaleString("default", { month: "long" })} ${y}`;
 
-    // If your CSS expects a specific structure, we won't inject extra wrappers. Just fill the grid.
+    label.textContent = `${monthName(m)} ${y}`;
     grid.innerHTML = "";
 
-    const first = new Date(y, m, 1);
-    const firstDow = first.getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-    // Optional DOW row if your CSS supports it:
-    if (grid.dataset.dow !== "0") {
-      const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    // Optional DOW header if your CSS supports it
+    const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    if (!grid.classList.contains("no-dow")) {
       for (const d of dow) {
         const h = document.createElement("div");
         h.className = "dow";
@@ -334,9 +314,14 @@
       }
     }
 
+    const first = new Date(y, m, 1);
+    const firstDow = first.getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const today = startOfDay(new Date());
+
     for (let i = 0; i < firstDow; i++) {
       const pad = document.createElement("div");
-      pad.className = "calendar-day pad";
+      pad.className = "day pad";
       grid.appendChild(pad);
     }
 
@@ -344,345 +329,550 @@
       const d = new Date(y, m, day);
       const dateStr = ymd(d);
 
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "calendar-day";
-      btn.innerHTML = `<strong>${day}</strong>`;
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "day";
+      if (sameDay(d, today)) cell.classList.add("today");
+      if (sameDay(d, state.currentDate)) cell.classList.add("selected");
 
-      if (sameDay(d, new Date())) btn.classList.add("today");
+      const num = document.createElement("div");
+      num.className = "num";
+      num.textContent = String(day);
 
-      const jobs = jobsByDate(dateStr).filter(j => j.status !== STATUS.cancelled).length;
-      const rcpts = receiptsByDate(dateStr).length;
-      if (jobs) btn.classList.add("has-jobs");
-      if (rcpts) btn.classList.add("has-receipts");
+      const marker = document.createElement("div");
+      marker.className = "markerbar";
 
-      btn.addEventListener("click", () => {
+      const jc = jobsByDate(dateStr).filter(j => j.status !== STATUS.cancelled).length;
+      const rc = receiptsByDate(dateStr).length;
+
+      if (jc) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `${jc} job${jc === 1 ? "" : "s"}`;
+        marker.appendChild(chip);
+      }
+      if (rc) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-receipts";
+        chip.textContent = `🧾 ${rc}`;
+        marker.appendChild(chip);
+      }
+
+      cell.appendChild(num);
+      cell.appendChild(marker);
+
+      cell.addEventListener("click", () => {
         state.currentDate = startOfDay(d);
         setView("day");
       });
 
-      grid.appendChild(btn);
+      grid.appendChild(cell);
     }
   }
 
   // ---------------------------
-  // Day Workspace (renders into existing #dayTitle/#dayJobs if present)
+  // Day workspace render (expects #dayTitle, #dayJobsList or #dayJobs, and #dayReceiptsList optional)
+  // If day jobs container not present, it won’t crash.
   // ---------------------------
-  function renderDayWorkspaceIfPresent() {
-    const title = $("#dayTitle");
-    const list = $("#dayJobs");
-    if (!title || !list) return;
-
+  function renderDay() {
     const dateStr = ymd(state.currentDate);
-    title.textContent = `Day Workspace – ${dateStr}`;
 
-    const jobs = jobsByDate(dateStr).slice();
+    const title = $("#dayTitle");
+    if (title) title.textContent = `Day Workspace – ${dateStr}`;
+
+    renderDayJobs(dateStr);
+    renderDayReceipts(dateStr);
+
+    // Optional "Open calendar" or similar buttons
+    $("#openCalendar")?.addEventListener("click", () => setView("calendar"));
+  }
+
+  function renderDayJobs(dateStr) {
+    // Supports either #dayJobsList or #dayJobs
+    const list = $("#dayJobsList") || $("#dayJobs");
+    if (!list) return;
+
+    const jobs = jobsByDate(dateStr).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     const rev = sumJobRevenue(dateStr);
     const exp = sumReceiptExpense(dateStr);
     const net = clampMoney(rev - exp);
 
-    list.innerHTML = `
-      <div class="day-totals">
-        <div><strong>Revenue:</strong> ${money(rev)} · <strong>Expenses:</strong> ${money(exp)} · <strong>Net:</strong> ${money(net)}</div>
-      </div>
-      <div style="margin-top:10px;">
-        ${jobs.length ? jobs.map(j => `
-          <div class="job-row">
-            <div class="job-main">
-              <div class="job-title">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</div>
-              <div class="job-sub">${escapeHtml(j.pickup || "Pickup")} → ${escapeHtml(j.dropoff || "Dropoff")}</div>
-              <div class="job-sub">Status: <strong>${escapeHtml(STATUS_LABEL[j.status] || "Scheduled")}</strong></div>
-            </div>
-          </div>
-        `).join("") : `<div class="empty muted">No jobs for this day.</div>`}
-      </div>
+    list.innerHTML = "";
+
+    const totals = document.createElement("div");
+    totals.className = "day-totals";
+    totals.innerHTML = `
+      <div><strong>Totals</strong></div>
+      <div>Revenue: ${money(rev)} · Expenses: ${money(exp)} · Net: ${money(net)}</div>
     `;
-  }
+    list.appendChild(totals);
 
-  // ---------------------------
-  // Drivers view (renders ONLY into #view-drivers)
-  // ---------------------------
-  function renderDriversViewIfPresent() {
-    const host = $("#view-drivers");
-    if (!host) return;
+    if (!jobs.length) {
+      const empty = document.createElement("div");
+      empty.className = "muted empty";
+      empty.textContent = "No jobs for this day yet.";
+      list.appendChild(empty);
+      return;
+    }
 
-    const activeCount = state.drivers.filter(d => d.active).length;
-    const totalCount = state.drivers.length;
+    jobs.forEach((job) => {
+      const row = document.createElement("div");
+      row.className = "job-row";
+      if (job.status === STATUS.completed) row.classList.add("is-completed");
+      if (job.status === STATUS.cancelled) row.classList.add("is-cancelled");
 
-    const q = state.driverSearch.trim().toLowerCase();
-    const filtered = state.drivers
-      .slice()
-      .sort((a, b) => (a.active === b.active ? a.name.localeCompare(b.name) : (a.active ? -1 : 1)))
-      .filter(d => {
-        if (!q) return true;
-        return (d.name || "").toLowerCase().includes(q) ||
-               (d.phone || "").toLowerCase().includes(q);
-      });
-
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Drivers</div>
-          <div class="panel-sub">${activeCount} active / ${totalCount} total</div>
+      row.innerHTML = `
+        <div class="job-main">
+          <div class="job-title">${escapeHtml(job.customer || "Customer")}</div>
+          <div class="job-sub">${escapeHtml(job.pickup || "Pickup")} → ${escapeHtml(job.dropoff || "Dropoff")} · ${money(job.amount)}</div>
         </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:240px;">
-            <span>Search</span>
-            <input id="drvSearch" type="text" value="${escapeHtml(state.driverSearch)}" placeholder="Search driver..." />
-          </label>
-
-          <label class="field" style="min-width:240px;">
-            <span>Name</span>
-            <input id="drvName" type="text" placeholder="Driver name" />
-          </label>
-
-          <label class="field" style="min-width:180px;">
-            <span>Phone</span>
-            <input id="drvPhone" type="text" placeholder="(555) 555-5555" />
-          </label>
-
-          <button class="btn primary" id="drvAdd" type="button">Add</button>
+        <div class="job-actions">
+          <select class="job-status" data-job-status="${escapeHtml(job.id)}">
+            <option value="scheduled" ${job.status === STATUS.scheduled ? "selected" : ""}>Scheduled</option>
+            <option value="completed" ${job.status === STATUS.completed ? "selected" : ""}>Completed</option>
+            <option value="cancelled" ${job.status === STATUS.cancelled ? "selected" : ""}>Cancelled</option>
+          </select>
+          <button class="btn" type="button" data-job-open="${escapeHtml(job.id)}">Edit</button>
+          <button class="btn danger" type="button" data-job-del="${escapeHtml(job.id)}">Delete</button>
         </div>
+      `;
 
-        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${filtered.length ? filtered.map(d => `
-            <div class="job-row ${d.active ? "" : "is-cancelled"}">
-              <div class="job-main">
-                <div class="job-title">${escapeHtml(d.name || "Unnamed Driver")}</div>
-                <div class="job-sub">${escapeHtml(d.phone || "")} · ${d.active ? "Active" : "Inactive"}</div>
-              </div>
-              <div class="job-actions">
-                <button class="btn" data-drv-edit="${escapeHtml(d.id)}" type="button">Edit</button>
-                <button class="btn" data-drv-toggle="${escapeHtml(d.id)}" type="button">${d.active ? "Deactivate" : "Activate"}</button>
-                <button class="btn danger" data-drv-del="${escapeHtml(d.id)}" type="button">Delete</button>
-              </div>
-            </div>
-          `).join("") : `<div class="empty muted">No drivers found.</div>`}
-        </div>
-      </div>
-    `;
-
-    $("#drvSearch")?.addEventListener("input", (e) => {
-      state.driverSearch = e.target.value || "";
-      renderDriversViewIfPresent();
+      list.appendChild(row);
     });
 
-    $("#drvAdd")?.addEventListener("click", () => {
-      const name = ($("#drvName")?.value || "").trim();
-      const phone = ($("#drvPhone")?.value || "").trim();
-      if (!name) return;
-      state.drivers.push(normalizeDriver({ name, phone, active: true }));
-      persist();
-      renderDriversViewIfPresent();
-    });
-
-    $$("[data-drv-toggle]", host).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-drv-toggle");
-        const d = state.drivers.find(x => x.id === id);
-        if (!d) return;
-        d.active = !d.active;
-        d.updatedAt = Date.now();
+    // Bind job status change
+    $$("[data-job-status]", list).forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const id = e.target.getAttribute("data-job-status");
+        const val = e.target.value;
+        const j = state.jobs.find((x) => x.id === id);
+        if (!j) return;
+        j.status = STATUS_LABEL[val] ? val : STATUS.scheduled;
+        j.updatedAt = Date.now();
         persist();
-        renderDriversViewIfPresent();
+        renderAll();
       });
     });
 
-    $$("[data-drv-del]", host).forEach(btn => {
+    // Bind delete
+    $$("[data-job-del]", list).forEach((btn) => {
       btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-drv-del");
+        const id = btn.getAttribute("data-job-del");
         if (!id) return;
-        if (!confirm("Delete this driver?")) return;
-        state.drivers = state.drivers.filter(x => x.id !== id);
+        if (!confirm("Delete this job?")) return;
+        state.jobs = state.jobs.filter((j) => j.id !== id);
+        // unlink receipts pointing to this job
+        state.receipts = state.receipts.map((r) => r.jobId === id ? normalizeReceipt({ ...r, jobId: "", updatedAt: Date.now() }) : r);
         persist();
-        renderDriversViewIfPresent();
+        renderAll();
       });
     });
 
-    $$("[data-drv-edit]", host).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-drv-edit");
-        const d = state.drivers.find(x => x.id === id);
-        if (!d) return;
-
-        const name = prompt("Driver name:", d.name || "");
-        if (name === null) return;
-        const phone = prompt("Phone:", d.phone || "");
-        if (phone === null) return;
-
-        d.name = name.trim();
-        d.phone = phone.trim();
-        d.updatedAt = Date.now();
-        persist();
-        renderDriversViewIfPresent();
-      });
+    // Bind edit (if you already have a job modal in your HTML, we’ll use it)
+    $$("[data-job-open]", list).forEach((btn) => {
+      btn.addEventListener("click", () => openJobEditor(btn.getAttribute("data-job-open")));
     });
   }
 
   // ---------------------------
-  // Trucks view (renders ONLY into #view-trucks)
+  // Job Editor (NO REQUIRED HTML)
+  // If you have #jobModal & fields, it uses them. If not, uses prompt-based safe editor.
   // ---------------------------
-  function renderTrucksViewIfPresent() {
-    const host = $("#view-trucks");
+  function openJobEditor(jobId) {
+    const job = state.jobs.find((j) => j.id === jobId);
+    if (!job) return;
+
+    const modal = $("#jobModal");
+    const overlay = $("#modalOverlay");
+
+    // If your existing modal exists, fill and show it
+    if (modal && overlay && $("#jobCustomer") && $("#jobPickup") && $("#jobDropoff") && $("#jobAmount") && $("#jobDate")) {
+      overlay.hidden = false;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+
+      $("#jobDate").value = job.date;
+      $("#jobCustomer").value = job.customer || "";
+      $("#jobPickup").value = job.pickup || "";
+      $("#jobDropoff").value = job.dropoff || "";
+      $("#jobAmount").value = String(job.amount ?? 0);
+      $("#jobNotes") && ($("#jobNotes").value = job.notes || "");
+      $("#jobStatus") && ($("#jobStatus").value = job.status || STATUS.scheduled);
+
+      // Save handler
+      $("#jobSave")?.addEventListener("click", () => {
+        job.date = $("#jobDate").value || job.date;
+        job.customer = ($("#jobCustomer").value || "").trim();
+        job.pickup = ($("#jobPickup").value || "").trim();
+        job.dropoff = ($("#jobDropoff").value || "").trim();
+        job.amount = clampMoney($("#jobAmount").value ?? job.amount);
+        if ($("#jobNotes")) job.notes = ($("#jobNotes").value || "").trim();
+        if ($("#jobStatus")) job.status = STATUS_LABEL[$("#jobStatus").value] ? $("#jobStatus").value : job.status;
+
+        job.updatedAt = Date.now();
+        persist();
+        closeJobModal();
+        renderAll();
+      }, { once: true });
+
+      $("#jobCancel")?.addEventListener("click", closeJobModal, { once: true });
+      $("#jobModalClose")?.addEventListener("click", closeJobModal, { once: true });
+      overlay.addEventListener("click", closeJobModal, { once: true });
+
+      return;
+    }
+
+    // Fallback editor (keeps you moving even if modal HTML isn’t present)
+    const customer = prompt("Customer:", job.customer || "");
+    if (customer === null) return;
+    const pickup = prompt("Pickup address:", job.pickup || "");
+    if (pickup === null) return;
+    const dropoff = prompt("Dropoff address:", job.dropoff || "");
+    if (dropoff === null) return;
+    const amount = prompt("Amount ($):", String(job.amount ?? 0));
+    if (amount === null) return;
+
+    job.customer = customer.trim();
+    job.pickup = pickup.trim();
+    job.dropoff = dropoff.trim();
+    job.amount = clampMoney(amount);
+    job.updatedAt = Date.now();
+
+    persist();
+    renderAll();
+  }
+
+  function closeJobModal() {
+    $("#modalOverlay") && ($("#modalOverlay").hidden = true);
+    $("#jobModal") && ($("#jobModal").hidden = true, $("#jobModal").setAttribute("aria-hidden","true"));
+  }
+
+  // ---------------------------
+  // Day Receipts render
+  // Expects #dayReceiptsList OR injects into #view-day if missing.
+  // ---------------------------
+  function renderDayReceipts(dateStr) {
+    let host = $("#dayReceiptsList");
+
+    // If there isn't a dedicated receipts list area in day view, inject one safely
+    const dayView = $("#view-day");
+    if (!host && dayView) {
+      let injected = $("#__injectedDayReceipts");
+      if (!injected) {
+        injected = document.createElement("div");
+        injected.id = "__injectedDayReceipts";
+        injected.style.marginTop = "14px";
+        dayView.appendChild(injected);
+      }
+      host = injected;
+    }
+
     if (!host) return;
 
-    const activeCount = state.trucks.filter(t => t.active).length;
-    const totalCount = state.trucks.length;
+    const receipts = receiptsByDate(dateStr).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const total = sumReceiptExpense(dateStr);
+    const cats = receiptCategoryTotals(dateStr);
 
-    const q = state.truckSearch.trim().toLowerCase();
-    const filtered = state.trucks
-      .slice()
-      .sort((a, b) => (a.active === b.active ? a.label.localeCompare(b.label) : (a.active ? -1 : 1)))
-      .filter(t => {
-        if (!q) return true;
-        return (t.label || "").toLowerCase().includes(q) ||
-               (t.plate || "").toLowerCase().includes(q) ||
-               (t.type || "").toLowerCase().includes(q);
-      });
+    // Build job options list for linking
+    const jobs = jobsByDate(dateStr);
+    const jobOptions = [
+      `<option value="">(Not linked)</option>`,
+      ...jobs.map(j => `<option value="${escapeHtml(j.id)}">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</option>`)
+    ].join("");
 
     host.innerHTML = `
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">Trucks</div>
-          <div class="panel-sub">${activeCount} active / ${totalCount} total</div>
+          <div class="panel-title">Receipts – ${dateStr}</div>
+          <div class="panel-sub">Track driver/company expenses for the day. Link receipts to jobs when relevant.</div>
         </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:240px;">
-            <span>Search</span>
-            <input id="trkSearch" type="text" value="${escapeHtml(state.truckSearch)}" placeholder="Search trucks..." />
-          </label>
+        <div class="day-totals">
+          <div><strong>Total Expenses:</strong> ${money(total)}</div>
+          <div>${cats.length ? cats.map(([k,v]) => `${escapeHtml(k)} ${money(v)}`).slice(0,4).join(" · ") : "No categories yet"}</div>
+        </div>
 
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
           <label class="field" style="min-width:220px;">
-            <span>Label</span>
-            <input id="trkLabel" type="text" placeholder="Truck label" />
+            <span>Vendor</span>
+            <input id="rcptVendor" type="text" placeholder="Shell, Home Depot, Toll" />
           </label>
 
           <label class="field" style="min-width:160px;">
-            <span>Plate</span>
-            <input id="trkPlate" type="text" placeholder="ABC-1234" />
+            <span>Amount</span>
+            <input id="rcptAmount" type="number" step="0.01" placeholder="0.00" />
           </label>
 
           <label class="field" style="min-width:180px;">
-            <span>Type</span>
-            <input id="trkType" type="text" placeholder="Box truck / Sprinter" />
+            <span>Category</span>
+            <select id="rcptCategory">
+              <option value="">Uncategorized</option>
+              ${RECEIPT_CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}
+            </select>
           </label>
 
-          <button class="btn primary" id="trkAdd" type="button">Add</button>
+          <label class="field" style="min-width:220px;">
+            <span>Link to Job (optional)</span>
+            <select id="rcptJobId">
+              ${jobOptions}
+            </select>
+          </label>
+
+          <label class="field" style="min-width:260px;">
+            <span>Notes</span>
+            <input id="rcptNotes" type="text" placeholder="receipt #, reason, etc." />
+          </label>
+
+          <button id="rcptAddBtn" class="btn primary" type="button">Add Receipt</button>
         </div>
 
+        <div id="rcptError" class="modal-error" style="margin-top:10px;" hidden></div>
+
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${filtered.length ? filtered.map(t => `
-            <div class="job-row ${t.active ? "" : "is-cancelled"}">
-              <div class="job-main">
-                <div class="job-title">${escapeHtml(t.label || "Unnamed Truck")}</div>
-                <div class="job-sub">${escapeHtml(t.type || "")}${t.plate ? ` · Plate: ${escapeHtml(t.plate)}` : ""} · ${t.active ? "Active" : "Inactive"}</div>
-              </div>
-              <div class="job-actions">
-                <button class="btn" data-trk-edit="${escapeHtml(t.id)}" type="button">Edit</button>
-                <button class="btn" data-trk-toggle="${escapeHtml(t.id)}" type="button">${t.active ? "Deactivate" : "Activate"}</button>
-                <button class="btn danger" data-trk-del="${escapeHtml(t.id)}" type="button">Delete</button>
-              </div>
-            </div>
-          `).join("") : `<div class="empty muted">No trucks found.</div>`}
+          ${
+            receipts.length
+              ? receipts.map(r => {
+                  const linked = r.jobId ? state.jobs.find(j => j.id === r.jobId) : null;
+                  return `
+                    <div class="receipt-row">
+                      <div class="receipt-main">
+                        <div class="receipt-title">
+                          ${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Uncategorized")}
+                          ${linked ? `<span class="chip chip-jobs" style="margin-left:8px;">Linked: ${escapeHtml(linked.customer || "Job")}</span>` : ""}
+                        </div>
+                        <div class="receipt-sub">${money(r.amount)} · ${escapeHtml(r.notes || "")}</div>
+                      </div>
+                      <div class="receipt-actions">
+                        <button class="btn" type="button" data-rcpt-edit="${escapeHtml(r.id)}">Edit</button>
+                        <button class="btn danger" type="button" data-rcpt-del="${escapeHtml(r.id)}">Delete</button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")
+              : `<div class="muted empty">No receipts for this day yet.</div>`
+          }
         </div>
       </div>
     `;
 
-    $("#trkSearch")?.addEventListener("input", (e) => {
-      state.truckSearch = e.target.value || "";
-      renderTrucksViewIfPresent();
-    });
+    // Bind Add
+    $("#rcptAddBtn")?.addEventListener("click", () => {
+      const vendor = ($("#rcptVendor")?.value || "").trim();
+      const amount = clampMoney($("#rcptAmount")?.value ?? 0);
+      const category = ($("#rcptCategory")?.value || "").trim();
+      const jobId = ($("#rcptJobId")?.value || "").trim();
+      const notes = ($("#rcptNotes")?.value || "").trim();
 
-    $("#trkAdd")?.addEventListener("click", () => {
-      const label = ($("#trkLabel")?.value || "").trim();
-      const plate = ($("#trkPlate")?.value || "").trim();
-      const type = ($("#trkType")?.value || "").trim();
-      if (!label) return;
+      const errBox = $("#rcptError");
+      const fail = (msg) => { if (errBox) { errBox.textContent = msg; errBox.hidden = false; } };
 
-      state.trucks.push(normalizeTruck({ label, plate, type, active: true }));
+      if (!vendor) return fail("Vendor is required.");
+      if (amount <= 0) return fail("Amount must be greater than 0.");
+
+      if (errBox) { errBox.hidden = true; errBox.textContent = ""; }
+
+      state.receipts.push(normalizeReceipt({
+        id: makeId("rcpt"),
+        date: dateStr,
+        vendor,
+        amount,
+        category,
+        jobId,
+        notes,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }));
+
       persist();
-      renderTrucksViewIfPresent();
+      renderAll();
     });
 
-    $$("[data-trk-toggle]", host).forEach(btn => {
+    // Bind Delete
+    $$("[data-rcpt-del]", host).forEach((btn) => {
       btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-trk-toggle");
-        const t = state.trucks.find(x => x.id === id);
-        if (!t) return;
-        t.active = !t.active;
-        t.updatedAt = Date.now();
-        persist();
-        renderTrucksViewIfPresent();
-      });
-    });
-
-    $$("[data-trk-del]", host).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-trk-del");
+        const id = btn.getAttribute("data-rcpt-del");
         if (!id) return;
-        if (!confirm("Delete this truck?")) return;
-        state.trucks = state.trucks.filter(x => x.id !== id);
+        if (!confirm("Delete this receipt?")) return;
+        state.receipts = state.receipts.filter((r) => r.id !== id);
         persist();
-        renderTrucksViewIfPresent();
+        renderAll();
       });
     });
 
-    $$("[data-trk-edit]", host).forEach(btn => {
+    // Bind Edit
+    $$("[data-rcpt-edit]", host).forEach((btn) => {
       btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-trk-edit");
-        const t = state.trucks.find(x => x.id === id);
-        if (!t) return;
-
-        const label = prompt("Truck label:", t.label || "");
-        if (label === null) return;
-        const plate = prompt("Plate:", t.plate || "");
-        if (plate === null) return;
-        const type = prompt("Type:", t.type || "");
-        if (type === null) return;
-
-        t.label = label.trim();
-        t.plate = plate.trim();
-        t.type = type.trim();
-        t.updatedAt = Date.now();
-        persist();
-        renderTrucksViewIfPresent();
+        const id = btn.getAttribute("data-rcpt-edit");
+        if (!id) return;
+        openReceiptEditor(id);
       });
     });
   }
 
   // ---------------------------
-  // Render router
+  // Receipt Editor (no required HTML)
+  // If you have a receipt modal in HTML later, we can wire it. For now: safe prompt editor.
+  // ---------------------------
+  function openReceiptEditor(receiptId) {
+    const r = state.receipts.find((x) => x.id === receiptId);
+    if (!r) return;
+
+    const vendor = prompt("Vendor:", r.vendor || "");
+    if (vendor === null) return;
+    const amount = prompt("Amount:", String(r.amount ?? 0));
+    if (amount === null) return;
+
+    const category = prompt(
+      `Category (examples: ${RECEIPT_CATEGORIES.join(", ")}):`,
+      r.category || ""
+    );
+    if (category === null) return;
+
+    const notes = prompt("Notes:", r.notes || "");
+    if (notes === null) return;
+
+    r.vendor = vendor.trim();
+    r.amount = clampMoney(amount);
+    r.category = category.trim();
+    r.notes = notes.trim();
+    r.updatedAt = Date.now();
+
+    persist();
+    renderAll();
+  }
+
+  // ---------------------------
+  // Receipts view (if you have #view-receipts)
+  // Shows month-to-date receipts summary and list.
+  // ---------------------------
+  function renderReceiptsView() {
+    const host = $("#view-receipts") || $("#view-finances") || null;
+    if (!host) return;
+
+    const y = state.monthCursor.getFullYear();
+    const m = state.monthCursor.getMonth();
+
+    const monthReceipts = state.receipts
+      .filter((r) => {
+        const d = new Date(r.date);
+        return !Number.isNaN(d.getTime()) && d.getFullYear() === y && d.getMonth() === m;
+      })
+      .slice()
+      .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+    let total = 0;
+    const catMap = new Map();
+    for (const r of monthReceipts) {
+      total += clampMoney(r.amount);
+      const k = r.category || "Uncategorized";
+      catMap.set(k, clampMoney((catMap.get(k) || 0) + clampMoney(r.amount)));
+    }
+    total = clampMoney(total);
+
+    const catLines = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1]);
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Receipts – ${monthName(m)} ${y}</div>
+          <div class="panel-sub">Month-to-date expense tracking.</div>
+        </div>
+
+        <div class="day-totals">
+          <div><strong>Total Expenses (MTD):</strong> ${money(total)}</div>
+          <div>${catLines.length ? catLines.slice(0,6).map(([k,v]) => `${escapeHtml(k)} ${money(v)}`).join(" · ") : "No receipts yet"}</div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+          ${
+            monthReceipts.length
+              ? monthReceipts.map(r => {
+                  const linked = r.jobId ? state.jobs.find(j => j.id === r.jobId) : null;
+                  return `
+                    <div class="receipt-row">
+                      <div class="receipt-main">
+                        <div class="receipt-title">
+                          ${escapeHtml(r.date)} · ${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Uncategorized")}
+                          ${linked ? `<span class="chip chip-jobs" style="margin-left:8px;">Linked: ${escapeHtml(linked.customer || "Job")}</span>` : ""}
+                        </div>
+                        <div class="receipt-sub">${money(r.amount)} · ${escapeHtml(r.notes || "")}</div>
+                      </div>
+                      <div class="receipt-actions">
+                        <button class="btn" type="button" data-rcpt-edit="${escapeHtml(r.id)}">Edit</button>
+                        <button class="btn danger" type="button" data-rcpt-del="${escapeHtml(r.id)}">Delete</button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")
+              : `<div class="muted empty">No receipts recorded this month yet.</div>`
+          }
+        </div>
+      </div>
+    `;
+
+    // bind edit/del in receipts view
+    $$("[data-rcpt-del]", host).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-rcpt-del");
+        if (!id) return;
+        if (!confirm("Delete this receipt?")) return;
+        state.receipts = state.receipts.filter((r) => r.id !== id);
+        persist();
+        renderAll();
+      });
+    });
+
+    $$("[data-rcpt-edit]", host).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-rcpt-edit");
+        if (!id) return;
+        openReceiptEditor(id);
+      });
+    });
+  }
+
+  // ---------------------------
+  // Render all
   // ---------------------------
   function renderAll() {
-    // Always update dashboard placeholders if they exist
-    renderDashboardPlaceholders();
+    // context line if you have one
+    const ctx = $("#contextLine");
+    if (ctx) {
+      const dateStr = ymd(state.currentDate);
+      ctx.textContent =
+        state.view === "dashboard" ? "Dashboard" :
+        state.view === "calendar" ? "Calendar" :
+        state.view === "day" ? `Day Workspace: ${dateStr}` :
+        state.view === "receipts" ? "Receipts" :
+        "Workspace";
+    }
 
-    // Always render full calendar if #calendarGrid exists (this is the big fix)
-    renderFullCalendarIfPresent();
+    if (state.view === "dashboard") renderDashboard();
+    if (state.view === "calendar") renderCalendar();
+    if (state.view === "day") renderDay();
+    if (state.view === "receipts") renderReceiptsView();
 
-    // Render day workspace if its containers exist
-    renderDayWorkspaceIfPresent();
-
-    // Render drivers/trucks only if their view containers exist
-    renderDriversViewIfPresent();
-    renderTrucksViewIfPresent();
+    // If your app shows dashboard + other components simultaneously, you can also refresh these:
+    // renderDashboard();
+    // renderCalendar();
+    // renderDay();
   }
 
   // ---------------------------
   // Navigation bindings
+  // Expects:
+  // - buttons with [data-view]
+  // - toolbar buttons: #btnToday #btnPrev #btnNext (optional)
+  // - calendar month nav: #calPrev #calNext #calToday (optional)
   // ---------------------------
   function bindNav() {
-    $$("[data-view]").forEach(btn => {
+    $$("[data-view]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
-        const v = btn.getAttribute("data-view");
-        if (v) setView(v);
+        if (btn.dataset.view) setView(btn.dataset.view);
       });
     });
 
-    // Optional toolbar date nav
     $("#btnToday")?.addEventListener("click", () => {
       state.currentDate = startOfDay(new Date());
       state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
@@ -708,24 +898,46 @@
       }
       renderAll();
     });
+
+    $("#calPrev")?.addEventListener("click", () => {
+      state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
+      renderAll();
+    });
+
+    $("#calNext")?.addEventListener("click", () => {
+      state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
+      renderAll();
+    });
+
+    $("#calToday")?.addEventListener("click", () => {
+      const now = new Date();
+      state.monthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
+      state.currentDate = startOfDay(now);
+      renderAll();
+    });
   }
 
   // ---------------------------
-  // Init
+  // Boot
   // ---------------------------
   function init() {
-    seedFleetIfEmpty();
+    // normalize stored data (in case older saves exist)
+    state.jobs = (state.jobs || []).map(normalizeJob);
+    state.receipts = (state.receipts || []).map(normalizeReceipt);
+    persist();
+
     bindNav();
 
-    // Choose a starting view if your HTML uses views; otherwise just render placeholders.
-    const hasViews = $$('[id^="view-"]').length > 0;
-    if (hasViews) setView($("#view-dashboard") ? "dashboard" : "day");
+    // default view: dashboard if exists, else day
+    if ($("#view-dashboard")) setView("dashboard");
+    else if ($("#view-day")) setView("day");
+    else if ($("#view-calendar")) setView("calendar");
     else renderAll();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => safe(init));
   } else {
-    init();
+    safe(init);
   }
 })();
