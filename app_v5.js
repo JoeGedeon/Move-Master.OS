@@ -1,516 +1,862 @@
 /* ============================================================
-   Fleet CRM — apps_v5.js (RECOVERY MODE v6)
+   Fleet CRM — apps_v5.js (SAFE RESTORE)
    ------------------------------------------------------------
-   Goal: restore navigation + dashboard widgets + full calendar
-   EVEN IF HTML ids/classes changed or are partially missing.
+   Purpose: Bring the app back even if HTML/CSS got mangled.
+   - Self-healing: builds layout if missing
+   - Event routing always works (data-view + delegation)
+   - Full month calendar + quick calendar
+   - Day Workspace: Jobs + Receipts with totals + markers
+   - LocalStorage persistence
+   - Visible "JS LOADED" badge so you KNOW it’s connected
 
-   Fixes:
-   - Buttons press but do nothing
-   - Can't tap into pages
-   - Dashboard headings but no data
-   - Calendar tab not showing real calendar
-
-   Notes:
-   - Uses CAPTURE phase click routing (hard to break)
-   - Restores pointer-events on common containers
-   - Creates fallback views/widgets if missing
-   - LocalStorage seed so widgets show data
+   Works on GitHub Pages (no build tools).
    ============================================================ */
 
 (() => {
   "use strict";
 
-  // ---------- Helpers ----------
+  // ---------------------------
+  // Utilities
+  // ---------------------------
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const pad2 = (n) => String(n).padStart(2, "0");
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const monthName = (m) =>
+    ["January","February","March","April","May","June","July","August","September","October","November","December"][m];
+
   const clampMoney = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return 0;
     return Math.round(n * 100) / 100;
   };
   const money = (n) => `$${clampMoney(n).toFixed(2)}`;
-  const monthName = (m) =>
-    ["January","February","March","April","May","June","July","August","September","October","November","December"][m];
 
-  function makeId(prefix="id"){
+  const escapeHtml = (s) =>
+    String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  function makeId(prefix = "id") {
     try { return crypto.randomUUID(); }
-    catch { return `${prefix}_${Date.now()}_${Math.floor(Math.random()*1e6)}`; }
+    catch { return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`; }
   }
 
-  function escapeHtml(s){
-    return String(s ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
+  function safe(fn) {
+    try { fn(); } catch (e) { console.error("[Fleet]", e); showCrash(e); }
   }
 
-  // ---------- Storage ----------
+  // ---------------------------
+  // Storage
+  // ---------------------------
   const LS_JOBS = "fleet_jobs_v5";
   const LS_RECEIPTS = "fleet_receipts_v5";
 
-  function loadArray(key){
-    try{
+  const STATUS = { scheduled:"scheduled", completed:"completed", cancelled:"cancelled" };
+  const STATUS_LABEL = { scheduled:"Scheduled", completed:"Completed", cancelled:"Cancelled" };
+  const RECEIPT_CATEGORIES = ["Fuel","Tolls","Supplies","Parking","Meals","Maintenance","Lodging","Other"];
+
+  function loadArray(key) {
+    try {
       const raw = localStorage.getItem(key);
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr : [];
-    }catch{ return []; }
+    } catch {
+      return [];
+    }
   }
-  function saveArray(key, arr){
-    try{ localStorage.setItem(key, JSON.stringify(arr)); }catch{}
-  }
-
-  const STATUS = { scheduled:"scheduled", completed:"completed", cancelled:"cancelled" };
-
-  function normalizeJob(j){
-    const o = { ...(j||{}) };
-    o.id = o.id || makeId("job");
-    o.date = o.date || ymd(startOfDay(new Date()));
-    o.customer = (o.customer || "Customer").trim();
-    o.amount = clampMoney(o.amount ?? 0);
-    o.status = o.status || STATUS.scheduled;
-    o.createdAt = o.createdAt || Date.now();
-    o.updatedAt = o.updatedAt || o.createdAt;
-    return o;
-  }
-  function normalizeReceipt(r){
-    const o = { ...(r||{}) };
-    o.id = o.id || makeId("rcpt");
-    o.date = o.date || ymd(startOfDay(new Date()));
-    o.vendor = (o.vendor || "Vendor").trim();
-    o.category = (o.category || "Other").trim();
-    o.amount = clampMoney(o.amount ?? 0);
-    o.createdAt = o.createdAt || Date.now();
-    o.updatedAt = o.updatedAt || o.createdAt;
-    return o;
+  function saveArray(key, arr) {
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
   }
 
-  // ---------- State ----------
+  function normalizeJob(j) {
+    const job = { ...(j || {}) };
+    if (!job.id) job.id = makeId("job");
+    if (!job.date) job.date = ymd(startOfDay(new Date()));
+    job.status = STATUS_LABEL[job.status] ? job.status : STATUS.scheduled;
+    job.customer = (job.customer || "").trim();
+    job.pickup = (job.pickup || "").trim();
+    job.dropoff = (job.dropoff || "").trim();
+    job.amount = clampMoney(job.amount ?? 0);
+    job.notes = (job.notes || "").trim();
+    job.createdAt = job.createdAt || Date.now();
+    job.updatedAt = job.updatedAt || job.createdAt;
+    return job;
+  }
+
+  function normalizeReceipt(r) {
+    const rec = { ...(r || {}) };
+    if (!rec.id) rec.id = makeId("rcpt");
+    if (!rec.date) rec.date = ymd(startOfDay(new Date()));
+    rec.vendor = (rec.vendor || "").trim();
+    rec.category = (rec.category || "").trim();
+    rec.amount = clampMoney(rec.amount ?? 0);
+    rec.notes = (rec.notes || "").trim();
+    rec.jobId = (rec.jobId || "").trim();
+    rec.createdAt = rec.createdAt || Date.now();
+    rec.updatedAt = rec.updatedAt || rec.createdAt;
+    return rec;
+  }
+
+  // ---------------------------
+  // State
+  // ---------------------------
   const state = {
     view: "dashboard",
-    today: startOfDay(new Date()),
-    cursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    currentDate: startOfDay(new Date()),
+    monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     jobs: loadArray(LS_JOBS).map(normalizeJob),
     receipts: loadArray(LS_RECEIPTS).map(normalizeReceipt),
   };
 
-  function persist(){
+  function persist() {
     saveArray(LS_JOBS, state.jobs);
     saveArray(LS_RECEIPTS, state.receipts);
   }
 
-  function seedIfEmpty(){
-    if (state.jobs.length === 0 && state.receipts.length === 0){
-      const t = ymd(state.today);
-      state.jobs = [
-        normalizeJob({ date:t, customer:"Sample Job A", amount:900, status:STATUS.scheduled }),
-        normalizeJob({ date:t, customer:"Sample Job B", amount:1200, status:STATUS.completed }),
-      ];
-      state.receipts = [
-        normalizeReceipt({ date:t, vendor:"Shell", category:"Fuel", amount:68.42 }),
-        normalizeReceipt({ date:t, vendor:"Home Depot", category:"Supplies", amount:34.19 }),
-      ];
-      persist();
-    }
+  function seedIfEmpty() {
+    if (state.jobs.length || state.receipts.length) return;
+    const t = ymd(state.currentDate);
+    state.jobs = [
+      normalizeJob({ date: t, customer: "Sample Job A", pickup: "Pickup", dropoff: "Dropoff", amount: 950, status: STATUS.scheduled }),
+      normalizeJob({ date: t, customer: "Sample Job B", pickup: "Pickup", dropoff: "Dropoff", amount: 1250, status: STATUS.completed }),
+    ];
+    state.receipts = [
+      normalizeReceipt({ date: t, vendor: "Shell", category: "Fuel", amount: 72.18, notes: "Fuel" }),
+      normalizeReceipt({ date: t, vendor: "Home Depot", category: "Supplies", amount: 29.40, notes: "Supplies" }),
+    ];
+    persist();
   }
 
-  // ---------- UI Proof ----------
-  function badge(){
-    if ($("#fleetJsBadge")) return;
+  // ---------------------------
+  // Aggregations
+  // ---------------------------
+  function jobsByDate(dateStr) {
+    return state.jobs.filter(j => j.date === dateStr);
+  }
+  function receiptsByDate(dateStr) {
+    return state.receipts.filter(r => r.date === dateStr);
+  }
+  function sumJobRevenue(dateStr) {
+    let total = 0;
+    for (const j of jobsByDate(dateStr)) {
+      if (j.status === STATUS.cancelled) continue;
+      total += clampMoney(j.amount);
+    }
+    return clampMoney(total);
+  }
+  function sumReceiptExpense(dateStr) {
+    let total = 0;
+    for (const r of receiptsByDate(dateStr)) total += clampMoney(r.amount);
+    return clampMoney(total);
+  }
+  function monthTotals(y, m) {
+    let rev = 0, exp = 0;
+    for (const j of state.jobs) {
+      const d = new Date(j.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d.getFullYear() === y && d.getMonth() === m && j.status !== STATUS.cancelled) rev += clampMoney(j.amount);
+    }
+    for (const r of state.receipts) {
+      const d = new Date(r.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d.getFullYear() === y && d.getMonth() === m) exp += clampMoney(r.amount);
+    }
+    return { revenue: clampMoney(rev), expenses: clampMoney(exp), net: clampMoney(rev - exp) };
+  }
+
+  // ---------------------------
+  // HARD FIX: if clicks are dead because of overlay/pointer-events
+  // ---------------------------
+  function unbrickClicks() {
+    // Ensure base containers accept pointer events
+    document.documentElement.style.pointerEvents = "auto";
+    document.body.style.pointerEvents = "auto";
+
+    // Kill invisible overlays that block taps
+    $$("[id*='overlay'], .overlay, .modal-overlay").forEach(el => {
+      const cs = getComputedStyle(el);
+      if (cs.position === "fixed" && cs.inset !== "auto" && cs.display !== "none") {
+        // if it looks like a full-screen overlay and is not visibly active, disable it
+        if (cs.opacity === "0" || el.hidden === true) el.style.display = "none";
+      }
+    });
+  }
+
+  // ---------------------------
+  // Badge + Crash panel
+  // ---------------------------
+  function showBadge() {
+    if ($("#fleetBadge")) return;
     const b = document.createElement("div");
-    b.id = "fleetJsBadge";
-    b.textContent = "JS ✅";
+    b.id = "fleetBadge";
+    b.textContent = "JS ✅ LOADED";
     b.style.position = "fixed";
-    b.style.bottom = "10px";
-    b.style.right = "10px";
+    b.style.right = "12px";
+    b.style.bottom = "12px";
     b.style.zIndex = "999999";
-    b.style.padding = "6px 10px";
+    b.style.padding = "8px 12px";
     b.style.borderRadius = "999px";
-    b.style.background = "rgba(0,160,90,0.9)";
+    b.style.background = "rgba(0,160,90,0.92)";
     b.style.color = "#fff";
-    b.style.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    b.style.font = "800 12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
     b.style.pointerEvents = "none";
     document.body.appendChild(b);
   }
 
-  function debugBox(text){
-    let p = $("#fleetDebug");
-    if (!p){
-      p = document.createElement("pre");
-      p.id = "fleetDebug";
-      p.style.position = "fixed";
-      p.style.left = "10px";
-      p.style.bottom = "10px";
-      p.style.zIndex = "999998";
-      p.style.maxWidth = "70vw";
-      p.style.maxHeight = "28vh";
-      p.style.overflow = "auto";
-      p.style.padding = "10px";
-      p.style.borderRadius = "10px";
-      p.style.background = "rgba(0,0,0,0.65)";
-      p.style.color = "#fff";
-      p.style.font = "12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-      p.style.whiteSpace = "pre-wrap";
-      document.body.appendChild(p);
+  function showCrash(err) {
+    let box = $("#fleetCrash");
+    if (!box) {
+      box = document.createElement("pre");
+      box.id = "fleetCrash";
+      box.style.position = "fixed";
+      box.style.left = "12px";
+      box.style.bottom = "12px";
+      box.style.zIndex = "999999";
+      box.style.maxWidth = "78vw";
+      box.style.maxHeight = "32vh";
+      box.style.overflow = "auto";
+      box.style.padding = "10px";
+      box.style.borderRadius = "12px";
+      box.style.background = "rgba(150,0,0,0.75)";
+      box.style.color = "#fff";
+      box.style.font = "12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+      box.style.whiteSpace = "pre-wrap";
+      document.body.appendChild(box);
     }
-    p.textContent = text;
+    box.textContent = `JS crashed:\n${String(err?.message || err)}\n\n${String(err?.stack || "")}`;
   }
 
-  // ---------- Critical fix: pointer events / overlays ----------
-  function restorePointerEvents(){
-    // Common offenders: parent containers accidentally set to pointer-events:none
-    const zones = [
-      document.body,
-      $(".sidebar"),
-      $(".topbar"),
-      $(".toolbar"),
-      $("nav"),
-      $("#app"),
-      $("#root")
-    ].filter(Boolean);
-
-    zones.forEach(z => {
-      z.style.pointerEvents = "auto";
-    });
-
-    // Also ensure any hidden overlays aren't sitting on top
-    $$("[id*='overlay'], .overlay, .modal-overlay").forEach(o => {
-      // If overlay is visible but shouldn't be, it blocks clicks.
-      // We don't destroy it, just stop it from blocking unless explicitly shown.
-      if (o.hidden === true) o.style.display = "none";
-      if (getComputedStyle(o).display !== "none" && getComputedStyle(o).opacity === "0") {
-        o.style.display = "none";
+  // ---------------------------
+  // Inject minimal CSS (so even broken styles.css still shows a usable app)
+  // ---------------------------
+  function injectEmergencyStyles() {
+    if ($("#fleetEmergencyCSS")) return;
+    const s = document.createElement("style");
+    s.id = "fleetEmergencyCSS";
+    s.textContent = `
+      :root{
+        --bg:#0b0b12;
+        --panel:rgba(255,255,255,0.06);
+        --panel2:rgba(0,0,0,0.25);
+        --border:rgba(255,255,255,0.12);
+        --text:#eaeaff;
+        --muted:rgba(234,234,255,0.72);
+        --accent:#8c3cff;
+        --accent2:#5a2bd6;
+        --good:#00c878;
+        --info:#00a0ff;
+        --danger:#ff4d5a;
       }
-    });
+      body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+      #fleetApp{ height:100vh; display:grid; grid-template-columns:260px 1fr; grid-template-rows:56px 1fr; }
+      .fleet-topbar{ grid-column:1/-1; display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); background:rgba(20,20,35,0.9); position:sticky; top:0; z-index:50; overflow:auto; }
+      .fleet-brand{ font-weight:900; letter-spacing:.3px; white-space:nowrap; }
+      .fleet-topnav{ display:flex; gap:8px; flex:1; min-width:max-content; }
+      .fleet-btn{ border:1px solid var(--border); background:var(--panel); color:var(--text); padding:8px 10px; border-radius:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+      .fleet-btn.active{ outline:2px solid rgba(140,60,255,0.6); }
+      .fleet-sidebar{ grid-row:2; border-right:1px solid var(--border); padding:12px; overflow:auto; background:rgba(12,12,22,0.9); }
+      .fleet-sidebtn{ width:100%; text-align:left; margin:0 0 8px; }
+      .fleet-main{ grid-row:2; overflow:auto; padding:12px; }
+      .panel{ background:var(--panel2); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px; }
+      .title{ font-weight:900; font-size:18px; }
+      .sub{ color:var(--muted); margin-top:6px; }
+      .grid3{ display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:12px; }
+      @media (max-width: 980px){ #fleetApp{ grid-template-columns:1fr; grid-template-rows:56px auto 1fr; } .fleet-sidebar{ grid-row:2; display:flex; gap:8px; overflow:auto; } .fleet-sidebtn{ width:auto; margin:0; } .fleet-main{ grid-row:3; } .grid3{ grid-template-columns:1fr; } }
+      .chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+      .chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,0.07); font-size:12px; font-weight:800; }
+      .chip.jobs{ outline:2px solid rgba(0,200,120,0.45); }
+      .chip.receipts{ box-shadow: inset 0 0 0 2px rgba(0,160,255,0.45); }
+      .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+      .field{ display:flex; flex-direction:column; gap:6px; min-width:200px; }
+      input, select{ border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text); padding:10px; border-radius:12px; outline:none; }
+      .danger{ background:rgba(255,77,90,0.12); border-color:rgba(255,77,90,0.35); }
+      .primary{ background:rgba(140,60,255,0.18); border-color:rgba(140,60,255,0.45); }
+      .muted{ color:var(--muted); }
+      .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:10px; }
+      .dow{ color:var(--muted); font-weight:900; }
+      .daycell{ min-height:74px; border-radius:14px; border:1px solid var(--border); background:rgba(255,255,255,0.06); padding:10px; cursor:pointer; text-align:left; }
+      .daycell.today{ background:rgba(140,60,255,0.25); }
+      .jobrow,.rrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:14px; border:1px solid var(--border); background:rgba(255,255,255,0.04); }
+      .jobmain,.rmain{ min-width:0; }
+      .jobtitle,.rtitle{ font-weight:900; }
+      .jobsub,.rsub{ color:var(--muted); font-size:12px; margin-top:4px; }
+      .actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    `;
+    document.head.appendChild(s);
   }
 
-  // ---------- Views (use existing if present, otherwise create minimal) ----------
-  const VIEWS = ["dashboard","calendar","day","drivers","trucks","dispatch","finances","inventory","aiscanner"];
+  // ---------------------------
+  // Force-create the app shell (only if your current HTML doesn’t already have views)
+  // ---------------------------
+  const NAV = [
+    { label:"Dashboard", view:"dashboard" },
+    { label:"Calendar", view:"calendar" },
+    { label:"Day Workspace", view:"day" },
+    { label:"Drivers", view:"drivers" },
+    { label:"Trucks", view:"trucks" },
+    { label:"Dispatch", view:"dispatch" },
+    { label:"Finances", view:"finances" },
+    { label:"Inventory", view:"inventory" },
+    { label:"AI Scanner", view:"aiscanner" },
+  ];
 
-  function ensureView(view){
-    let el = document.getElementById(`view-${view}`);
-    if (el) return el;
+  function ensureShell() {
+    // If the user’s HTML already has view containers, we won’t replace them.
+    if ($("[id^='view-']")) return;
 
-    // attach to the same parent as existing view containers if possible
-    const any = $$('[id^="view-"]')[0];
-    const mount = (any && any.parentElement) ? any.parentElement : ( $("main") || $(".main") || document.body );
-    el = document.createElement("section");
-    el.id = `view-${view}`;
-    el.className = "view";
-    el.style.display = "none";
-    el.style.padding = "12px";
-    mount.appendChild(el);
-    return el;
-  }
-
-  function showView(view){
-    state.view = view;
-    $$('[id^="view-"]').forEach(v => {
-      v.style.display = "none";
-      v.classList.remove("active");
-    });
-    const el = ensureView(view);
-    el.style.display = "block";
-    el.classList.add("active");
-
-    // mark nav active if data-view exists
-    $$("[data-view]").forEach(b => b.classList.toggle("active", (b.dataset.view||"") === view));
-  }
-
-  // ---------- Data helpers ----------
-  function jobsByDate(dateStr){
-    return state.jobs.filter(j => j.date === dateStr && j.status !== STATUS.cancelled);
-  }
-  function receiptsByDate(dateStr){
-    return state.receipts.filter(r => r.date === dateStr);
-  }
-
-  // ---------- Dashboard widgets ----------
-  function renderDashboard(){
-    const host = ensureView("dashboard");
-
-    // If the user already has dashboard markup, do not nuke it.
-    // We only ensure there is a widget strip present.
-    let widgetWrap = $("#fleetDashWidgets", host);
-    if (!widgetWrap){
-      widgetWrap = document.createElement("div");
-      widgetWrap.id = "fleetDashWidgets";
-      widgetWrap.style.marginTop = "10px";
-      host.appendChild(widgetWrap);
+    let app = $("#fleetApp");
+    if (!app) {
+      app = document.createElement("div");
+      app.id = "fleetApp";
+      document.body.prepend(app);
     }
-
-    const todayStr = ymd(state.today);
-    const y = state.cursor.getFullYear();
-    const m = state.cursor.getMonth();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-    let monthRevenue = 0, monthExpenses = 0;
-    for (const j of state.jobs){
-      const d = new Date(j.date);
-      if (!Number.isNaN(d) && d.getFullYear()===y && d.getMonth()===m && j.status!==STATUS.cancelled){
-        monthRevenue += clampMoney(j.amount);
-      }
-    }
-    for (const r of state.receipts){
-      const d = new Date(r.date);
-      if (!Number.isNaN(d) && d.getFullYear()===y && d.getMonth()===m){
-        monthExpenses += clampMoney(r.amount);
-      }
-    }
-
-    const revToday = jobsByDate(todayStr).reduce((s,j)=>s+clampMoney(j.amount),0);
-    const expToday = receiptsByDate(todayStr).reduce((s,r)=>s+clampMoney(r.amount),0);
-
-    widgetWrap.innerHTML = `
-      <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px; min-width:240px;">
-          <div style="font-weight:800;">Today</div>
-          <div style="opacity:.9; margin-top:6px;">${escapeHtml(todayStr)}</div>
-          <div style="margin-top:6px;">Jobs: <b>${jobsByDate(todayStr).length}</b> · Receipts: <b>${receiptsByDate(todayStr).length}</b></div>
-          <div style="margin-top:6px;">Revenue: <b>${money(revToday)}</b> · Expenses: <b>${money(expToday)}</b></div>
-        </div>
-
-        <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px; min-width:260px;">
-          <div style="font-weight:800;">Month Snapshot</div>
-          <div style="opacity:.9; margin-top:6px;">${escapeHtml(monthName(m))} ${y}</div>
-          <div style="margin-top:6px;">Revenue: <b>${money(monthRevenue)}</b></div>
-          <div style="margin-top:6px;">Expenses: <b>${money(monthExpenses)}</b></div>
-          <div style="margin-top:6px;">Net: <b>${money(monthRevenue - monthExpenses)}</b></div>
-        </div>
-
-        <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px; min-width:260px;">
-          <div style="font-weight:800;">Quick Calendar</div>
-          <div id="fleetQuickCal" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;"></div>
-          <div style="margin-top:8px; opacity:.85; font-size:12px;">Tap a day to open the full calendar.</div>
-        </div>
+    app.innerHTML = `
+      <div class="fleet-topbar">
+        <div class="fleet-brand">Fleet CRM</div>
+        <div class="fleet-topnav" id="fleetTopNav"></div>
+        <button class="fleet-btn" id="fleetTodayBtn" type="button">Today</button>
+        <button class="fleet-btn" id="fleetPrevBtn" type="button">◀</button>
+        <button class="fleet-btn" id="fleetNextBtn" type="button">▶</button>
       </div>
+
+      <aside class="fleet-sidebar" id="fleetSidebar"></aside>
+      <main class="fleet-main" id="fleetMain"></main>
     `;
 
-    const q = $("#fleetQuickCal", widgetWrap);
-    if (q){
-      q.innerHTML = "";
-      for (let day=1; day<=daysInMonth; day++){
-        const d = new Date(y, m, day);
-        const ds = ymd(d);
-        const b = document.createElement("button");
-        b.type = "button";
-        b.textContent = String(day);
-        b.style.padding = "6px 10px";
-        b.style.borderRadius = "10px";
-        b.style.border = "1px solid rgba(255,255,255,0.12)";
-        b.style.background = "rgba(255,255,255,0.08)";
-        b.style.color = "inherit";
-        if (jobsByDate(ds).length) b.style.outline = "2px solid rgba(0,200,120,0.7)";
-        if (receiptsByDate(ds).length) b.style.boxShadow = "inset 0 0 0 2px rgba(0,160,255,0.65)";
-        b.addEventListener("click", () => openCalendarOverlay(new Date(y, m, day)));
-        q.appendChild(b);
-      }
-    }
+    const top = $("#fleetTopNav");
+    const side = $("#fleetSidebar");
+
+    NAV.forEach(n => {
+      const b1 = document.createElement("button");
+      b1.className = "fleet-btn";
+      b1.type = "button";
+      b1.setAttribute("data-view", n.view);
+      b1.textContent = n.label;
+      top.appendChild(b1);
+
+      const b2 = document.createElement("button");
+      b2.className = "fleet-btn fleet-sidebtn";
+      b2.type = "button";
+      b2.setAttribute("data-view", n.view);
+      b2.textContent = n.label;
+      side.appendChild(b2);
+    });
+
+    // Create view containers
+    const main = $("#fleetMain");
+    NAV.forEach(n => {
+      const sec = document.createElement("section");
+      sec.id = `view-${n.view}`;
+      sec.style.display = "none";
+      main.appendChild(sec);
+    });
   }
 
-  // ---------- Calendar overlay (always works) ----------
-  function openCalendarOverlay(focusDate){
-    const fd = focusDate ? startOfDay(focusDate) : state.today;
-    let overlay = $("#fleetCalOverlay");
-    if (!overlay){
-      overlay = document.createElement("div");
-      overlay.id = "fleetCalOverlay";
-      overlay.style.position = "fixed";
-      overlay.style.inset = "0";
-      overlay.style.zIndex = "999997";
-      overlay.style.background = "rgba(0,0,0,0.78)";
-      overlay.style.display = "none";
-      overlay.style.padding = "14px";
-      overlay.style.boxSizing = "border-box";
-      overlay.addEventListener("click",(e)=>{ if (e.target===overlay) overlay.style.display="none"; });
-      document.body.appendChild(overlay);
-    }
+  // ---------------------------
+  // Rendering
+  // ---------------------------
+  function setView(view) {
+    state.view = view;
 
-    const y = fd.getFullYear();
-    const m = fd.getMonth();
-    const first = new Date(y, m, 1);
-    const firstDow = first.getDay();
-    const daysInMonth = new Date(y, m+1, 0).getDate();
+    $$("[data-view]").forEach(b => b.classList.toggle("active", (b.dataset.view || "") === view));
+    $$("[id^='view-']").forEach(v => (v.style.display = "none"));
+    const panel = $(`#view-${view}`);
+    if (panel) panel.style.display = "block";
 
-    overlay.style.display = "block";
-    overlay.innerHTML = `
-      <div style="max-width:980px; margin:0 auto; background:rgba(24,24,34,0.98); border-radius:14px; padding:14px; border:1px solid rgba(255,255,255,0.12);">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div style="color:#fff; font-weight:900; font-size:18px;">${escapeHtml(monthName(m))} ${y}</div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button type="button" id="calPrev" style="padding:8px 10px; border-radius:10px;">Prev</button>
-            <button type="button" id="calToday" style="padding:8px 10px; border-radius:10px;">Today</button>
-            <button type="button" id="calNext" style="padding:8px 10px; border-radius:10px;">Next</button>
-            <button type="button" id="calClose" style="padding:8px 10px; border-radius:10px;">Close</button>
+    renderAll();
+  }
+
+  function renderDashboard() {
+    const host = $("#view-dashboard");
+    if (!host) return;
+
+    const todayStr = ymd(state.currentDate);
+    const y = state.monthCursor.getFullYear();
+    const m = state.monthCursor.getMonth();
+    const mt = monthTotals(y, m);
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="title">Dashboard</div>
+        <div class="sub">Your core metrics and quick navigation.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="panel">
+          <div class="title">Today</div>
+          <div class="sub">${escapeHtml(todayStr)}</div>
+          <div style="margin-top:10px; font-weight:800;">
+            Jobs: ${jobsByDate(todayStr).length} · Receipts: ${receiptsByDate(todayStr).length}
+          </div>
+          <div style="margin-top:8px;">
+            Revenue: <b>${money(sumJobRevenue(todayStr))}</b><br/>
+            Expenses: <b>${money(sumReceiptExpense(todayStr))}</b>
+          </div>
+          <div style="margin-top:8px;">
+            Net: <b>${money(sumJobRevenue(todayStr) - sumReceiptExpense(todayStr))}</b>
           </div>
         </div>
 
-        <div id="calGrid" style="margin-top:12px; display:grid; grid-template-columns:repeat(7,1fr); gap:8px;"></div>
-        <div style="margin-top:12px; color:#fff; opacity:.85; font-size:12px;">
-          Legend: green outline = jobs · blue ring = receipts
+        <div class="panel">
+          <div class="title">Month Snapshot</div>
+          <div class="sub">${escapeHtml(monthName(m))} ${y}</div>
+          <div style="margin-top:10px;">
+            Revenue: <b>${money(mt.revenue)}</b><br/>
+            Expenses: <b>${money(mt.expenses)}</b><br/>
+            Net: <b>${money(mt.net)}</b>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="title">Quick Calendar</div>
+          <div class="sub">Tap a day to open Day Workspace.</div>
+          <div class="chips" id="quickCal"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="title">Pressure Points</div>
+        <div class="sub">Where the money is leaking or stacking.</div>
+        <div style="margin-top:10px;">
+          • Highest job count days have markers in Calendar<br/>
+          • Receipt spikes show as 🧾 chips on the month grid
         </div>
       </div>
     `;
 
-    const grid = $("#calGrid", overlay);
-    const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    for (const d of dow){
-      const h = document.createElement("div");
-      h.textContent = d;
-      h.style.color = "#fff";
-      h.style.opacity = "0.8";
-      h.style.fontWeight = "800";
-      grid.appendChild(h);
-    }
+    // Build quick calendar pills
+    const quick = $("#quickCal");
+    if (!quick) return;
+    quick.innerHTML = "";
+    const y2 = state.currentDate.getFullYear();
+    const m2 = state.currentDate.getMonth();
+    const daysInMonth = new Date(y2, m2 + 1, 0).getDate();
 
-    for (let i=0; i<firstDow; i++){
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(y2, m2, day);
+      const ds = ymd(d);
+
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "chip";
+      pill.textContent = String(day);
+
+      const jc = jobsByDate(ds).filter(j => j.status !== STATUS.cancelled).length;
+      const rc = receiptsByDate(ds).length;
+
+      if (jc) pill.classList.add("jobs");
+      if (rc) pill.classList.add("receipts");
+
+      pill.addEventListener("click", () => {
+        state.currentDate = startOfDay(d);
+        state.monthCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+        setView("day");
+      });
+
+      quick.appendChild(pill);
+    }
+  }
+
+  function renderCalendar() {
+    const host = $("#view-calendar");
+    if (!host) return;
+
+    const y = state.monthCursor.getFullYear();
+    const m = state.monthCursor.getMonth();
+    const first = new Date(y, m, 1);
+    const firstDow = first.getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="title">Calendar</div>
+        <div class="sub">Month view with job + receipt markers. Click a day for Day Workspace.</div>
+        <div style="margin-top:10px; font-weight:900;">${escapeHtml(monthName(m))} ${y}</div>
+      </div>
+
+      <div class="panel">
+        <div class="calendar-grid" id="calGrid"></div>
+      </div>
+    `;
+
+    const grid = $("#calGrid");
+    const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    dow.forEach(d => {
+      const h = document.createElement("div");
+      h.className = "dow";
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    for (let i = 0; i < firstDow; i++) {
       const pad = document.createElement("div");
-      pad.style.height = "64px";
       grid.appendChild(pad);
     }
 
-    for (let day=1; day<=daysInMonth; day++){
-      const date = new Date(y, m, day);
-      const ds = ymd(date);
-      const jc = jobsByDate(ds).length;
+    const todayStr = ymd(startOfDay(new Date()));
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(y, m, day);
+      const ds = ymd(d);
+
+      const jc = jobsByDate(ds).filter(j => j.status !== STATUS.cancelled).length;
       const rc = receiptsByDate(ds).length;
 
-      const btn = document.createElement("button");
-      btn.type="button";
-      btn.style.height="64px";
-      btn.style.borderRadius="12px";
-      btn.style.border="1px solid rgba(255,255,255,0.12)";
-      btn.style.background="rgba(255,255,255,0.06)";
-      btn.style.color="#fff";
-      btn.style.textAlign="left";
-      btn.style.padding="10px";
-
-      if (jc) btn.style.outline="2px solid rgba(0,200,120,0.75)";
-      if (rc) btn.style.boxShadow="inset 0 0 0 2px rgba(0,160,255,0.65)";
-      if (ds === ymd(state.today)) btn.style.background="rgba(140,60,255,0.45)";
-
-      btn.innerHTML = `
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "daycell" + (ds === todayStr ? " today" : "");
+      cell.innerHTML = `
         <div style="font-weight:900;">${day}</div>
-        <div style="margin-top:6px; opacity:.85; font-size:12px;">
-          ${jc ? `${jc} job(s)` : ""}${jc && rc ? " · " : ""}${rc ? `${rc} receipt(s)` : ""}
+        <div class="chips">
+          ${jc ? `<span class="chip jobs">${jc} job${jc===1?"":"s"}</span>` : ""}
+          ${rc ? `<span class="chip receipts">🧾 ${rc}</span>` : ""}
         </div>
       `;
 
-      btn.addEventListener("click", ()=>{
-        alert(`${ds}\nJobs: ${jc}\nReceipts: ${rc}`);
+      cell.addEventListener("click", () => {
+        state.currentDate = startOfDay(d);
+        setView("day");
       });
 
-      grid.appendChild(btn);
+      grid.appendChild(cell);
     }
-
-    $("#calClose", overlay).onclick = ()=> overlay.style.display="none";
-    $("#calToday", overlay).onclick = ()=> openCalendarOverlay(state.today);
-    $("#calPrev", overlay).onclick = ()=> openCalendarOverlay(new Date(y, m-1, 1));
-    $("#calNext", overlay).onclick = ()=> openCalendarOverlay(new Date(y, m+1, 1));
   }
 
-  // ---------- Routing: data-view OR text fallback ----------
-  const TEXT_TO_VIEW = [
-    { re: /dashboard/i, view: "dashboard" },
-    { re: /\bcalendar\b/i, view: "calendar" },
-    { re: /day\s*workspace/i, view: "day" },
-    { re: /\bdrivers?\b/i, view: "drivers" },
-    { re: /\btrucks?\b/i, view: "trucks" },
-    { re: /\bdispatch\b/i, view: "dispatch" },
-    { re: /\bfinances?\b|\bfinance\b/i, view: "finances" },
-    { re: /\binventory\b/i, view: "inventory" },
-    { re: /ai\s*scanner/i, view: "aiscanner" },
-  ];
+  function renderDay() {
+    const host = $("#view-day");
+    if (!host) return;
 
-  function resolveViewFromClick(target){
-    const el = target?.closest?.("[data-view],button,a,[role='button'],.nav-item,.tile,.card") || target;
-    if (!el) return null;
+    const dateStr = ymd(state.currentDate);
+    const jobs = jobsByDate(dateStr).slice().sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    const receipts = receiptsByDate(dateStr).slice().sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
 
-    const dv = (el.getAttribute?.("data-view") || el.dataset?.view || "").trim();
-    if (dv) return dv;
+    const rev = sumJobRevenue(dateStr);
+    const exp = sumReceiptExpense(dateStr);
+    const net = clampMoney(rev - exp);
 
-    const txt = (el.textContent || "").trim();
-    for (const m of TEXT_TO_VIEW){
-      if (m.re.test(txt)) return m.view;
+    // job options for receipt linking
+    const jobOptions = [
+      `<option value="">(Not linked)</option>`,
+      ...jobs.map(j => `<option value="${escapeHtml(j.id)}">${escapeHtml(j.customer || "Customer")} · ${money(j.amount)}</option>`)
+    ].join("");
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="title">Day Workspace</div>
+        <div class="sub">${escapeHtml(dateStr)}</div>
+        <div style="margin-top:10px; font-weight:900;">
+          Revenue: ${money(rev)} · Expenses: ${money(exp)} · Net: ${money(net)}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="title">Jobs</div>
+        <div class="sub">Edit status, edit details, delete. (Add job UI comes next step.)</div>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;" id="jobsList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="title">Receipts</div>
+        <div class="sub">Add expenses and link to a job when relevant.</div>
+
+        <div class="row" style="margin-top:10px;">
+          <label class="field">
+            <span class="muted">Vendor</span>
+            <input id="rcVendor" type="text" placeholder="Shell, Home Depot..." />
+          </label>
+          <label class="field" style="min-width:140px;">
+            <span class="muted">Amount</span>
+            <input id="rcAmount" type="number" step="0.01" placeholder="0.00" />
+          </label>
+          <label class="field" style="min-width:180px;">
+            <span class="muted">Category</span>
+            <select id="rcCategory">
+              <option value="">Uncategorized</option>
+              ${RECEIPT_CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field" style="min-width:240px;">
+            <span class="muted">Link to Job</span>
+            <select id="rcJob">${jobOptions}</select>
+          </label>
+          <label class="field" style="min-width:260px; flex:1;">
+            <span class="muted">Notes</span>
+            <input id="rcNotes" type="text" placeholder="receipt #, reason..." />
+          </label>
+          <button class="fleet-btn primary" id="rcAdd" type="button">Add Receipt</button>
+        </div>
+
+        <div id="rcErr" class="muted" style="margin-top:10px; color: var(--danger); font-weight:900;"></div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;" id="rcList"></div>
+      </div>
+    `;
+
+    // Render jobs list
+    const jHost = $("#jobsList");
+    if (jHost) {
+      jHost.innerHTML = jobs.length ? "" : `<div class="muted">No jobs for this day yet.</div>`;
+      jobs.forEach(job => {
+        const row = document.createElement("div");
+        row.className = "jobrow";
+        row.innerHTML = `
+          <div class="jobmain">
+            <div class="jobtitle">${escapeHtml(job.customer || "Customer")} · ${money(job.amount)}</div>
+            <div class="jobsub">${escapeHtml(job.pickup || "Pickup")} → ${escapeHtml(job.dropoff || "Dropoff")}</div>
+          </div>
+          <div class="actions">
+            <select data-job-status="${escapeHtml(job.id)}">
+              <option value="scheduled" ${job.status===STATUS.scheduled?"selected":""}>Scheduled</option>
+              <option value="completed" ${job.status===STATUS.completed?"selected":""}>Completed</option>
+              <option value="cancelled" ${job.status===STATUS.cancelled?"selected":""}>Cancelled</option>
+            </select>
+            <button class="fleet-btn" type="button" data-job-edit="${escapeHtml(job.id)}">Edit</button>
+            <button class="fleet-btn danger" type="button" data-job-del="${escapeHtml(job.id)}">Delete</button>
+          </div>
+        `;
+        jHost.appendChild(row);
+      });
     }
-    return null;
+
+    // Render receipts list
+    const rHost = $("#rcList");
+    if (rHost) {
+      rHost.innerHTML = receipts.length ? "" : `<div class="muted">No receipts for this day yet.</div>`;
+      receipts.forEach(r => {
+        const linked = r.jobId ? state.jobs.find(j => j.id === r.jobId) : null;
+        const row = document.createElement("div");
+        row.className = "rrow";
+        row.innerHTML = `
+          <div class="rmain">
+            <div class="rtitle">${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Uncategorized")} · ${money(r.amount)}
+              ${linked ? ` <span class="chip jobs">Linked: ${escapeHtml(linked.customer || "Job")}</span>` : ""}
+            </div>
+            <div class="rsub">${escapeHtml(r.notes || "")}</div>
+          </div>
+          <div class="actions">
+            <button class="fleet-btn" type="button" data-rc-edit="${escapeHtml(r.id)}">Edit</button>
+            <button class="fleet-btn danger" type="button" data-rc-del="${escapeHtml(r.id)}">Delete</button>
+          </div>
+        `;
+        rHost.appendChild(row);
+      });
+    }
   }
 
-  function bindRouter(){
-    // capture phase so it still works if something stops bubbling
-    document.addEventListener("click", (e)=>{
-      const view = resolveViewFromClick(e.target);
-      if (!view) return;
+  function renderPlaceholder(view, title) {
+    const host = $(`#view-${view}`);
+    if (!host) return;
+    host.innerHTML = `
+      <div class="panel">
+        <div class="title">${escapeHtml(title)}</div>
+        <div class="sub">Page is reachable. Next logic will populate it.</div>
+      </div>
+    `;
+  }
 
-      // Prevent accidental navigation away
-      if (e.target?.closest?.("a")) e.preventDefault();
+  function renderAll() {
+    // Always render something for every view so nothing looks “dead”
+    if (state.view === "dashboard") renderDashboard();
+    if (state.view === "calendar") renderCalendar();
+    if (state.view === "day") renderDay();
 
-      // Calendar gets the overlay (guaranteed calendar)
-      if (view === "calendar"){
+    if (state.view === "drivers") renderPlaceholder("drivers","Drivers");
+    if (state.view === "trucks") renderPlaceholder("trucks","Trucks");
+    if (state.view === "dispatch") renderPlaceholder("dispatch","Dispatch");
+    if (state.view === "finances") renderPlaceholder("finances","Finances");
+    if (state.view === "inventory") renderPlaceholder("inventory","Inventory");
+    if (state.view === "aiscanner") renderPlaceholder("aiscanner","AI Scanner");
+  }
+
+  // ---------------------------
+  // Events (delegation so it never breaks)
+  // ---------------------------
+  function bindEvents() {
+    // Navigation always works
+    document.addEventListener("click", (e) => {
+      const nav = e.target.closest?.("[data-view]");
+      if (nav) {
         e.preventDefault();
-        openCalendarOverlay(state.today);
+        setView(nav.dataset.view);
         return;
       }
 
-      // Show view container if it exists or create minimal
-      showView(view);
+      // Job status
+      const sel = e.target.closest?.("select[data-job-status]");
+      if (sel) {
+        const id = sel.getAttribute("data-job-status");
+        const j = state.jobs.find(x => x.id === id);
+        if (!j) return;
+        j.status = STATUS_LABEL[sel.value] ? sel.value : STATUS.scheduled;
+        j.updatedAt = Date.now();
+        persist();
+        renderAll();
+        return;
+      }
 
-      // Render essentials when landing
-      if (view === "dashboard") renderDashboard();
-      else {
-        const v = ensureView(view);
-        if (!v.dataset.filled){
-          v.dataset.filled = "1";
-          v.innerHTML = `
-            <div style="border-radius:12px; padding:12px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.12);">
-              <div style="font-size:18px; font-weight:900;">${escapeHtml(view.toUpperCase())}</div>
-              <div style="opacity:.9; margin-top:6px;">This page is reachable again. Next we wire its actual tables.</div>
-            </div>
-          `;
-        }
+      // Job delete
+      const del = e.target.closest?.("[data-job-del]");
+      if (del) {
+        const id = del.getAttribute("data-job-del");
+        if (!id) return;
+        if (!confirm("Delete this job?")) return;
+        state.jobs = state.jobs.filter(j => j.id !== id);
+        // unlink receipts
+        state.receipts = state.receipts.map(r => r.jobId === id ? normalizeReceipt({ ...r, jobId:"", updatedAt:Date.now() }) : r);
+        persist();
+        renderAll();
+        return;
+      }
+
+      // Job edit (prompt editor)
+      const edit = e.target.closest?.("[data-job-edit]");
+      if (edit) {
+        const id = edit.getAttribute("data-job-edit");
+        const j = state.jobs.find(x => x.id === id);
+        if (!j) return;
+
+        const customer = prompt("Customer:", j.customer || "");
+        if (customer === null) return;
+        const pickup = prompt("Pickup:", j.pickup || "");
+        if (pickup === null) return;
+        const dropoff = prompt("Dropoff:", j.dropoff || "");
+        if (dropoff === null) return;
+        const amount = prompt("Amount:", String(j.amount ?? 0));
+        if (amount === null) return;
+
+        j.customer = customer.trim();
+        j.pickup = pickup.trim();
+        j.dropoff = dropoff.trim();
+        j.amount = clampMoney(amount);
+        j.updatedAt = Date.now();
+
+        persist();
+        renderAll();
+        return;
+      }
+
+      // Receipt delete
+      const rdel = e.target.closest?.("[data-rc-del]");
+      if (rdel) {
+        const id = rdel.getAttribute("data-rc-del");
+        if (!id) return;
+        if (!confirm("Delete this receipt?")) return;
+        state.receipts = state.receipts.filter(r => r.id !== id);
+        persist();
+        renderAll();
+        return;
+      }
+
+      // Receipt edit
+      const redit = e.target.closest?.("[data-rc-edit]");
+      if (redit) {
+        const id = redit.getAttribute("data-rc-edit");
+        const r = state.receipts.find(x => x.id === id);
+        if (!r) return;
+
+        const vendor = prompt("Vendor:", r.vendor || "");
+        if (vendor === null) return;
+        const amount = prompt("Amount:", String(r.amount ?? 0));
+        if (amount === null) return;
+        const category = prompt(`Category (e.g. ${RECEIPT_CATEGORIES.join(", ")}):`, r.category || "");
+        if (category === null) return;
+        const notes = prompt("Notes:", r.notes || "");
+        if (notes === null) return;
+
+        r.vendor = vendor.trim();
+        r.amount = clampMoney(amount);
+        r.category = category.trim();
+        r.notes = notes.trim();
+        r.updatedAt = Date.now();
+
+        persist();
+        renderAll();
+        return;
       }
     }, true);
+
+    // Add receipt button
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest?.("#rcAdd");
+      if (!btn) return;
+
+      const host = $("#view-day");
+      if (!host) return;
+
+      const vendor = ($("#rcVendor")?.value || "").trim();
+      const amount = clampMoney($("#rcAmount")?.value ?? 0);
+      const category = ($("#rcCategory")?.value || "").trim();
+      const jobId = ($("#rcJob")?.value || "").trim();
+      const notes = ($("#rcNotes")?.value || "").trim();
+      const err = $("#rcErr");
+
+      if (!vendor) { if (err) err.textContent = "Vendor is required."; return; }
+      if (amount <= 0) { if (err) err.textContent = "Amount must be greater than 0."; return; }
+      if (err) err.textContent = "";
+
+      state.receipts.push(normalizeReceipt({
+        id: makeId("rcpt"),
+        date: ymd(state.currentDate),
+        vendor, amount, category, jobId, notes,
+        createdAt: Date.now(), updatedAt: Date.now(),
+      }));
+
+      persist();
+      renderAll();
+    });
+
+    // Topbar date nav
+    $("#fleetTodayBtn")?.addEventListener("click", () => {
+      state.currentDate = startOfDay(new Date());
+      state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
+      renderAll();
+    });
+
+    $("#fleetPrevBtn")?.addEventListener("click", () => {
+      if (state.view === "calendar") {
+        state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
+        renderAll();
+      } else {
+        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() - 1));
+        state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
+        renderAll();
+      }
+    });
+
+    $("#fleetNextBtn")?.addEventListener("click", () => {
+      if (state.view === "calendar") {
+        state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
+        renderAll();
+      } else {
+        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() + 1));
+        state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
+        renderAll();
+      }
+    });
   }
 
-  // ---------- Init ----------
-  function init(){
-    console.log("✅ Recovery v6 init");
-    badge();
-    restorePointerEvents();
+  // ---------------------------
+  // Init
+  // ---------------------------
+  function init() {
+    console.log("✅ SAFE RESTORE init");
+    showBadge();
+    injectEmergencyStyles();
+    unbrickClicks();
     seedIfEmpty();
-
-    // Ensure baseline view containers exist if HTML is missing them
-    VIEWS.forEach(ensureView);
-
-    // Render dashboard data (even if your HTML dashboard exists, we append our widget strip)
-    showView("dashboard");
-    renderDashboard();
-
-    // Bind router last so it catches everything
-    bindRouter();
-
-    // Debug readout: helps identify if your HTML has data-view buttons
-    const dvCount = $$("[data-view]").length;
-    debugBox(
-      [
-        "Fleet Recovery Debug:",
-        `- data-view buttons found: ${dvCount}`,
-        `- jobs stored: ${state.jobs.length}`,
-        `- receipts stored: ${state.receipts.length}`,
-        "",
-        "If data-view buttons = 0, routing will still work by button text.",
-        "Calendar always works via overlay even if calendar HTML is broken."
-      ].join("\n")
-    );
+    ensureShell();         // only builds shell if your HTML doesn’t already have views
+    bindEvents();
+    setView("dashboard");  // brings you back to a working home base
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => safe(init));
   } else {
-    init();
+    safe(init);
   }
 })();
