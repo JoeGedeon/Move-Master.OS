@@ -277,18 +277,23 @@
 
   <!-- Script -->
   <!-- IMPORTANT: if you change JS, bump ?v= to avoid Safari/GitHub caching lies -->
- <script>
-  // Click-blocker nuke (temporary)
-  document.addEventListener("DOMContentLoaded", () => {
-    document.body.style.pointerEvents = "auto";
-    document.documentElement.style.pointerEvents = "auto";
-    document.querySelectorAll("[id*='overlay'], .overlay, .modal-overlay, .modal, .backdrop").forEach(el => {
-      const cs = getComputedStyle(el);
-      if (cs.position === "fixed" && cs.display !== "none" && (cs.opacity === "0" || el.hidden)) {
-        el.style.display = "none";
-      }
-    });
-  });
+
+  <script>
+  setTimeout(() => {
+    const ok = document.documentElement.getAttribute("data-js-executed") === "YES";
+    const b = document.createElement("div");
+    b.style.position="fixed";
+    b.style.right="12px";
+    b.style.top="12px";
+    b.style.zIndex="999999";
+    b.style.padding="8px 12px";
+    b.style.borderRadius="999px";
+    b.style.font="800 12px system-ui";
+    b.style.color="#fff";
+    b.style.background = ok ? "rgba(0,160,90,0.92)" : "rgba(180,0,0,0.92)";
+    b.textContent = ok ? "apps_v5.js EXECUTED ✅" : "apps_v5.js NOT EXECUTED ❌";
+    document.body.appendChild(b);
+  }, 300);
 </script>
 </body>
 </html>
