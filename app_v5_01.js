@@ -1,40 +1,35 @@
 /* =========================================================
-   Move-Master.OS — apps_v5.js (FULL, matches your HTML)
-   ---------------------------------------------------------
-   Works with:
-   - index.html you posted (data-view + #view-* containers)
-   - styles.css you posted (.view / .view.active)
-
-   Features:
-   - View router (sidebar buttons) using data-view
-   - Topbar date controls (Prev/Today/Next)
-   - Dashboard stats + Quick Calendar
-   - Full Month Calendar with markers (jobs/receipts)
-   - Day Workspace jobs + receipts lists
-   - Add/Edit/Delete Job modal
-   - Add/Edit/Delete Receipt modal
-   - LocalStorage persistence
-   - Updates #jsPill status
-
-   IMPORTANT:
-   - Views are: dashboard, calendar, day, drivers, trucks, dispatch, finance, inventory, scanner
+   Move-Master.OS — apps_v5_1.js (FULL STABLE BASE)
+   Matches your HTML architecture exactly:
+   - Sidebar buttons: .nav-item[data-view]
+   - Views: #view-dashboard, #view-calendar, #view-day,
+            #view-drivers, #view-trucks, #view-dispatch,
+            #view-finance, #view-inventory, #view-scanner
+   - Topbar: #btnPrev #btnToday #btnNext #btnAddJob #btnAddReceipt
+   - Calendar: #monthLabel #calendarGrid #dashboardCalendar
+   - Day workspace: #dayTitle #dayJobsList #dayReceiptsList
+   - Modals: #modalOverlay, #jobModal fields..., #receiptModal fields...
+   - JS badge: #jsPill
    ========================================================= */
 
 (() => {
   "use strict";
 
   // ---------------------------
-  // DOM helpers
+  // Helpers
   // ---------------------------
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
   const pad2 = (n) => String(n).padStart(2, "0");
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
 
-  const monthName = (m) =>
-    ["January","February","March","April","May","June","July","August","September","October","November","December"][m];
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   const clampMoney = (v) => {
     const n = Number(v);
@@ -56,87 +51,91 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  // ---------------------------
-  // App constants
-  // ---------------------------
-  const LS_JOBS = "mm_jobs_v5";
-  const LS_RECEIPTS = "mm_receipts_v5";
+  function safe(fn) {
+    try { fn(); } catch (e) {
+      console.error("[Move-Master.OS]", e);
+      setPill("JS: error ❌", false);
+    }
+  }
 
-  const STATUS = {
-    scheduled: "scheduled",
-    completed: "completed",
-    cancelled: "cancelled",
+  // ---------------------------
+  // JS pill
+  // ---------------------------
+  function setPill(text, ok) {
+    const pill = $("#jsPill");
+    if (!pill) return;
+    pill.textContent = text;
+    pill.classList.remove("ok", "bad");
+    pill.classList.add(ok ? "ok" : "bad");
+  }
+
+  // ---------------------------
+  // Storage
+  // ---------------------------
+  const LS = {
+    jobs: "mm_jobs_v5_1",
+    receipts: "mm_receipts_v5_1",
+    drivers: "mm_drivers_v5_1",
+    trucks: "mm_trucks_v5_1",
+    dispatch: "mm_dispatch_v5_1",
+    finance: "mm_finance_v5_1",
+    inventory: "mm_inventory_v5_1",
+    scans: "mm_scans_v5_1",
   };
 
-  const STATUS_LABEL = {
-    scheduled: "Scheduled",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  };
-
-  // These must match your HTML data-view + view ids (#view-*)
-  const VIEWS = [
-    "dashboard",
-    "calendar",
-    "day",
-    "drivers",
-    "trucks",
-    "dispatch",
-    "finance",
-    "inventory",
-    "scanner",
-  ];
-
-  // ---------------------------
-  // Storage helpers
-  // ---------------------------
   function loadArray(key) {
     try {
       const raw = localStorage.getItem(key);
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
   function saveArray(key, arr) {
     try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
   }
 
   // ---------------------------
-  // Normalizers
+  // Domain normalizers
   // ---------------------------
+  const STATUS = { scheduled:"scheduled", completed:"completed", cancelled:"cancelled" };
+
   function normalizeJob(j) {
-    const job = { ...(j || {}) };
-    if (!job.id) job.id = makeId("job");
-    if (!job.date) job.date = ymd(startOfDay(new Date()));
-    if (!job.status || !STATUS_LABEL[job.status]) job.status = STATUS.scheduled;
-
-    job.customer = (job.customer || "").trim();
-    job.pickup = (job.pickup || "").trim();
-    job.dropoff = (job.dropoff || "").trim();
-    job.amount = clampMoney(job.amount ?? 0);
-    job.notes = (job.notes || "").trim();
-
-    if (!job.createdAt) job.createdAt = Date.now();
-    job.updatedAt = job.updatedAt || job.createdAt;
-    return job;
+    const o = { ...(j || {}) };
+    if (!o.id) o.id = makeId("job");
+    if (!o.date) o.date = ymd(startOfDay(new Date()));
+    if (!o.status || !STATUS[o.status]) o.status = STATUS.scheduled;
+    o.customer = (o.customer || "").trim();
+    o.pickup = (o.pickup || "").trim();
+    o.dropoff = (o.dropoff || "").trim();
+    o.amount = clampMoney(o.amount ?? 0);
+    o.notes = (o.notes || "").trim();
+    o.createdAt = o.createdAt || Date.now();
+    o.updatedAt = o.updatedAt || o.createdAt;
+    return o;
   }
 
   function normalizeReceipt(r) {
-    const rec = { ...(r || {}) };
-    if (!rec.id) rec.id = makeId("rcpt");
-    if (!rec.date) rec.date = ymd(startOfDay(new Date()));
+    const o = { ...(r || {}) };
+    if (!o.id) o.id = makeId("rcpt");
+    if (!o.date) o.date = ymd(startOfDay(new Date()));
+    o.vendor = (o.vendor || "").trim();
+    o.category = (o.category || "").trim();
+    o.amount = clampMoney(o.amount ?? 0);
+    o.linkedJobId = (o.linkedJobId || "").trim();
+    o.notes = (o.notes || "").trim();
+    o.createdAt = o.createdAt || Date.now();
+    o.updatedAt = o.updatedAt || o.createdAt;
+    return o;
+  }
 
-    rec.vendor = (rec.vendor || "").trim();
-    rec.category = (rec.category || "").trim();
-    rec.amount = clampMoney(rec.amount ?? 0);
-    rec.notes = (rec.notes || "").trim();
-    rec.jobId = (rec.jobId || "").trim();
-
-    if (!rec.createdAt) rec.createdAt = Date.now();
-    rec.updatedAt = rec.updatedAt || rec.createdAt;
-    return rec;
+  function normalizeNamedRow(x, prefix) {
+    const o = { ...(x || {}) };
+    if (!o.id) o.id = makeId(prefix);
+    o.name = (o.name || "").trim();
+    o.notes = (o.notes || "").trim();
+    o.createdAt = o.createdAt || Date.now();
+    o.updatedAt = o.updatedAt || o.createdAt;
+    return o;
   }
 
   // ---------------------------
@@ -147,64 +146,62 @@
     currentDate: startOfDay(new Date()),
     monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
 
-    jobs: loadArray(LS_JOBS).map(normalizeJob),
-    receipts: loadArray(LS_RECEIPTS).map(normalizeReceipt),
+    jobs: loadArray(LS.jobs).map(normalizeJob),
+    receipts: loadArray(LS.receipts).map(normalizeReceipt),
 
-    // modal state
+    drivers: loadArray(LS.drivers).map(x => normalizeNamedRow(x, "drv")),
+    trucks: loadArray(LS.trucks).map(x => normalizeNamedRow(x, "trk")),
+    dispatch: loadArray(LS.dispatch) || [],
+
+    finance: loadArray(LS.finance) || [],
+    inventory: loadArray(LS.inventory) || [],
+    scans: loadArray(LS.scans) || [],
+
     editingJobId: null,
     editingReceiptId: null,
   };
 
   function persist() {
-    saveArray(LS_JOBS, state.jobs);
-    saveArray(LS_RECEIPTS, state.receipts);
+    saveArray(LS.jobs, state.jobs);
+    saveArray(LS.receipts, state.receipts);
+    saveArray(LS.drivers, state.drivers);
+    saveArray(LS.trucks, state.trucks);
+    saveArray(LS.dispatch, state.dispatch);
+    saveArray(LS.finance, state.finance);
+    saveArray(LS.inventory, state.inventory);
+    saveArray(LS.scans, state.scans);
   }
 
   // ---------------------------
-  // Seed if empty (so you SEE things)
+  // View/router
   // ---------------------------
-  function seedIfEmpty() {
-    if (state.jobs.length || state.receipts.length) return;
-    const today = ymd(state.currentDate);
+  function setView(name) {
+    state.view = name;
 
-    const jobId = makeId("job");
-    state.jobs.push(normalizeJob({
-      id: jobId,
-      date: today,
-      customer: "Sample Customer",
-      pickup: "Pickup Address",
-      dropoff: "Dropoff Address",
-      amount: 1250,
-      status: STATUS.scheduled,
-      notes: "Seed job so UI is not empty",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }));
+    $$('[id^="view-"]').forEach((el) => el.classList.remove("active"));
+    const panel = $(`#view-${name}`);
+    if (panel) panel.classList.add("active");
 
-    state.receipts.push(normalizeReceipt({
-      id: makeId("rcpt"),
-      date: today,
-      vendor: "Shell",
-      category: "Fuel",
-      amount: 64.25,
-      notes: "Seed receipt",
-      jobId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }));
+    $$("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === name));
 
-    persist();
+    // Remove "(coming soon)" text from active items visually (your HTML still has it)
+    $$("[data-view]").forEach((btn) => {
+      if (!btn.dataset.view) return;
+      const v = btn.dataset.view;
+      if (["drivers","trucks","dispatch","finance","inventory","scanner"].includes(v)) {
+        // if it's already active build, we show clean label
+        btn.textContent = v[0].toUpperCase() + v.slice(1);
+      }
+    });
+
+    renderAll();
   }
 
   // ---------------------------
   // Aggregations
   // ---------------------------
-  function jobsByDate(dateStr) {
-    return state.jobs.filter((j) => j.date === dateStr);
-  }
-  function receiptsByDate(dateStr) {
-    return state.receipts.filter((r) => r.date === dateStr);
-  }
+  function jobsByDate(dateStr) { return state.jobs.filter(j => j.date === dateStr); }
+  function receiptsByDate(dateStr) { return state.receipts.filter(r => r.date === dateStr); }
 
   function sumRevenue(dateStr) {
     let total = 0;
@@ -223,6 +220,7 @@
 
   function monthTotals(year, monthIndex) {
     let revenue = 0, expenses = 0;
+
     for (const j of state.jobs) {
       const d = new Date(j.date);
       if (Number.isNaN(d.getTime())) continue;
@@ -230,78 +228,51 @@
       if (j.status === STATUS.cancelled) continue;
       revenue += clampMoney(j.amount);
     }
+
     for (const r of state.receipts) {
       const d = new Date(r.date);
       if (Number.isNaN(d.getTime())) continue;
       if (d.getFullYear() !== year || d.getMonth() !== monthIndex) continue;
       expenses += clampMoney(r.amount);
     }
-    return {
-      revenue: clampMoney(revenue),
-      expenses: clampMoney(expenses),
-      net: clampMoney(revenue - expenses),
-    };
+
+    revenue = clampMoney(revenue);
+    expenses = clampMoney(expenses);
+    return { revenue, expenses, net: clampMoney(revenue - expenses) };
   }
 
   // ---------------------------
-  // JS pill
-  // ---------------------------
-  function setPill(ok, text) {
-    const pill = $("#jsPill");
-    if (!pill) return;
-    pill.classList.remove("ok", "bad");
-    pill.classList.add(ok ? "ok" : "bad");
-    pill.textContent = text;
-  }
-
-  // ---------------------------
-  // View router (matches your CSS: .view.active)
-  // ---------------------------
-  function setView(name) {
-    if (!VIEWS.includes(name)) name = "dashboard";
-    state.view = name;
-
-    $$(".view").forEach((v) => v.classList.remove("active"));
-    const panel = $(`#view-${name}`);
-    if (panel) panel.classList.add("active");
-
-    $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
-
-    renderAll();
-  }
-
-  // ---------------------------
-  // Render: Dashboard
+  // Dashboard
   // ---------------------------
   function renderDashboard() {
     const todayStr = ymd(state.currentDate);
+    const todayLine = $("#todayLine");
+    if (todayLine) todayLine.textContent = `${todayStr}`;
 
-    $("#todayLine") && ($("#todayLine").textContent = todayStr);
-
-    const revToday = sumRevenue(todayStr);
-    const expToday = sumExpenses(todayStr);
-    const netToday = clampMoney(revToday - expToday);
-
-    const y = state.monthCursor.getFullYear();
-    const m = state.monthCursor.getMonth();
-    const mt = monthTotals(y, m);
-
-    if ($("#todayStats")) {
-      $("#todayStats").innerHTML = `
-        <div><b>Jobs:</b> ${jobsByDate(todayStr).length}</div>
-        <div><b>Receipts:</b> ${receiptsByDate(todayStr).length}</div>
-        <div><b>Revenue:</b> ${money(revToday)}</div>
-        <div><b>Expenses:</b> ${money(expToday)}</div>
-        <div><b>Net:</b> ${money(netToday)}</div>
+    const todayStats = $("#todayStats");
+    if (todayStats) {
+      const rev = sumRevenue(todayStr);
+      const exp = sumExpenses(todayStr);
+      const net = clampMoney(rev - exp);
+      todayStats.innerHTML = `
+        <div>Jobs: <strong>${jobsByDate(todayStr).length}</strong></div>
+        <div>Receipts: <strong>${receiptsByDate(todayStr).length}</strong></div>
+        <div style="margin-top:6px;">Revenue: <strong>${money(rev)}</strong></div>
+        <div>Expenses: <strong>${money(exp)}</strong></div>
+        <div>Net: <strong>${money(net)}</strong></div>
       `;
     }
 
-    if ($("#monthSnapshot")) {
-      $("#monthSnapshot").innerHTML = `
-        <div><b>${escapeHtml(monthName(m))} ${y}</b></div>
-        <div>Revenue: <b>${money(mt.revenue)}</b></div>
-        <div>Expenses: <b>${money(mt.expenses)}</b></div>
-        <div>Net: <b>${money(mt.net)}</b></div>
+    const ms = $("#monthSnapshot");
+    if (ms) {
+      const y = state.monthCursor.getFullYear();
+      const m = state.monthCursor.getMonth();
+      const t = monthTotals(y, m);
+      ms.innerHTML = `
+        <div><strong>${MONTHS[m]} ${y}</strong></div>
+        <div style="margin-top:6px;">Revenue: <strong>${money(t.revenue)}</strong></div>
+        <div>Expenses: <strong>${money(t.expenses)}</strong></div>
+        <div>Net: <strong>${money(t.net)}</strong></div>
       `;
     }
 
@@ -315,19 +286,18 @@
     const daysInMonth = new Date(y, m + 1, 0).getDate();
 
     container.innerHTML = "";
-
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(y, m, day);
-      const ds = ymd(d);
+      const dateStr = ymd(d);
 
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pill";
       btn.textContent = String(day);
 
-      if (ds === ymd(state.currentDate)) btn.classList.add("active");
-      if (jobsByDate(ds).filter(j => j.status !== STATUS.cancelled).length) btn.classList.add("has-jobs");
-      if (receiptsByDate(ds).length) btn.classList.add("has-receipts");
+      if (sameDay(d, state.currentDate)) btn.classList.add("active");
+      if (jobsByDate(dateStr).length) btn.classList.add("has-jobs");
+      if (receiptsByDate(dateStr).length) btn.classList.add("has-receipts");
 
       btn.addEventListener("click", () => {
         state.currentDate = startOfDay(d);
@@ -340,7 +310,7 @@
   }
 
   // ---------------------------
-  // Render: Full Month Calendar
+  // Full calendar
   // ---------------------------
   function renderCalendar() {
     const grid = $("#calendarGrid");
@@ -349,13 +319,11 @@
 
     const y = state.monthCursor.getFullYear();
     const m = state.monthCursor.getMonth();
-    label.textContent = `${monthName(m)} ${y}`;
-
+    label.textContent = `${MONTHS[m]} ${y}`;
     grid.innerHTML = "";
 
     // DOW header
-    const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    for (const d of dow) {
+    for (const d of DOW) {
       const h = document.createElement("div");
       h.className = "dow";
       h.textContent = d;
@@ -366,43 +334,69 @@
     const firstDow = first.getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
 
-    // padding
     for (let i = 0; i < firstDow; i++) {
       const pad = document.createElement("div");
       pad.className = "day pad";
       grid.appendChild(pad);
     }
 
-    const todayStr = ymd(startOfDay(new Date()));
+    const today = startOfDay(new Date());
 
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(y, m, day);
-      const ds = ymd(d);
+      const dateStr = ymd(d);
 
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "day";
+      if (sameDay(d, today)) cell.classList.add("today");
+      if (sameDay(d, state.currentDate)) cell.classList.add("selected");
 
-      if (ds === todayStr) cell.classList.add("today");
-      if (ds === ymd(state.currentDate)) cell.classList.add("selected");
+      const num = document.createElement("div");
+      num.className = "num";
+      num.textContent = String(day);
 
-      const dayJobs = jobsByDate(ds);
-      const jc = dayJobs.filter(j => j.status !== STATUS.cancelled).length;
-      const rc = receiptsByDate(ds).length;
+      const marker = document.createElement("div");
+      marker.className = "markerbar";
 
-      // status markers (optional, your CSS supports these classes)
-      if (dayJobs.some(j => j.status === STATUS.completed)) cell.classList.add("has-completed");
-      if (dayJobs.some(j => j.status === STATUS.scheduled)) cell.classList.add("has-scheduled");
-      if (dayJobs.some(j => j.status === STATUS.cancelled)) cell.classList.add("has-cancelled");
-      if (rc) cell.classList.add("has-receipts");
+      const jobs = jobsByDate(dateStr);
+      const receipts = receiptsByDate(dateStr);
 
-      cell.innerHTML = `
-        <div class="num">${day}</div>
-        <div class="markerbar">
-          ${jc ? `<span class="chip chip-jobs">${jc} job${jc === 1 ? "" : "s"}</span>` : ""}
-          ${rc ? `<span class="chip chip-receipts">🧾 ${rc}</span>` : ""}
-        </div>
-      `;
+      const scheduled = jobs.filter(j => j.status === STATUS.scheduled).length;
+      const completed = jobs.filter(j => j.status === STATUS.completed).length;
+      const cancelled = jobs.filter(j => j.status === STATUS.cancelled).length;
+
+      if (scheduled) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `S:${scheduled}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-scheduled");
+      }
+      if (completed) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `C:${completed}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-completed");
+      }
+      if (cancelled) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `X:${cancelled}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-cancelled");
+      }
+      if (receipts.length) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-receipts";
+        chip.textContent = `🧾 ${receipts.length}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-receipts");
+      }
+
+      cell.appendChild(num);
+      cell.appendChild(marker);
 
       cell.addEventListener("click", () => {
         state.currentDate = startOfDay(d);
@@ -414,37 +408,35 @@
   }
 
   // ---------------------------
-  // Render: Day Workspace
+  // Day workspace
   // ---------------------------
   function renderDay() {
     const dateStr = ymd(state.currentDate);
-    $("#dayTitle") && ($("#dayTitle").textContent = `Day Workspace — ${dateStr}`);
+    const title = $("#dayTitle");
+    if (title) title.textContent = `Day Workspace – ${dateStr}`;
 
     renderDayJobs(dateStr);
     renderDayReceipts(dateStr);
   }
 
   function renderDayJobs(dateStr) {
-    const list = $("#dayJobsList");
-    if (!list) return;
+    const host = $("#dayJobsList");
+    if (!host) return;
 
     const jobs = jobsByDate(dateStr).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
     const rev = sumRevenue(dateStr);
     const exp = sumExpenses(dateStr);
     const net = clampMoney(rev - exp);
 
-    list.innerHTML = `
+    host.innerHTML = `
       <div class="day-totals">
-        <div><b>Totals</b></div>
+        <div><strong>Totals</strong></div>
         <div>Revenue: ${money(rev)} · Expenses: ${money(exp)} · Net: ${money(net)}</div>
       </div>
     `;
 
     if (!jobs.length) {
-      const empty = document.createElement("div");
-      empty.className = "muted";
-      empty.textContent = "No jobs for this day yet.";
-      list.appendChild(empty);
+      host.innerHTML += `<div class="muted empty">No jobs for this day yet.</div>`;
       return;
     }
 
@@ -469,62 +461,52 @@
           <button class="btn danger" type="button" data-job-del="${escapeHtml(job.id)}">Delete</button>
         </div>
       `;
-      list.appendChild(row);
+      host.appendChild(row);
     }
 
-    // bind status changes
-    $$("[data-job-status]", list).forEach((sel) => {
-      sel.addEventListener("change", (e) => {
-        const id = e.target.getAttribute("data-job-status");
-        const j = state.jobs.find(x => x.id === id);
-        if (!j) return;
-        const val = e.target.value;
-        j.status = STATUS_LABEL[val] ? val : STATUS.scheduled;
-        j.updatedAt = Date.now();
+    // bind status
+    $$("[data-job-status]", host).forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const id = sel.getAttribute("data-job-status");
+        const job = state.jobs.find(j => j.id === id);
+        if (!job) return;
+        job.status = sel.value;
+        job.updatedAt = Date.now();
         persist();
         renderAll();
       });
     });
 
-    // bind edit
-    $$("[data-job-edit]", list).forEach((btn) => {
-      btn.addEventListener("click", () => openJobModal(btn.getAttribute("data-job-edit")));
-    });
-
-    // bind delete
-    $$("[data-job-del]", list).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-job-del");
-        if (!id) return;
-        if (!confirm("Delete this job?")) return;
-        state.jobs = state.jobs.filter(j => j.id !== id);
-        // unlink receipts referencing this job
-        state.receipts = state.receipts.map(r => (r.jobId === id ? normalizeReceipt({ ...r, jobId: "", updatedAt: Date.now() }) : r));
-        persist();
-        renderAll();
-      });
-    });
+    // bind edit/delete
+    $$("[data-job-edit]", host).forEach((btn) => btn.addEventListener("click", () => openJobModal(btn.getAttribute("data-job-edit"))));
+    $$("[data-job-del]", host).forEach((btn) => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-job-del");
+      if (!id) return;
+      if (!confirm("Delete this job?")) return;
+      state.jobs = state.jobs.filter(j => j.id !== id);
+      // unlink receipts
+      state.receipts = state.receipts.map(r => (r.linkedJobId === id ? normalizeReceipt({ ...r, linkedJobId:"", updatedAt:Date.now() }) : r));
+      persist();
+      renderAll();
+    }));
   }
 
   function renderDayReceipts(dateStr) {
-    const list = $("#dayReceiptsList");
-    if (!list) return;
+    const host = $("#dayReceiptsList");
+    if (!host) return;
 
     const receipts = receiptsByDate(dateStr).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
     const total = sumExpenses(dateStr);
 
-    list.innerHTML = `
-      <div class="receipts-header day-totals">
-        <div><b>Receipts</b></div>
+    host.innerHTML = `
+      <div class="day-totals">
+        <div><strong>Receipts</strong></div>
         <div>Total Expenses: ${money(total)}</div>
       </div>
     `;
 
     if (!receipts.length) {
-      const empty = document.createElement("div");
-      empty.className = "muted";
-      empty.textContent = "No receipts for this day yet.";
-      list.appendChild(empty);
+      host.innerHTML += `<div class="muted empty">No receipts for this day yet.</div>`;
       return;
     }
 
@@ -533,7 +515,7 @@
       row.className = "receipt-row";
       row.innerHTML = `
         <div class="receipt-main">
-          <div class="receipt-title">${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Uncategorized")}</div>
+          <div class="receipt-title">${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Category")}</div>
           <div class="receipt-sub">${money(r.amount)} · ${escapeHtml(r.notes || "")}</div>
         </div>
         <div class="receipt-actions">
@@ -541,376 +523,180 @@
           <button class="btn danger" type="button" data-rcpt-del="${escapeHtml(r.id)}">Delete</button>
         </div>
       `;
-      list.appendChild(row);
+      host.appendChild(row);
     }
 
-    $$("[data-rcpt-edit]", list).forEach((btn) => {
-      btn.addEventListener("click", () => openReceiptModal(btn.getAttribute("data-rcpt-edit")));
-    });
-
-    $$("[data-rcpt-del]", list).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-rcpt-del");
-        if (!id) return;
-        if (!confirm("Delete this receipt?")) return;
-        state.receipts = state.receipts.filter(r => r.id !== id);
-        persist();
-        renderAll();
-      });
-    });
-  }
-
-  // ---------------------------
-  // Modals: open/close helpers
-  // ---------------------------
-  function showOverlay(show) {
-    const ov = $("#modalOverlay");
-    if (!ov) return;
-    ov.hidden = !show;
-  }
-
-  function closeJobModal() {
-    showOverlay(false);
-    const m = $("#jobModal");
-    if (m) {
-      m.hidden = true;
-      m.setAttribute("aria-hidden", "true");
-    }
-    state.editingJobId = null;
-  }
-
-  function closeReceiptModal() {
-    showOverlay(false);
-    const m = $("#receiptModal");
-    if (m) {
-      m.hidden = true;
-      m.setAttribute("aria-hidden", "true");
-    }
-    state.editingReceiptId = null;
-  }
-
-  // ---------------------------
-  // Job modal logic
-  // ---------------------------
-  function openJobModal(jobId = null) {
-    const modal = $("#jobModal");
-    if (!modal) return;
-
-    const isEdit = Boolean(jobId);
-    state.editingJobId = jobId;
-
-    $("#jobModalTitle") && ($("#jobModalTitle").textContent = isEdit ? "Edit Job" : "Add Job");
-
-    const job = isEdit ? state.jobs.find(j => j.id === jobId) : null;
-
-    // defaults
-    $("#jobDate").value = (job?.date || ymd(state.currentDate));
-    $("#jobCustomer").value = (job?.customer || "");
-    $("#jobPickup").value = (job?.pickup || "");
-    $("#jobDropoff").value = (job?.dropoff || "");
-    $("#jobAmount").value = String(job?.amount ?? 0);
-    $("#jobNotes").value = (job?.notes || "");
-    $("#jobStatus").value = (job?.status || STATUS.scheduled);
-
-    const delBtn = $("#jobDelete");
-    if (delBtn) delBtn.hidden = !isEdit;
-
-    // clear error
-    const err = $("#jobError");
-    if (err) { err.hidden = true; err.textContent = ""; }
-
-    showOverlay(true);
-    modal.hidden = false;
-    modal.setAttribute("aria-hidden", "false");
-  }
-
-  function saveJobFromModal() {
-    const err = $("#jobError");
-    const fail = (msg) => { if (err) { err.textContent = msg; err.hidden = false; } };
-
-    const date = ($("#jobDate")?.value || "").trim();
-    const customer = ($("#jobCustomer")?.value || "").trim();
-    const pickup = ($("#jobPickup")?.value || "").trim();
-    const dropoff = ($("#jobDropoff")?.value || "").trim();
-    const amount = clampMoney($("#jobAmount")?.value ?? 0);
-    const status = ($("#jobStatus")?.value || STATUS.scheduled).trim();
-    const notes = ($("#jobNotes")?.value || "").trim();
-
-    if (!date) return fail("Date is required.");
-    if (!customer) return fail("Customer is required.");
-    if (amount < 0) return fail("Amount cannot be negative.");
-
-    if (err) { err.hidden = true; err.textContent = ""; }
-
-    if (state.editingJobId) {
-      const j = state.jobs.find(x => x.id === state.editingJobId);
-      if (!j) return fail("Could not find that job.");
-      j.date = date;
-      j.customer = customer;
-      j.pickup = pickup;
-      j.dropoff = dropoff;
-      j.amount = amount;
-      j.status = STATUS_LABEL[status] ? status : STATUS.scheduled;
-      j.notes = notes;
-      j.updatedAt = Date.now();
-    } else {
-      state.jobs.push(normalizeJob({
-        id: makeId("job"),
-        date,
-        customer,
-        pickup,
-        dropoff,
-        amount,
-        status: STATUS_LABEL[status] ? status : STATUS.scheduled,
-        notes,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }));
-    }
-
-    persist();
-    closeJobModal();
-    // jump to day view of that date
-    state.currentDate = startOfDay(new Date(date));
-    state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
-    setView("day");
-  }
-
-  function deleteJobFromModal() {
-    const id = state.editingJobId;
-    if (!id) return;
-    if (!confirm("Delete this job?")) return;
-
-    state.jobs = state.jobs.filter(j => j.id !== id);
-    state.receipts = state.receipts.map(r => (r.jobId === id ? normalizeReceipt({ ...r, jobId: "", updatedAt: Date.now() }) : r));
-
-    persist();
-    closeJobModal();
-    renderAll();
-  }
-
-  // ---------------------------
-  // Receipt modal logic
-  // ---------------------------
-  function openReceiptModal(receiptId = null) {
-    const modal = $("#receiptModal");
-    if (!modal) return;
-
-    const isEdit = Boolean(receiptId);
-    state.editingReceiptId = receiptId;
-
-    $("#receiptModalTitle") && ($("#receiptModalTitle").textContent = isEdit ? "Edit Receipt" : "Add Receipt");
-
-    const rec = isEdit ? state.receipts.find(r => r.id === receiptId) : null;
-
-    $("#receiptDate").value = (rec?.date || ymd(state.currentDate));
-    $("#receiptVendor").value = (rec?.vendor || "");
-    $("#receiptCategory").value = (rec?.category || "");
-    $("#receiptAmount").value = String(rec?.amount ?? 0);
-    $("#receiptLinkedJobId").value = (rec?.jobId || "");
-    $("#receiptNotes").value = (rec?.notes || "");
-
-    const delBtn = $("#receiptDelete");
-    if (delBtn) delBtn.hidden = !isEdit;
-
-    const err = $("#receiptError");
-    if (err) { err.hidden = true; err.textContent = ""; }
-
-    showOverlay(true);
-    modal.hidden = false;
-    modal.setAttribute("aria-hidden", "false");
-  }
-
-  function saveReceiptFromModal() {
-    const err = $("#receiptError");
-    const fail = (msg) => { if (err) { err.textContent = msg; err.hidden = false; } };
-
-    const date = ($("#receiptDate")?.value || "").trim();
-    const vendor = ($("#receiptVendor")?.value || "").trim();
-    const category = ($("#receiptCategory")?.value || "").trim();
-    const amount = clampMoney($("#receiptAmount")?.value ?? 0);
-    const jobId = ($("#receiptLinkedJobId")?.value || "").trim();
-    const notes = ($("#receiptNotes")?.value || "").trim();
-
-    if (!date) return fail("Date is required.");
-    if (!vendor) return fail("Vendor is required.");
-    if (amount <= 0) return fail("Amount must be greater than 0.");
-
-    if (err) { err.hidden = true; err.textContent = ""; }
-
-    if (state.editingReceiptId) {
-      const r = state.receipts.find(x => x.id === state.editingReceiptId);
-      if (!r) return fail("Could not find that receipt.");
-      r.date = date;
-      r.vendor = vendor;
-      r.category = category;
-      r.amount = amount;
-      r.jobId = jobId;
-      r.notes = notes;
-      r.updatedAt = Date.now();
-    } else {
-      state.receipts.push(normalizeReceipt({
-        id: makeId("rcpt"),
-        date,
-        vendor,
-        category,
-        amount,
-        jobId,
-        notes,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }));
-    }
-
-    persist();
-    closeReceiptModal();
-    state.currentDate = startOfDay(new Date(date));
-    state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
-    setView("day");
-  }
-
-  function deleteReceiptFromModal() {
-    const id = state.editingReceiptId;
-    if (!id) return;
-    if (!confirm("Delete this receipt?")) return;
-
-    state.receipts = state.receipts.filter(r => r.id !== id);
-    persist();
-    closeReceiptModal();
-    renderAll();
-  }
-
-  // ---------------------------
-  // Render all (by current view)
-  // ---------------------------
-  function renderAll() {
-    // context line
-    const dateStr = ymd(state.currentDate);
-    if ($("#contextLine")) {
-      $("#contextLine").textContent =
-        state.view === "dashboard" ? "Dashboard" :
-        state.view === "calendar" ? "Calendar" :
-        state.view === "day" ? `Day Workspace: ${dateStr}` :
-        (state.view.charAt(0).toUpperCase() + state.view.slice(1));
-    }
-
-    if (state.view === "dashboard") renderDashboard();
-    if (state.view === "calendar") renderCalendar();
-    if (state.view === "day") renderDay();
-  }
-
-  // ---------------------------
-  // Navigation bindings
-  // ---------------------------
-  function bindNav() {
-    // sidebar
-    $$(".nav-item[data-view]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        const v = btn.dataset.view;
-        setView(v);
-      });
-    });
-
-    // topbar date controls
-    $("#btnToday")?.addEventListener("click", () => {
-      state.currentDate = startOfDay(new Date());
-      state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
-      renderAll();
-    });
-
-    $("#btnPrev")?.addEventListener("click", () => {
-      if (state.view === "calendar") {
-        state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
-      } else {
-        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() - 1));
-        state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
-      }
-      renderAll();
-    });
-
-    $("#btnNext")?.addEventListener("click", () => {
-      if (state.view === "calendar") {
-        state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
-      } else {
-        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() + 1));
-        state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
-      }
-      renderAll();
-    });
-
-    // calendar controls
-    $("#calPrev")?.addEventListener("click", () => {
-      state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
-      renderAll();
-    });
-    $("#calNext")?.addEventListener("click", () => {
-      state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
-      renderAll();
-    });
-    $("#calToday")?.addEventListener("click", () => {
-      const now = new Date();
-      state.monthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
-      state.currentDate = startOfDay(now);
-      renderAll();
-    });
-
-    // Add buttons
-    $("#btnAddJob")?.addEventListener("click", () => openJobModal(null));
-    $("#btnAddReceipt")?.addEventListener("click", () => openReceiptModal(null));
-
-    // modal close bindings
-    $("#jobCancel")?.addEventListener("click", closeJobModal);
-    $("#jobModalClose")?.addEventListener("click", closeJobModal);
-    $("#jobSave")?.addEventListener("click", saveJobFromModal);
-    $("#jobDelete")?.addEventListener("click", deleteJobFromModal);
-
-    $("#receiptCancel")?.addEventListener("click", closeReceiptModal);
-    $("#receiptModalClose")?.addEventListener("click", closeReceiptModal);
-    $("#receiptSave")?.addEventListener("click", saveReceiptFromModal);
-    $("#receiptDelete")?.addEventListener("click", deleteReceiptFromModal);
-
-    $("#modalOverlay")?.addEventListener("click", () => {
-      closeJobModal();
-      closeReceiptModal();
-    });
-
-    // ESC to close
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        closeJobModal();
-        closeReceiptModal();
-      }
-    });
-  }
-
-  // ---------------------------
-  // Boot
-  // ---------------------------
-  function init() {
-    try {
-      seedIfEmpty();
-
-      // normalize persisted arrays
-      state.jobs = (state.jobs || []).map(normalizeJob);
-      state.receipts = (state.receipts || []).map(normalizeReceipt);
+    $$("[data-rcpt-edit]", host).forEach((btn) => btn.addEventListener("click", () => openReceiptModal(btn.getAttribute("data-rcpt-edit"))));
+    $$("[data-rcpt-del]", host).forEach((btn) => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-rcpt-del");
+      if (!id) return;
+      if (!confirm("Delete this receipt?")) return;
+      state.receipts = state.receipts.filter(r => r.id !== id);
       persist();
-
-      bindNav();
-
-      setPill(true, "JS: ready ✅");
-
-      // start dashboard
-      setView("dashboard");
-    } catch (e) {
-      console.error(e);
-      setPill(false, "JS: error ❌");
-    }
+      renderAll();
+    }));
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
+  // ---------------------------
+  // Drivers / Trucks / Dispatch / Finance / Inventory / Scanner
+  // (simple starter renders so the pages are "real")
+  // ---------------------------
+  function renderSimpleRoster(viewName, arrKey, singularLabel) {
+    const host = $(`#view-${viewName}`);
+    if (!host) return;
+
+    const rows = state[arrKey] || [];
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">${escapeHtml(singularLabel)}s</div>
+          <div class="panel-sub">Editable roster (local for now).</div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <label class="field" style="min-width:260px;">
+            <span>${escapeHtml(singularLabel)} Name</span>
+            <input id="${viewName}Name" type="text" placeholder="Name" />
+          </label>
+          <label class="field" style="min-width:320px;">
+            <span>Notes</span>
+            <input id="${viewName}Notes" type="text" placeholder="Phone, plate, availability, etc." />
+          </label>
+          <button class="btn primary" type="button" id="${viewName}Add">Add</button>
+        </div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+          ${
+            rows.length
+              ? rows.map(r => `
+                <div class="job-row">
+                  <div class="job-main">
+                    <div class="job-title">${escapeHtml(r.name || singularLabel)}</div>
+                    <div class="job-sub">${escapeHtml(r.notes || "")}</div>
+                  </div>
+                  <div class="job-actions">
+                    <button class="btn" type="button" data-edit="${escapeHtml(r.id)}">Edit</button>
+                    <button class="btn danger" type="button" data-del="${escapeHtml(r.id)}">Delete</button>
+                  </div>
+                </div>
+              `).join("")
+              : `<div class="muted empty">No ${escapeHtml(singularLabel.toLowerCase())}s yet.</div>`
+          }
+        </div>
+      </div>
+    `;
+
+    $(`#${viewName}Add`)?.addEventListener("click", () => {
+      const name = ($(`#${viewName}Name`)?.value || "").trim();
+      const notes = ($(`#${viewName}Notes`)?.value || "").trim();
+      if (!name) return alert(`${singularLabel} name is required.`);
+      state[arrKey].push(normalizeNamedRow({ name, notes, createdAt:Date.now(), updatedAt:Date.now() }, arrKey));
+      persist();
+      renderAll();
+    });
+
+    $$("[data-del]", host).forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-del");
+      if (!id) return;
+      if (!confirm(`Delete this ${singularLabel.toLowerCase()}?`)) return;
+      state[arrKey] = state[arrKey].filter(x => x.id !== id);
+      persist();
+      renderAll();
+    }));
+
+    $$("[data-edit]", host).forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-edit");
+      const row = state[arrKey].find(x => x.id === id);
+      if (!row) return;
+      const name = prompt(`${singularLabel} name:`, row.name || "");
+      if (name === null) return;
+      const notes = prompt("Notes:", row.notes || "");
+      if (notes === null) return;
+      row.name = name.trim();
+      row.notes = notes.trim();
+      row.updatedAt = Date.now();
+      persist();
+      renderAll();
+    }));
   }
-})();
+
+  function renderDispatch() {
+    const host = $("#view-dispatch");
+    if (!host) return;
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Dispatch</div>
+          <div class="panel-sub">Starter view. Next step: assign drivers/trucks to jobs by date.</div>
+        </div>
+        <div class="muted">
+          This is active. The “real” dispatch logic comes next (pairing jobs ⇄ drivers ⇄ trucks).
+        </div>
+      </div>
+    `;
+  }
+
+  function renderFinance() {
+    const host = $("#view-finance");
+    if (!host) return;
+
+    const y = state.monthCursor.getFullYear();
+    const m = state.monthCursor.getMonth();
+    const t = monthTotals(y, m);
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Finance</div>
+          <div class="panel-sub">Month snapshot driven by Jobs + Receipts.</div>
+        </div>
+
+        <div class="day-totals">
+          <div><strong>${MONTHS[m]} ${y}</strong></div>
+          <div>Revenue: ${money(t.revenue)} · Expenses: ${money(t.expenses)} · Net: ${money(t.net)}</div>
+        </div>
+
+        <div class="muted" style="margin-top:10px;">
+          Next step: add payout rules, commissions, driver accountability, and export.
+        </div>
+      </div>
+    `;
+  }
+
+  function renderInventory() {
+    const host = $("#view-inventory");
+    if (!host) return;
+
+    const rows = state.inventory || [];
+
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Inventory</div>
+          <div class="panel-sub">Track items (furniture/boxes) and estimated cubic feet.</div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <label class="field" style="min-width:260px;">
+            <span>Item</span>
+            <input id="invName" type="text" placeholder="Sofa, dresser, 20 boxes..." />
+          </label>
+          <label class="field" style="min-width:160px;">
+            <span>Category</span>
+            <select id="invCat">
+              <option value="Furniture">Furniture</option>
+              <option value="Boxes">Boxes</option>
+              <option value="Appliance">Appliance</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label class="field" style="min-width:160px;">
+            <span>Est. cu ft</span>
+            <input id="invCuft" type="number" step="0.1" value="0" />
+          </label>
+          <button class="btn primary" type="button" id="invAdd">Add Item</button>
+        </div>
+
+        <div style="margin-top:12px; display:flex; flex
