@@ -275,13 +275,12 @@
     </div>
   </div>
 
-  <!-- Script -->
-  <!-- IMPORTANT: if you change JS, bump ?v= to avoid Safari/GitHub caching lies -->
 
-<!-- Supabase JS (UMD) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- Your app -->
-<script src="./apps_v6.js?v=force-1007" defer></script>
+<!-- Supabase UMD (safe) -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<!-- Your app (pick ONE file name that actually exists) -->
+<script defer src="./apps_v5.js?v=force-1008"></script>
 </body>
 </html>
