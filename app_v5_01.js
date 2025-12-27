@@ -1,7 +1,7 @@
 /* =========================================================
    Move-Master.OS — app_v5_01.js (FULL STABLE BASE)
    Matches your HTML architecture exactly:
-   - Sidebar buttons: .nav-item[data-view]
+   - Sidebar buttons: .nav-item[data-view] 
    - Views: #view-dashboard, #view-calendar, #view-day,
             #view-drivers, #view-trucks, #view-dispatch,
             #view-finance, #view-inventory, #view-scanner
