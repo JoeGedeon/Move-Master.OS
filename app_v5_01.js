@@ -1,5 +1,5 @@
 /* =========================================================
-   Move-Master.OS — apps_v5_1.js (FULL STABLE BASE)
+   Move-Master.OS — app_v5_01.js (FULL STABLE BASE)
    Matches your HTML architecture exactly:
    - Sidebar buttons: .nav-item[data-view]
    - Views: #view-dashboard, #view-calendar, #view-day,
@@ -52,24 +52,20 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  function safe(fn) {
-    try { fn(); } catch (e) {
-      console.error("[Move-Master.OS]", e);
-      setPill("JS: error ❌", false);
-      // Optional: show quick hint in console
-      console.log("If you're stuck at JS loading, check for 404 on the JS file or a syntax error.");
-    }
-  }
-
-  // ---------------------------
-  // JS pill
-  // ---------------------------
   function setPill(text, ok) {
     const pill = $("#jsPill");
     if (!pill) return;
     pill.textContent = text;
     pill.classList.remove("ok", "bad");
     pill.classList.add(ok ? "ok" : "bad");
+  }
+
+  function safe(fn) {
+    try { fn(); }
+    catch (e) {
+      console.error("[Move-Master.OS]", e);
+      setPill("JS: error ❌", false);
+    }
   }
 
   // ---------------------------
@@ -145,10 +141,23 @@
     const o = { ...(x || {}) };
     if (!o.id) o.id = makeId("inv");
     o.name = (o.name || "").trim();
-    o.category = (o.category || "Furniture").trim();
-    o.cuft = Number.isFinite(Number(o.cuft)) ? Math.max(0, Number(o.cuft)) : 0;
+    o.category = (o.category || "Other").trim();
+    o.cuft = Number(o.cuft ?? 0);
+    if (!Number.isFinite(o.cuft)) o.cuft = 0;
+    o.cuft = Math.round(o.cuft * 10) / 10;
     o.createdAt = o.createdAt || Date.now();
     o.updatedAt = o.updatedAt || o.createdAt;
+    return o;
+  }
+
+  function normalizeScan(x) {
+    const o = { ...(x || {}) };
+    if (!o.id) o.id = makeId("scan");
+    o.type = (o.type || "unknown").trim(); // receipt | furniture | unknown
+    o.source = (o.source || "manual").trim(); // manual now, later: upload/camera
+    o.text = (o.text || "").trim();
+    o.result = o.result || {};
+    o.createdAt = o.createdAt || Date.now();
     return o;
   }
 
@@ -165,11 +174,11 @@
 
     drivers: loadArray(LS.drivers).map(x => normalizeNamedRow(x, "drv")),
     trucks: loadArray(LS.trucks).map(x => normalizeNamedRow(x, "trk")),
-
     dispatch: loadArray(LS.dispatch),
+
     finance: loadArray(LS.finance),
     inventory: loadArray(LS.inventory).map(normalizeInventoryItem),
-    scans: loadArray(LS.scans),
+    scans: loadArray(LS.scans).map(normalizeScan),
 
     editingJobId: null,
     editingReceiptId: null,
@@ -198,13 +207,12 @@
 
     $$("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === name));
 
-    // Clean labels (your HTML still contains "(coming soon)")
+    // Clean labels
     $$("[data-view]").forEach((btn) => {
       const v = btn.dataset.view;
       if (!v) return;
-      if (["drivers","trucks","dispatch","finance","inventory","scanner"].includes(v)) {
-        btn.textContent = v[0].toUpperCase() + v.slice(1);
-      }
+      const title = v[0].toUpperCase() + v.slice(1);
+      if (["drivers","trucks","dispatch","finance","inventory","scanner"].includes(v)) btn.textContent = title;
     });
 
     renderAll();
@@ -259,7 +267,6 @@
   // ---------------------------
   function renderDashboard() {
     const todayStr = ymd(state.currentDate);
-
     const todayLine = $("#todayLine");
     if (todayLine) todayLine.textContent = `${todayStr}`;
 
@@ -268,7 +275,6 @@
       const rev = sumRevenue(todayStr);
       const exp = sumExpenses(todayStr);
       const net = clampMoney(rev - exp);
-
       todayStats.innerHTML = `
         <div>Jobs: <strong>${jobsByDate(todayStr).length}</strong></div>
         <div>Receipts: <strong>${receiptsByDate(todayStr).length}</strong></div>
@@ -283,7 +289,6 @@
       const y = state.monthCursor.getFullYear();
       const m = state.monthCursor.getMonth();
       const t = monthTotals(y, m);
-
       ms.innerHTML = `
         <div><strong>${MONTHS[m]} ${y}</strong></div>
         <div style="margin-top:6px;">Revenue: <strong>${money(t.revenue)}</strong></div>
@@ -326,7 +331,7 @@
   }
 
   // ---------------------------
-  // Full Calendar
+  // Full calendar
   // ---------------------------
   function renderCalendar() {
     const grid = $("#calendarGrid");
@@ -335,7 +340,6 @@
 
     const y = state.monthCursor.getFullYear();
     const m = state.monthCursor.getMonth();
-
     label.textContent = `${MONTHS[m]} ${y}`;
     grid.innerHTML = "";
 
@@ -365,7 +369,6 @@
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "day";
-
       if (sameDay(d, today)) cell.classList.add("today");
       if (sameDay(d, state.currentDate)) cell.classList.add("selected");
 
@@ -383,10 +386,34 @@
       const completed = jobs.filter(j => j.status === STATUS.completed).length;
       const cancelled = jobs.filter(j => j.status === STATUS.cancelled).length;
 
-      if (scheduled) { cell.classList.add("has-scheduled"); marker.appendChild(chip(`S:${scheduled}`, "chip-jobs")); }
-      if (completed) { cell.classList.add("has-completed"); marker.appendChild(chip(`C:${completed}`, "chip-jobs")); }
-      if (cancelled) { cell.classList.add("has-cancelled"); marker.appendChild(chip(`X:${cancelled}`, "chip-jobs")); }
-      if (receipts.length) { cell.classList.add("has-receipts"); marker.appendChild(chip(`🧾 ${receipts.length}`, "chip-receipts")); }
+      if (scheduled) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `S:${scheduled}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-scheduled");
+      }
+      if (completed) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `C:${completed}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-completed");
+      }
+      if (cancelled) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-jobs";
+        chip.textContent = `X:${cancelled}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-cancelled");
+      }
+      if (receipts.length) {
+        const chip = document.createElement("span");
+        chip.className = "chip chip-receipts";
+        chip.textContent = `🧾 ${receipts.length}`;
+        marker.appendChild(chip);
+        cell.classList.add("has-receipts");
+      }
 
       cell.appendChild(num);
       cell.appendChild(marker);
@@ -400,21 +427,13 @@
     }
   }
 
-  function chip(text, cls) {
-    const s = document.createElement("span");
-    s.className = `chip ${cls}`;
-    s.textContent = text;
-    return s;
-  }
-
   // ---------------------------
-  // Day Workspace
+  // Day workspace
   // ---------------------------
   function renderDay() {
     const dateStr = ymd(state.currentDate);
     const title = $("#dayTitle");
     if (title) title.textContent = `Day Workspace – ${dateStr}`;
-
     renderDayJobs(dateStr);
     renderDayReceipts(dateStr);
   }
@@ -461,7 +480,6 @@
           <button class="btn danger" type="button" data-job-del="${escapeHtml(job.id)}">Delete</button>
         </div>
       `;
-
       host.appendChild(row);
     }
 
@@ -546,7 +564,7 @@
   }
 
   // ---------------------------
-  // Drivers / Trucks (editable roster)
+  // Drivers & Trucks rosters
   // ---------------------------
   function renderRoster(viewName, arrKey, singularLabel) {
     const host = $(`#view-${viewName}`);
@@ -629,7 +647,7 @@
   }
 
   // ---------------------------
-  // Dispatch / Finance
+  // Dispatch (starter)
   // ---------------------------
   function renderDispatch() {
     const host = $("#view-dispatch");
@@ -639,15 +657,20 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Dispatch</div>
-          <div class="panel-sub">Starter view. Next: assign drivers/trucks to jobs.</div>
+          <div class="panel-sub">Starter view. Next step: assign drivers/trucks to jobs by date.</div>
         </div>
+
         <div class="muted">
-          This page is active. Next we build the real dispatch table (jobs by date + assignments).
+          Active. Next: Create assignments like:
+          <br/>Job (date) → Driver → Truck → Notes → Status.
         </div>
       </div>
     `;
   }
 
+  // ---------------------------
+  // Finance
+  // ---------------------------
   function renderFinance() {
     const host = $("#view-finance");
     if (!host) return;
@@ -660,7 +683,7 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Finance</div>
-          <div class="panel-sub">Driven by Jobs + Receipts.</div>
+          <div class="panel-sub">Month snapshot driven by Jobs + Receipts.</div>
         </div>
 
         <div class="day-totals">
@@ -669,32 +692,32 @@
         </div>
 
         <div class="muted" style="margin-top:10px;">
-          Next: commissions, driver accountability, export.
+          Next: payout rules, commissions, driver accountability, export.
         </div>
       </div>
     `;
   }
 
   // ---------------------------
-  // Inventory
+  // Inventory (FULL)
   // ---------------------------
   function renderInventory() {
     const host = $("#view-inventory");
     if (!host) return;
 
     const rows = state.inventory || [];
-    const totalCuft = rows.reduce((sum, r) => sum + (Number(r.cuft) || 0), 0);
+    const totalCuft = Math.round(rows.reduce((acc, r) => acc + (Number(r.cuft) || 0), 0) * 10) / 10;
 
     host.innerHTML = `
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Inventory</div>
-          <div class="panel-sub">Track items and estimated cubic feet.</div>
+          <div class="panel-sub">Track items (furniture/boxes) and estimated cubic feet.</div>
         </div>
 
         <div class="day-totals">
-          <div><strong>Total Items:</strong> ${rows.length}</div>
-          <div><strong>Est. Total Cu Ft:</strong> ${Math.round(totalCuft * 10) / 10}</div>
+          <div><strong>Total Estimated Cubic Feet:</strong> ${totalCuft.toFixed(1)} cu ft</div>
+          <div class="muted">This becomes the backbone for quotes/estimates.</div>
         </div>
 
         <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
@@ -702,7 +725,8 @@
             <span>Item</span>
             <input id="invName" type="text" placeholder="Sofa, dresser, 20 boxes..." />
           </label>
-          <label class="field" style="min-width:160px;">
+
+          <label class="field" style="min-width:180px;">
             <span>Category</span>
             <select id="invCat">
               <option value="Furniture">Furniture</option>
@@ -711,10 +735,12 @@
               <option value="Other">Other</option>
             </select>
           </label>
+
           <label class="field" style="min-width:160px;">
             <span>Est. cu ft</span>
             <input id="invCuft" type="number" step="0.1" value="0" />
           </label>
+
           <button class="btn primary" type="button" id="invAdd">Add Item</button>
         </div>
 
@@ -725,7 +751,7 @@
                 <div class="job-row">
                   <div class="job-main">
                     <div class="job-title">${escapeHtml(r.name || "Item")} <span class="muted">(${escapeHtml(r.category || "Other")})</span></div>
-                    <div class="job-sub">Est. cu ft: <strong>${escapeHtml(String(r.cuft ?? 0))}</strong></div>
+                    <div class="job-sub">${Number(r.cuft || 0).toFixed(1)} cu ft</div>
                   </div>
                   <div class="job-actions">
                     <button class="btn" type="button" data-inv-edit="${escapeHtml(r.id)}">Edit</button>
@@ -745,7 +771,13 @@
       const cuft = Number($("#invCuft")?.value ?? 0);
 
       if (!name) return alert("Item name is required.");
-      state.inventory.push(normalizeInventoryItem({ name, category, cuft, createdAt:Date.now(), updatedAt:Date.now() }));
+      if (!Number.isFinite(cuft) || cuft < 0) return alert("Cubic feet must be a valid number.");
+
+      state.inventory.push(normalizeInventoryItem({
+        name, category, cuft,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }));
       persist();
       renderAll();
     });
@@ -771,9 +803,12 @@
       const cuft = prompt("Estimated cu ft:", String(row.cuft ?? 0));
       if (cuft === null) return;
 
+      const cuftNum = Number(cuft);
+      if (!Number.isFinite(cuftNum) || cuftNum < 0) return alert("Invalid cu ft number.");
+
       row.name = name.trim();
-      row.category = category.trim();
-      row.cuft = Number.isFinite(Number(cuft)) ? Math.max(0, Number(cuft)) : row.cuft;
+      row.category = category.trim() || "Other";
+      row.cuft = Math.round(cuftNum * 10) / 10;
       row.updatedAt = Date.now();
 
       persist();
@@ -782,189 +817,182 @@
   }
 
   // ---------------------------
-  // Scanner (starter)
+  // AI Scanner (starter, no camera yet)
   // ---------------------------
+  function classifyText(text) {
+    const t = (text || "").toLowerCase();
+    const receiptHints = ["total", "subtotal", "tax", "visa", "mastercard", "receipt", "thank you", "balance", "change"];
+    const furnitureHints = ["sofa", "couch", "dresser", "table", "bed", "mattress", "chair", "nightstand", "tv", "mirror"];
+
+    const receiptScore = receiptHints.reduce((acc, k) => acc + (t.includes(k) ? 1 : 0), 0);
+    const furnScore = furnitureHints.reduce((acc, k) => acc + (t.includes(k) ? 1 : 0), 0);
+
+    if (receiptScore >= 2 && receiptScore >= furnScore) return "receipt";
+    if (furnScore >= 1 && furnScore > receiptScore) return "furniture";
+    return "unknown";
+  }
+
   function renderScanner() {
     const host = $("#view-scanner");
     if (!host) return;
+
+    const rows = state.scans.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
     host.innerHTML = `
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">AI Scanner</div>
-          <div class="panel-sub">Starter: paste text. Next: camera/photo parsing.</div>
+          <div class="panel-sub">Starter: paste text from a receipt or inventory notes. Next: photo + OCR.</div>
         </div>
 
-        <div class="muted">
-          For now, this is a “classification stub”:
-          it guesses whether the text looks like a receipt vs inventory list.
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <label class="field" style="min-width:520px; flex:1;">
+            <span>Paste text to classify</span>
+            <textarea id="scanText" rows="4" placeholder="Paste receipt text or furniture list..."></textarea>
+          </label>
+          <button class="btn primary" type="button" id="scanRun">Analyze</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px;">
+          This is a simple local classifier right now. When you wire Supabase + Edge Functions, we’ll send images/text to the backend for real extraction + categorization.
         </div>
 
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          <label class="field">
-            <span>Paste scanned text</span>
-            <textarea id="scanText" rows="6" placeholder="Paste receipt or item list text here..."></textarea>
-          </label>
-
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn primary" type="button" id="scanAnalyze">Analyze</button>
-            <button class="btn" type="button" id="scanClear">Clear</button>
-          </div>
-
-          <div id="scanResult" class="day-totals" style="display:none;"></div>
+          ${
+            rows.length
+              ? rows.map(r => `
+                <div class="receipt-row">
+                  <div class="receipt-main">
+                    <div class="receipt-title">${escapeHtml(new Date(r.createdAt).toLocaleString())} · <strong>${escapeHtml(r.type)}</strong></div>
+                    <div class="receipt-sub">${escapeHtml((r.text || "").slice(0, 140))}${(r.text||"").length > 140 ? "…" : ""}</div>
+                  </div>
+                  <div class="receipt-actions">
+                    <button class="btn danger" type="button" data-scan-del="${escapeHtml(r.id)}">Delete</button>
+                  </div>
+                </div>
+              `).join("")
+              : `<div class="muted empty">No scans yet.</div>`
+          }
         </div>
       </div>
     `;
 
-    $("#scanClear")?.addEventListener("click", () => {
-      $("#scanText").value = "";
-      const r = $("#scanResult");
-      r.style.display = "none";
-      r.innerHTML = "";
-    });
-
-    $("#scanAnalyze")?.addEventListener("click", () => {
+    $("#scanRun")?.addEventListener("click", () => {
       const text = ($("#scanText")?.value || "").trim();
       if (!text) return alert("Paste some text first.");
 
-      const result = classifyScanText(text);
-      const box = $("#scanResult");
-      box.style.display = "block";
-      box.innerHTML = `
-        <div><strong>Type:</strong> ${escapeHtml(result.type)}</div>
-        <div><strong>Confidence:</strong> ${escapeHtml(result.confidence)}</div>
-        <div style="margin-top:6px;"><strong>Why:</strong> ${escapeHtml(result.why)}</div>
-        <div style="margin-top:6px;" class="muted">Next step: auto-create a Receipt or Inventory entry from parsed fields.</div>
-      `;
+      const type = classifyText(text);
+      state.scans.unshift(normalizeScan({
+        type,
+        source: "manual",
+        text,
+        result: {},
+        createdAt: Date.now(),
+      }));
 
-      // store scan history
-      state.scans.push({ id: makeId("scan"), text, result, createdAt: Date.now() });
       persist();
+      renderAll();
     });
-  }
 
-  // Simple heuristic classifier (no AI yet, just useful)
-  function classifyScanText(text) {
-    const t = text.toLowerCase();
-
-    const receiptSignals = [
-      "subtotal", "total", "tax", "change", "cash", "visa", "mastercard",
-      "receipt", "store", "merchant", "thank you", "transaction", "approved",
-      "$", "amt", "balance"
-    ];
-
-    const inventorySignals = [
-      "sofa", "couch", "dresser", "bed", "mattress", "table", "chair",
-      "box", "boxes", "lamp", "tv", "mirror", "nightstand", "cabinet",
-      "appliance", "fridge", "refrigerator", "washer", "dryer"
-    ];
-
-    let rScore = 0, iScore = 0;
-    for (const s of receiptSignals) if (t.includes(s)) rScore++;
-    for (const s of inventorySignals) if (t.includes(s)) iScore++;
-
-    // Money pattern boosts receipt
-    if (/\$\s*\d+(\.\d{2})?/.test(text)) rScore += 2;
-    if (/(\d+)\s*x\s*/i.test(text)) iScore += 1; // "2x chairs" style
-
-    if (rScore >= iScore + 2) {
-      return { type: "Receipt", confidence: "High", why: `Receipt signals (${rScore}) beat inventory signals (${iScore}).` };
-    }
-    if (iScore >= rScore + 2) {
-      return { type: "Inventory", confidence: "High", why: `Inventory signals (${iScore}) beat receipt signals (${rScore}).` };
-    }
-    if (rScore === 0 && iScore === 0) {
-      return { type: "Unknown", confidence: "Low", why: "No strong keywords found." };
-    }
-    return { type: rScore >= iScore ? "Receipt (maybe)" : "Inventory (maybe)", confidence: "Medium", why: `Mixed signals: receipt=${rScore}, inventory=${iScore}.` };
+    $$("[data-scan-del]", host).forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-scan-del");
+      if (!id) return;
+      if (!confirm("Delete this scan?")) return;
+      state.scans = state.scans.filter(x => x.id !== id);
+      persist();
+      renderAll();
+    }));
   }
 
   // ---------------------------
   // Modals: Job
   // ---------------------------
-  function openJobModal(jobId = null) {
+  function openModal(modalId) {
     const overlay = $("#modalOverlay");
-    const modal = $("#jobModal");
+    const modal = $(modalId);
     if (!overlay || !modal) return;
-
-    const isEdit = !!jobId;
-    state.editingJobId = jobId;
-
-    const title = $("#jobModalTitle");
-    if (title) title.textContent = isEdit ? "Edit Job" : "Add Job";
-
-    $("#jobError").hidden = true;
-    $("#jobDelete").hidden = !isEdit;
-
-    const job = isEdit ? state.jobs.find(j => j.id === jobId) : normalizeJob({ date: ymd(state.currentDate) });
-
-    $("#jobDate").value = job.date;
-    $("#jobCustomer").value = job.customer || "";
-    $("#jobPickup").value = job.pickup || "";
-    $("#jobDropoff").value = job.dropoff || "";
-    $("#jobAmount").value = String(job.amount ?? 0);
-    $("#jobStatus").value = job.status || STATUS.scheduled;
-    $("#jobNotes").value = job.notes || "";
-
     overlay.hidden = false;
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
   }
 
-  function closeJobModal() {
+  function closeModal(modalId) {
     const overlay = $("#modalOverlay");
-    const modal = $("#jobModal");
-    if (overlay) overlay.hidden = true;
-    if (modal) {
-      modal.hidden = true;
-      modal.setAttribute("aria-hidden", "true");
-    }
-    state.editingJobId = null;
+    const modal = $(modalId);
+    if (!overlay || !modal) return;
+    overlay.hidden = true;
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function openJobModal(jobId = null) {
+    state.editingJobId = jobId;
+
+    const title = $("#jobModalTitle");
+    const delBtn = $("#jobDelete");
+    const err = $("#jobError");
+    if (err) { err.hidden = true; err.textContent = ""; }
+
+    const job = jobId ? state.jobs.find(j => j.id === jobId) : null;
+
+    if (title) title.textContent = job ? "Edit Job" : "Add Job";
+    if (delBtn) delBtn.hidden = !job;
+
+    $("#jobDate").value = job ? job.date : ymd(state.currentDate);
+    $("#jobCustomer").value = job ? job.customer : "";
+    $("#jobPickup").value = job ? job.pickup : "";
+    $("#jobDropoff").value = job ? job.dropoff : "";
+    $("#jobAmount").value = String(job ? job.amount : 0);
+    $("#jobStatus").value = job ? job.status : STATUS.scheduled;
+    $("#jobNotes").value = job ? job.notes : "";
+
+    openModal("#jobModal");
   }
 
   function saveJobFromModal() {
-    const date = ($("#jobDate")?.value || "").trim();
-    const customer = ($("#jobCustomer")?.value || "").trim();
-    const pickup = ($("#jobPickup")?.value || "").trim();
-    const dropoff = ($("#jobDropoff")?.value || "").trim();
-    const amount = clampMoney($("#jobAmount")?.value ?? 0);
-    const status = ($("#jobStatus")?.value || STATUS.scheduled).trim();
-    const notes = ($("#jobNotes")?.value || "").trim();
+    const err = $("#jobError");
+    const fail = (msg) => {
+      if (err) { err.textContent = msg; err.hidden = false; }
+      else alert(msg);
+    };
 
-    if (!date) return showJobError("Date is required.");
-    if (!customer) return showJobError("Customer is required.");
+    const date = ($("#jobDate").value || "").trim();
+    const customer = ($("#jobCustomer").value || "").trim();
+    const pickup = ($("#jobPickup").value || "").trim();
+    const dropoff = ($("#jobDropoff").value || "").trim();
+    const amount = clampMoney($("#jobAmount").value ?? 0);
+    const status = ($("#jobStatus").value || STATUS.scheduled).trim();
+    const notes = ($("#jobNotes").value || "").trim();
 
-    const isEdit = !!state.editingJobId;
+    if (!date) return fail("Date is required.");
+    if (!customer) return fail("Customer is required.");
+    if (!STATUS[status]) return fail("Invalid status.");
 
-    if (isEdit) {
+    if (err) { err.hidden = true; err.textContent = ""; }
+
+    if (state.editingJobId) {
       const job = state.jobs.find(j => j.id === state.editingJobId);
-      if (!job) return showJobError("Job not found.");
-
+      if (!job) return fail("Job not found.");
       job.date = date;
       job.customer = customer;
       job.pickup = pickup;
       job.dropoff = dropoff;
       job.amount = amount;
-      job.status = STATUS[status] ? status : STATUS.scheduled;
+      job.status = status;
       job.notes = notes;
       job.updatedAt = Date.now();
     } else {
       state.jobs.push(normalizeJob({
         id: makeId("job"),
-        date,
-        customer,
-        pickup,
-        dropoff,
-        amount,
-        status: STATUS[status] ? status : STATUS.scheduled,
-        notes,
+        date, customer, pickup, dropoff,
+        amount, status, notes,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }));
     }
 
     persist();
-    closeJobModal();
+    closeModal("#jobModal");
     renderAll();
   }
 
@@ -975,79 +1003,61 @@
 
     state.jobs = state.jobs.filter(j => j.id !== id);
     state.receipts = state.receipts.map(r => (r.linkedJobId === id ? normalizeReceipt({ ...r, linkedJobId:"", updatedAt:Date.now() }) : r));
-
     persist();
-    closeJobModal();
-    renderAll();
-  }
 
-  function showJobError(msg) {
-    const box = $("#jobError");
-    if (!box) return alert(msg);
-    box.textContent = msg;
-    box.hidden = false;
+    closeModal("#jobModal");
+    renderAll();
   }
 
   // ---------------------------
   // Modals: Receipt
   // ---------------------------
   function openReceiptModal(receiptId = null) {
-    const overlay = $("#modalOverlay");
-    const modal = $("#receiptModal");
-    if (!overlay || !modal) return;
-
-    const isEdit = !!receiptId;
     state.editingReceiptId = receiptId;
 
     const title = $("#receiptModalTitle");
-    if (title) title.textContent = isEdit ? "Edit Receipt" : "Add Receipt";
+    const delBtn = $("#receiptDelete");
+    const err = $("#receiptError");
+    if (err) { err.hidden = true; err.textContent = ""; }
 
-    $("#receiptError").hidden = true;
-    $("#receiptDelete").hidden = !isEdit;
+    const r = receiptId ? state.receipts.find(x => x.id === receiptId) : null;
 
-    const r = isEdit ? state.receipts.find(x => x.id === receiptId) : normalizeReceipt({ date: ymd(state.currentDate) });
+    if (title) title.textContent = r ? "Edit Receipt" : "Add Receipt";
+    if (delBtn) delBtn.hidden = !r;
 
-    $("#receiptDate").value = r.date;
-    $("#receiptVendor").value = r.vendor || "";
-    $("#receiptCategory").value = r.category || "";
-    $("#receiptAmount").value = String(r.amount ?? 0);
-    $("#receiptLinkedJobId").value = r.linkedJobId || "";
-    $("#receiptNotes").value = r.notes || "";
+    $("#receiptDate").value = r ? r.date : ymd(state.currentDate);
+    $("#receiptVendor").value = r ? r.vendor : "";
+    $("#receiptCategory").value = r ? r.category : "";
+    $("#receiptAmount").value = String(r ? r.amount : 0);
+    $("#receiptLinkedJobId").value = r ? r.linkedJobId : "";
+    $("#receiptNotes").value = r ? r.notes : "";
 
-    overlay.hidden = false;
-    modal.hidden = false;
-    modal.setAttribute("aria-hidden", "false");
-  }
-
-  function closeReceiptModal() {
-    const overlay = $("#modalOverlay");
-    const modal = $("#receiptModal");
-    if (overlay) overlay.hidden = true;
-    if (modal) {
-      modal.hidden = true;
-      modal.setAttribute("aria-hidden", "true");
-    }
-    state.editingReceiptId = null;
+    openModal("#receiptModal");
   }
 
   function saveReceiptFromModal() {
-    const date = ($("#receiptDate")?.value || "").trim();
-    const vendor = ($("#receiptVendor")?.value || "").trim();
-    const category = ($("#receiptCategory")?.value || "").trim();
-    const amount = clampMoney($("#receiptAmount")?.value ?? 0);
-    const linkedJobId = ($("#receiptLinkedJobId")?.value || "").trim();
-    const notes = ($("#receiptNotes")?.value || "").trim();
+    const err = $("#receiptError");
+    const fail = (msg) => {
+      if (err) { err.textContent = msg; err.hidden = false; }
+      else alert(msg);
+    };
 
-    if (!date) return showReceiptError("Date is required.");
-    if (!vendor) return showReceiptError("Vendor is required.");
-    if (amount <= 0) return showReceiptError("Amount must be greater than 0.");
+    const date = ($("#receiptDate").value || "").trim();
+    const vendor = ($("#receiptVendor").value || "").trim();
+    const category = ($("#receiptCategory").value || "").trim();
+    const amount = clampMoney($("#receiptAmount").value ?? 0);
+    const linkedJobId = ($("#receiptLinkedJobId").value || "").trim();
+    const notes = ($("#receiptNotes").value || "").trim();
 
-    const isEdit = !!state.editingReceiptId;
+    if (!date) return fail("Date is required.");
+    if (!vendor) return fail("Vendor is required.");
+    if (amount <= 0) return fail("Amount must be greater than 0.");
 
-    if (isEdit) {
+    if (err) { err.hidden = true; err.textContent = ""; }
+
+    if (state.editingReceiptId) {
       const r = state.receipts.find(x => x.id === state.editingReceiptId);
-      if (!r) return showReceiptError("Receipt not found.");
-
+      if (!r) return fail("Receipt not found.");
       r.date = date;
       r.vendor = vendor;
       r.category = category;
@@ -1058,19 +1068,14 @@
     } else {
       state.receipts.push(normalizeReceipt({
         id: makeId("rcpt"),
-        date,
-        vendor,
-        category,
-        amount,
-        linkedJobId,
-        notes,
+        date, vendor, category, amount, linkedJobId, notes,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }));
     }
 
     persist();
-    closeReceiptModal();
+    closeModal("#receiptModal");
     renderAll();
   }
 
@@ -1078,21 +1083,16 @@
     const id = state.editingReceiptId;
     if (!id) return;
     if (!confirm("Delete this receipt?")) return;
+
     state.receipts = state.receipts.filter(r => r.id !== id);
     persist();
-    closeReceiptModal();
+
+    closeModal("#receiptModal");
     renderAll();
   }
 
-  function showReceiptError(msg) {
-    const box = $("#receiptError");
-    if (!box) return alert(msg);
-    box.textContent = msg;
-    box.hidden = false;
-  }
-
   // ---------------------------
-  // Render All
+  // Render all
   // ---------------------------
   function renderAll() {
     const ctx = $("#contextLine");
@@ -1117,10 +1117,10 @@
   }
 
   // ---------------------------
-  // Bind UI
+  // Navigation bindings (bind once)
   // ---------------------------
-  function bindNav() {
-    // sidebar routing
+  function bindNavOnce() {
+    // Sidebar routing
     $$("[data-view]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -1129,10 +1129,11 @@
       });
     });
 
-    // topbar navigation
+    // Topbar date nav
     $("#btnToday")?.addEventListener("click", () => {
-      state.currentDate = startOfDay(new Date());
-      state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
+      const now = startOfDay(new Date());
+      state.currentDate = now;
+      state.monthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
       renderAll();
     });
 
@@ -1140,7 +1141,8 @@
       if (state.view === "calendar") {
         state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
       } else {
-        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() - 1));
+        const d = state.currentDate;
+        state.currentDate = startOfDay(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1));
         state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
       }
       renderAll();
@@ -1150,13 +1152,14 @@
       if (state.view === "calendar") {
         state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + 1, 1);
       } else {
-        state.currentDate = startOfDay(new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), state.currentDate.getDate() + 1));
+        const d = state.currentDate;
+        state.currentDate = startOfDay(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
         state.monthCursor = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1);
       }
       renderAll();
     });
 
-    // calendar controls
+    // Calendar view controls
     $("#calPrev")?.addEventListener("click", () => {
       state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
       renderAll();
@@ -1166,52 +1169,55 @@
       renderAll();
     });
     $("#calToday")?.addEventListener("click", () => {
-      const now = new Date();
+      const now = startOfDay(new Date());
       state.monthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
-      state.currentDate = startOfDay(now);
+      state.currentDate = now;
       renderAll();
     });
 
-    // topbar modals
+    // Add buttons
     $("#btnAddJob")?.addEventListener("click", () => openJobModal(null));
     $("#btnAddReceipt")?.addEventListener("click", () => openReceiptModal(null));
 
-    // modal buttons
-    $("#jobModalClose")?.addEventListener("click", closeJobModal);
-    $("#jobCancel")?.addEventListener("click", closeJobModal);
-    $("#jobSave")?.addEventListener("click", saveJobFromModal);
-    $("#jobDelete")?.addEventListener("click", deleteJobFromModal);
-
-    $("#receiptModalClose")?.addEventListener("click", closeReceiptModal);
-    $("#receiptCancel")?.addEventListener("click", closeReceiptModal);
-    $("#receiptSave")?.addEventListener("click", saveReceiptFromModal);
-    $("#receiptDelete")?.addEventListener("click", deleteReceiptFromModal);
-
-    // click overlay closes any open modal
+    // Modal close hooks
     $("#modalOverlay")?.addEventListener("click", () => {
-      closeJobModal();
-      closeReceiptModal();
+      closeModal("#jobModal");
+      closeModal("#receiptModal");
     });
+
+    $("#jobModalClose")?.addEventListener("click", () => closeModal("#jobModal"));
+    $("#jobCancel")?.addEventListener("click", () => closeModal("#jobModal"));
+    $("#jobSave")?.addEventListener("click", () => saveJobFromModal());
+    $("#jobDelete")?.addEventListener("click", () => deleteJobFromModal());
+
+    $("#receiptModalClose")?.addEventListener("click", () => closeModal("#receiptModal"));
+    $("#receiptCancel")?.addEventListener("click", () => closeModal("#receiptModal"));
+    $("#receiptSave")?.addEventListener("click", () => saveReceiptFromModal());
+    $("#receiptDelete")?.addEventListener("click", () => deleteReceiptFromModal());
   }
 
   // ---------------------------
   // Boot
   // ---------------------------
   function init() {
-    setPill("JS: ready ✅", true);
-
-    // normalize saved data defensively
+    // normalize stored data (in case older saves exist)
     state.jobs = (state.jobs || []).map(normalizeJob);
     state.receipts = (state.receipts || []).map(normalizeReceipt);
     state.drivers = (state.drivers || []).map(x => normalizeNamedRow(x, "drv"));
     state.trucks = (state.trucks || []).map(x => normalizeNamedRow(x, "trk"));
     state.inventory = (state.inventory || []).map(normalizeInventoryItem);
-
+    state.scans = (state.scans || []).map(normalizeScan);
     persist();
-    bindNav();
 
-    // start where HTML starts
-    setView($("#view-dashboard") ? "dashboard" : "day");
+    bindNavOnce();
+
+    // default view
+    if ($("#view-dashboard")) setView("dashboard");
+    else if ($("#view-day")) setView("day");
+    else if ($("#view-calendar")) setView("calendar");
+    else renderAll();
+
+    setPill("JS: ready ✅", true);
   }
 
   if (document.readyState === "loading") {
