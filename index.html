@@ -20,9 +20,21 @@
       --accent:#66d9ff;
       --shadow: 0 12px 28px rgba(0,0,0,.35);
       --radius:16px;
+
+      /* LOCKED LAYOUT SIZES */
+      --sidebar-w:260px;
+      --app-gap:16px;
+      --app-pad:16px;
+
+      /* Minimum width where the 2-panel layout looks sane.
+         If viewport is smaller, we DO NOT stack.
+         We allow horizontal scroll instead. */
+      --app-minw: 1020px;
     }
+
     *{box-sizing:border-box}
     html,body{height:100%}
+
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -30,18 +42,33 @@
                   radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
                   var(--bg);
       color:var(--text);
+      overflow:hidden; /* important: the app manages its own scrolling */
     }
     a{color:inherit}
 
+    /* =========================================================
+       LOCKED 2-COLUMN APP SHELL (NEVER STACKS)
+       ========================================================= */
     .app{
       display:flex;
-      gap:16px;
-      padding:16px;
+      flex-direction:row;         /* NEVER becomes column */
+      gap:var(--app-gap);
+      padding:var(--app-pad);
       height:100%;
+      min-width: var(--app-minw); /* forces horizontal scroll instead of stacking */
     }
+
+    /* A scroll container around the app so small viewports scroll sideways */
+    .app-scroll{
+      height:100%;
+      width:100%;
+      overflow:auto;              /* both x & y allowed here */
+      -webkit-overflow-scrolling: touch;
+    }
+
     .sidebar{
-      width:260px;
-      min-width:240px;
+      width:var(--sidebar-w);
+      min-width:var(--sidebar-w);
       background: rgba(255,255,255,.03);
       border:1px solid var(--line);
       border-radius: var(--radius);
@@ -50,7 +77,9 @@
       display:flex;
       flex-direction:column;
       gap:10px;
+      flex:0 0 var(--sidebar-w);
     }
+
     .brand{
       padding:10px 10px 14px;
       border-bottom:1px solid var(--line);
@@ -95,9 +124,12 @@
       display:flex;
       flex-direction:column;
       gap:12px;
-      min-width:0;
+      min-width:0; /* critical so content can shrink without blowing layout */
     }
 
+    /* =========================================================
+       TOPBAR
+       ========================================================= */
     .topbar{
       display:flex;
       align-items:center;
@@ -108,6 +140,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       min-height:58px;
+      flex-wrap:nowrap; /* locked */
     }
     .topbar .left{
       display:flex;
@@ -125,10 +158,14 @@
     .topbar .controls{
       display:flex;
       gap:8px;
-      flex-wrap:wrap;
+      flex-wrap:wrap;  /* allow buttons to wrap within the topbar if needed */
       justify-content:flex-end;
+      max-width: 560px;
     }
 
+    /* =========================================================
+       Buttons/Inputs
+       ========================================================= */
     .btn{
       border:1px solid var(--line);
       background: rgba(255,255,255,.04);
@@ -194,6 +231,7 @@
       gap:6px;
     }
     .field span{font-size:12px;color:var(--muted);font-weight:650}
+
     input, select, textarea{
       width:100%;
       border:1px solid var(--line);
@@ -206,15 +244,22 @@
     }
     textarea{resize:vertical}
 
+    /* =========================================================
+       Views scroller
+       ========================================================= */
     .views{
       flex:1;
       min-height:0;
-      overflow:auto;
+      overflow:auto; /* this is your main vertical scroll area */
       padding-bottom:12px;
+      -webkit-overflow-scrolling: touch;
     }
-    .view{display:none}
-    .view.active{display:block}
+    .view{display:none;}
+    .view.active{display:block;}
 
+    /* =========================================================
+       Job/Receipt rows
+       ========================================================= */
     .job-row,.receipt-row{
       display:flex;
       gap:10px;
@@ -238,6 +283,9 @@
       margin-bottom:10px;
     }
 
+    /* =========================================================
+       Calendar grid
+       ========================================================= */
     .calendar-bar{
       display:flex;
       align-items:center;
@@ -246,11 +294,16 @@
       flex-wrap:wrap;
       margin-bottom:12px;
     }
+
     #calendarGrid{
       display:grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(7, minmax(130px, 1fr)); /* prevents squishing */
       gap:10px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
     }
+
     .dow{
       color:var(--muted);
       font-weight:750;
@@ -264,7 +317,7 @@
       border-radius:14px;
       padding:10px;
       cursor:pointer;
-      min-height:86px;
+      min-height:96px;
       display:flex;
       flex-direction:column;
       gap:8px;
@@ -287,6 +340,9 @@
     .chip-jobs{border-color: rgba(102,217,255,.25)}
     .chip-receipts{border-color: rgba(0,255,180,.25)}
 
+    /* =========================================================
+       Modal
+       ========================================================= */
     #modalOverlay{
       position:fixed;
       inset:0;
@@ -339,6 +395,14 @@
       font-size:13px;
     }
 
+    /* On small screens, modal becomes 1 column (this is fine and not the app layout) */
+    @media (max-width: 520px){
+      .modal-grid{grid-template-columns: 1fr}
+    }
+
+    /* =========================================================
+       Bottom badge
+       ========================================================= */
     .footerbar{
       display:flex;
       justify-content:flex-end;
@@ -357,137 +421,150 @@
     }
     #jsPill.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
     #jsPill.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
-
-    @media (max-width: 920px){
-      .app{flex-direction:column}
-      .sidebar{width:100%}
-      .topbar{flex-wrap:wrap}
-      .topbar .controls{width:100%; justify-content:flex-start}
-    }
-    @media (max-width: 520px){
-      .modal-grid{grid-template-columns: 1fr}
-    }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="title">Move-Master.OS</div>
-        <div class="sub">Fleet + Moving CRM</div>
-      </div>
-
-      <nav class="nav">
-        <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
-        <button class="nav-item" data-view="calendar" type="button">Calendar</button>
-        <button class="nav-item" data-view="day" type="button">Day Workspace</button>
-
-        <div style="height:6px"></div>
-
-        <button class="nav-item" data-view="drivers" type="button">Drivers</button>
-        <button class="nav-item" data-view="trucks" type="button">Trucks</button>
-        <button class="nav-item" data-view="dispatch" type="button">Dispatch</button>
-        <button class="nav-item" data-view="finance" type="button">Finance</button>
-        <button class="nav-item" data-view="inventory" type="button">Inventory</button>
-        <button class="nav-item" data-view="scanner" type="button">Scanner</button>
-      </nav>
-
-      <div class="footerbar">
-        <div id="jsPill" class="bad">JS: loading…</div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="topbar">
-        <div class="left">
-          <div id="contextLine" class="context">Dashboard</div>
+  <!-- Scroll wrapper forces horizontal scroll instead of layout stacking -->
+  <div class="app-scroll">
+    <div class="app">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="title">Move-Master.OS</div>
+          <div class="sub">Fleet + Moving CRM</div>
         </div>
 
-        <div class="controls">
-          <button class="btn" id="btnPrev" type="button">◀</button>
-          <button class="btn" id="btnToday" type="button">Today</button>
-          <button class="btn" id="btnNext" type="button">▶</button>
+        <nav class="nav">
+          <button class="nav-item" data-view="dashboard" type="button">Dashboard</button>
+          <button class="nav-item" data-view="calendar" type="button">Calendar</button>
+          <button class="nav-item" data-view="day" type="button">Day Workspace</button>
 
-          <button class="btn primary" id="btnAddJob" type="button">Add Job</button>
-          <button class="btn primary" id="btnAddReceipt" type="button">Add Receipt</button>
+          <div style="height:6px"></div>
+
+          <button class="nav-item" data-view="drivers" type="button">Drivers</button>
+          <button class="nav-item" data-view="trucks" type="button">Trucks</button>
+          <button class="nav-item" data-view="dispatch" type="button">Dispatch</button>
+          <button class="nav-item" data-view="finance" type="button">Finance</button>
+          <button class="nav-item" data-view="inventory" type="button">Inventory</button>
+          <button class="nav-item" data-view="scanner" type="button">Scanner</button>
+        </nav>
+
+        <div class="footerbar">
+          <div id="jsPill" class="ok">JS: loading…</div>
         </div>
-      </div>
+      </aside>
 
-      <section class="views">
-        <div class="view active" id="view-dashboard">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Dashboard</div>
-              <div class="panel-sub">Quick snapshot</div>
-            </div>
+      <!-- Main -->
+      <main class="main">
+        <!-- Topbar -->
+        <div class="topbar">
+          <div class="left">
+            <div id="contextLine" class="context">Dashboard</div>
+          </div>
 
-            <div class="day-totals">
-              <div><strong>Today</strong> <span id="todayLine" class="muted"></span></div>
-              <div id="todayStats" class="muted" style="margin-top:8px;">Loading…</div>
-            </div>
+          <div class="controls">
+            <button class="btn" id="btnPrev" type="button">◀</button>
+            <button class="btn" id="btnToday" type="button">Today</button>
+            <button class="btn" id="btnNext" type="button">▶</button>
 
-            <div class="day-totals">
-              <div id="monthSnapshot" class="muted">Loading…</div>
-            </div>
-
-            <div class="muted" style="margin-top:12px; font-weight:700;">Quick Calendar</div>
-            <div id="dashboardCalendar" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
+            <button class="btn primary" id="btnAddJob" type="button">Add Job</button>
+            <button class="btn primary" id="btnAddReceipt" type="button">Add Receipt</button>
           </div>
         </div>
 
-        <div class="view" id="view-calendar">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Calendar</div>
-              <div class="panel-sub">Tap a day to open Day Workspace</div>
-            </div>
-
-            <div class="calendar-bar">
-              <div style="display:flex; gap:8px; align-items:center;">
-                <button class="btn" id="calPrev" type="button">◀</button>
-                <button class="btn" id="calToday" type="button">Today</button>
-                <button class="btn" id="calNext" type="button">▶</button>
+        <!-- Views -->
+        <section class="views">
+          <!-- Dashboard -->
+          <div class="view" id="view-dashboard">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Dashboard</div>
+                <div class="panel-sub">Quick snapshot</div>
               </div>
-              <div id="monthLabel" style="font-weight:900;"></div>
-            </div>
 
-            <div id="calendarGrid"></div>
-          </div>
-        </div>
-
-        <div class="view" id="view-day">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title" id="dayTitle">Day Workspace</div>
-              <div class="panel-sub">Jobs + Receipts for selected day</div>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
-              <div>
-                <div class="muted" style="font-weight:800; margin-bottom:8px;">Jobs</div>
-                <div id="dayJobsList">Loading…</div>
+              <div class="day-totals">
+                <div><strong>Today</strong> <span id="todayLine" class="muted"></span></div>
+                <div id="todayStats" class="muted" style="margin-top:8px;">Loading…</div>
               </div>
-              <div>
-                <div class="muted" style="font-weight:800; margin-bottom:8px;">Receipts</div>
-                <div id="dayReceiptsList">Loading…</div>
+
+              <div class="day-totals">
+                <div id="monthSnapshot" class="muted">Loading…</div>
               </div>
+
+              <div class="muted" style="margin-top:12px; font-weight:700;">Quick Calendar</div>
+              <div id="dashboardCalendar" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
             </div>
           </div>
-        </div>
 
-        <div class="view" id="view-drivers"></div>
-        <div class="view" id="view-trucks"></div>
-        <div class="view" id="view-dispatch"></div>
-        <div class="view" id="view-finance"></div>
-        <div class="view" id="view-inventory"></div>
-        <div class="view" id="view-scanner"></div>
-      </section>
-    </main>
+          <!-- Calendar -->
+          <div class="view" id="view-calendar">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Calendar</div>
+                <div class="panel-sub">Tap a day to open Day Workspace</div>
+              </div>
+
+              <div class="calendar-bar">
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <button class="btn" id="calPrev" type="button">◀</button>
+                  <button class="btn" id="calToday" type="button">Today</button>
+                  <button class="btn" id="calNext" type="button">▶</button>
+                </div>
+                <div id="monthLabel" style="font-weight:900;"></div>
+              </div>
+
+              <div id="calendarGrid"></div>
+            </div>
+          </div>
+
+          <!-- Day Workspace -->
+          <div class="view" id="view-day">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title" id="dayTitle">Day Workspace</div>
+                <div class="panel-sub">Jobs + Receipts for selected day</div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
+                <div>
+                  <div class="muted" style="font-weight:800; margin-bottom:8px;">Jobs</div>
+                  <div id="dayJobsList">Loading…</div>
+                </div>
+                <div>
+                  <div class="muted" style="font-weight:800; margin-bottom:8px;">Receipts</div>
+                  <div id="dayReceiptsList">Loading…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drivers -->
+          <div class="view" id="view-drivers"></div>
+
+          <!-- Trucks -->
+          <div class="view" id="view-trucks"></div>
+
+          <!-- Dispatch -->
+          <div class="view" id="view-dispatch"></div>
+
+          <!-- Finance -->
+          <div class="view" id="view-finance"></div>
+
+          <!-- Inventory -->
+          <div class="view" id="view-inventory"></div>
+
+          <!-- Scanner -->
+          <div class="view" id="view-scanner"></div>
+        </section>
+      </main>
+    </div>
   </div>
 
+  <!-- Modal overlay -->
   <div id="modalOverlay" hidden></div>
 
+  <!-- Job Modal -->
   <div class="modal" id="jobModal" hidden aria-hidden="true">
     <div class="modal-header">
       <div class="modal-title" id="jobModalTitle">Add Job</div>
@@ -544,6 +621,7 @@
     </div>
   </div>
 
+  <!-- Receipt Modal -->
   <div class="modal" id="receiptModal" hidden aria-hidden="true">
     <div class="modal-header">
       <div class="modal-title" id="receiptModalTitle">Add Receipt</div>
@@ -576,6 +654,7 @@
         <input id="receiptLinkedJobId" type="text" placeholder="Paste job id if you want" />
       </label>
 
+      <!-- If your JS supports these, keep them. If not, they’ll just sit there harmlessly. -->
       <label class="field">
         <span>Driver (optional)</span>
         <select id="receiptDriverId">
@@ -604,7 +683,7 @@
     </div>
   </div>
 
-  <!-- IMPORTANT: this must match your repo file location -->
-  <script src="./app_v5_01.js?v=20251230_2" defer></script>
+  <!-- IMPORTANT: This file must exist at this path in your repo -->
+  <script src="./js/app_v5_01.js?v=20251230_2" defer></script>
 </body>
 </html>
