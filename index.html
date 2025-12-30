@@ -28,13 +28,12 @@
         <button class="nav-item" data-view="dispatch">Dispatch</button>
         <button class="nav-item" data-view="drivers">Drivers</button>
         <button class="nav-item" data-view="trucks">Trucks</button>
-        <button class="nav-item" data-view="finance">Finance</button>
         <button class="nav-item" data-view="inventory">Inventory</button>
+        <button class="nav-item" data-view="finance">Finance</button>
         <button class="nav-item" data-view="scanner">AI Scanner</button>
 
         <div class="nav-sep"></div>
 
-        <!-- NEW: Spreadsheet-style editing -->
         <button class="nav-item" data-view="sheets">Sheets</button>
       </nav>
 
@@ -62,6 +61,7 @@
 
       <!-- Content -->
       <section class="content">
+
         <!-- DASHBOARD -->
         <div id="view-dashboard" class="view active">
           <div class="panel">
@@ -95,8 +95,6 @@
               <div class="panel-title">Quick Calendar</div>
               <div class="panel-sub">Tap a day to open Day Workspace</div>
             </div>
-
-            <!-- Quick calendar container used by JS -->
             <div id="dashboardCalendar" class="quick-calendar"></div>
           </div>
         </div>
@@ -116,11 +114,10 @@
               <div id="monthLabel" class="month-label">—</div>
             </div>
 
-            <!-- Full month calendar grid container used by JS -->
             <div id="calendarGrid" class="calendar-grid"></div>
 
             <div class="muted calendar-legend">
-              Legend: S = Scheduled · C = Completed · X = Cancelled · 🧾 = Receipts
+              Legend: S = Scheduled · C = Completed · X = Cancelled
             </div>
           </div>
         </div>
@@ -133,12 +130,10 @@
               <div class="panel-sub">Jobs + Receipts for the selected date</div>
             </div>
 
-            <!-- Jobs list container used by JS -->
             <div id="dayJobsList" class="day-list"></div>
 
             <div class="panel-spacer"></div>
 
-            <!-- Receipts list container used by JS -->
             <div id="dayReceiptsList" class="day-list"></div>
           </div>
         </div>
@@ -146,74 +141,68 @@
         <!-- DISPATCH -->
         <div id="view-dispatch" class="view">
           <div class="panel">
-            <div class="panel-title">Dispatch</div>
-            <div class="muted">Loading…</div>
+            <div class="panel-header">
+              <div class="panel-title">Dispatch</div>
+              <div id="dispatchSub" class="panel-sub">Assign drivers & trucks to jobs for the selected day.</div>
+            </div>
+
+            <div class="muted" style="margin-bottom:12px;">
+              Uses the <strong>selected date</strong> (top bar). Jobs come from Day Workspace.
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+              <button id="dispatchSaveAll" class="btn primary" type="button">Save Assignments</button>
+              <button id="dispatchClear" class="btn danger" type="button">Clear for This Day</button>
+              <div class="muted">Tip: Add Drivers + Trucks first.</div>
+            </div>
+
+            <div id="dispatchEmpty" class="muted empty">No jobs found for this date. Add jobs in Day Workspace.</div>
+            <div id="dispatchTableWrap"></div>
           </div>
         </div>
 
         <!-- DRIVERS -->
-        <div id="view-drivers" class="view">
-          <div class="panel">
-            <div class="panel-title">Drivers</div>
-            <div class="muted">Loading…</div>
-          </div>
-        </div>
+        <div id="view-drivers" class="view"></div>
 
         <!-- TRUCKS -->
-        <div id="view-trucks" class="view">
-          <div class="panel">
-            <div class="panel-title">Trucks</div>
-            <div class="muted">Loading…</div>
-          </div>
-        </div>
-
-        <!-- FINANCE -->
-        <div id="view-finance" class="view">
-          <div class="panel">
-            <div class="panel-title">Finance</div>
-            <div class="muted">Loading…</div>
-          </div>
-        </div>
+        <div id="view-trucks" class="view"></div>
 
         <!-- INVENTORY -->
-        <div id="view-inventory" class="view">
-          <div class="panel">
-            <div class="panel-title">Inventory</div>
-            <div class="muted">Loading…</div>
-          </div>
-        </div>
+        <div id="view-inventory" class="view"></div>
 
-        <!-- AI SCANNER -->
-        <div id="view-scanner" class="view">
-          <div class="panel">
-            <div class="panel-title">AI Scanner</div>
-            <div class="muted">Loading…</div>
-          </div>
-        </div>
+        <!-- FINANCE -->
+        <div id="view-finance" class="view"></div>
 
-        <!-- NEW: SHEETS VIEW -->
+        <!-- SCANNER -->
+        <div id="view-scanner" class="view"></div>
+
+        <!-- SHEETS -->
         <div id="view-sheets" class="view">
           <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Sheets</div>
-              <div class="panel-sub">Editable tables. Click into cells to edit. Auto-saves locally.</div>
+            <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <div>
+                <div class="panel-title">Sheets</div>
+                <div class="panel-sub">Editable tables. Tap into cells to edit. Auto-saves locally.</div>
+              </div>
+
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button id="sheetExportCsv" class="btn">Export CSV</button>
+              </div>
             </div>
 
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-              <button class="btn" type="button" id="sheetTabJobs">Jobs</button>
-              <button class="btn" type="button" id="sheetTabReceipts">Receipts</button>
-              <button class="btn" type="button" id="sheetTabDrivers">Drivers</button>
-              <button class="btn" type="button" id="sheetTabTrucks">Trucks</button>
-              <button class="btn" type="button" id="sheetTabDispatch">Dispatch</button>
-
-              <div style="flex:1;"></div>
-
-              <button class="btn primary" type="button" id="sheetExportCsv">Export CSV</button>
+            <div id="sheetTabs" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+              <button class="btn" data-sheet="jobs">Jobs</button>
+              <button class="btn" data-sheet="receipts">Receipts</button>
+              <button class="btn" data-sheet="drivers">Drivers</button>
+              <button class="btn" data-sheet="trucks">Trucks</button>
+              <button class="btn" data-sheet="dispatch">Dispatch</button>
             </div>
 
+            <div id="sheetHint" class="muted" style="margin-bottom:10px;">—</div>
             <div id="sheetTableWrap"></div>
           </div>
         </div>
+
       </section>
     </main>
   </div>
@@ -309,8 +298,18 @@
       </label>
 
       <label class="field">
+        <span>Driver (optional)</span>
+        <input id="receiptDriverId" type="text" placeholder="Paste Driver ID (Sheets makes this easy)" />
+      </label>
+
+      <label class="field">
         <span>Linked Job ID (optional)</span>
         <input id="receiptLinkedJobId" type="text" placeholder="(optional) job id" />
+      </label>
+
+      <label class="field">
+        <span>Receipt Photo (optional)</span>
+        <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
       </label>
 
       <label class="field">
@@ -326,10 +325,10 @@
     </div>
   </div>
 
-  <!-- Supabase JS (optional for later) -->
+  <!-- Optional: Supabase later -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- Your app -->
-  <script src="./apps_v5_1.js?v=20251229_2" defer></script>
+  <script src="./app_v5_02.js?v=20251229_1" defer></script>
 </body>
 </html>
