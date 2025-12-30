@@ -1,9 +1,9 @@
 /* =========================================================
-   Move-Master.OS — app_v5_01.js (FULL UPDATED, HUMAN-SAFE)
-   - Single app module (NO duplicate dispatch blocks)
-   - Dispatch is a real spreadsheet table (per selected date)
-   - Drivers has: roster + select driver + receipts history + add receipt tied to driver
-   - Uploads table (metadata only; file bytes not stored in localStorage)
+   Move-Master.OS — apps_v5_1.js (FULL UPDATED + SHEETS)
+   - Single app module
+   - Dispatch spreadsheet by date
+   - Drivers ledger + receipts tied to driver_id
+   - Sheets view: editable tables for Jobs/Receipts/Drivers/Trucks/Dispatch
    ========================================================= */
 
 (() => {
@@ -55,7 +55,7 @@
     catch (e) {
       console.error("[Move-Master.OS]", e);
       setPill("JS: error ❌", false);
-      alert("JS error. Check console for details.");
+      alert("JS error. Open console for details.");
     }
   }
 
@@ -113,7 +113,7 @@
     o.category = (o.category || "").trim();
     o.amount = clampMoney(o.amount ?? 0);
     o.linkedJobId = (o.linkedJobId || "").trim();
-    o.driverId = (o.driverId || "").trim(); // IMPORTANT: driver-linked receipts
+    o.driverId = (o.driverId || "").trim();
     o.notes = (o.notes || "").trim();
     o.createdAt = o.createdAt || Date.now();
     o.updatedAt = o.updatedAt || o.createdAt;
@@ -146,32 +146,28 @@
   function normalizeScan(x) {
     const o = { ...(x || {}) };
     if (!o.id) o.id = makeId("scan");
-    o.type = (o.type || "unknown").trim(); // receipt | furniture | unknown
-    o.source = (o.source || "manual").trim(); // manual now, later: upload/camera
+    o.type = (o.type || "unknown").trim();
+    o.source = (o.source || "manual").trim();
     o.text = (o.text || "").trim();
     o.result = o.result || {};
     o.createdAt = o.createdAt || Date.now();
     return o;
   }
 
-  // Uploads are metadata rows (spreadsheet-friendly).
-  // file bytes are NOT stored in localStorage.
   function normalizeUpload(x) {
     const o = { ...(x || {}) };
     if (!o.id) o.id = makeId("upl");
     if (!o.date) o.date = ymd(startOfDay(new Date()));
-    o.kind = (o.kind || "other").trim();     // receipt|damage|mileage|pod|inventory_photo|inventory_video|other
+    o.kind = (o.kind || "other").trim();
     o.driverId = (o.driverId || "").trim();
     o.jobId = (o.jobId || "").trim();
-    o.inventoryRef = (o.inventoryRef || "").trim();
-    o.fileName = (o.fileName || "").trim(); // for now: original file name
+    o.fileName = (o.fileName || "").trim();
     o.mime = (o.mime || "").trim();
     o.notes = (o.notes || "").trim();
     o.createdAt = o.createdAt || Date.now();
     return o;
   }
 
-  // Dispatch bucket: {date, assignments:{[jobId]:{driverId,truckId,updatedAt}}}
   function normalizeDispatchBucket(x) {
     const o = { ...(x || {}) };
     if (!o.date) o.date = ymd(startOfDay(new Date()));
@@ -195,7 +191,6 @@
 
     drivers: loadArray(LS.drivers).map(x => normalizeNamedRow(x, "drv")),
     trucks: loadArray(LS.trucks).map(x => normalizeNamedRow(x, "trk")),
-
     dispatch: loadArray(LS.dispatch).map(normalizeDispatchBucket),
 
     finance: loadArray(LS.finance),
@@ -206,8 +201,10 @@
     editingJobId: null,
     editingReceiptId: null,
 
-    // Drivers UI state
     selectedDriverId: "",
+
+    // Sheets
+    sheetTab: "jobs", // jobs|receipts|drivers|trucks|dispatch
   };
 
   function persist() {
@@ -271,21 +268,6 @@
     revenue = clampMoney(revenue);
     expenses = clampMoney(expenses);
     return { revenue, expenses, net: clampMoney(revenue - expenses) };
-  }
-
-  // Driver breakdown helpers
-  function groupReceiptsByMonth(receipts) {
-    const map = new Map(); // "YYYY-MM" -> {total, count}
-    for (const r of receipts) {
-      const key = String(r.date || "").slice(0, 7);
-      if (!map.has(key)) map.set(key, { total: 0, count: 0 });
-      const obj = map.get(key);
-      obj.total += clampMoney(r.amount);
-      obj.count += 1;
-    }
-    return Array.from(map.entries())
-      .sort((a,b) => a[0].localeCompare(b[0]))
-      .map(([k,v]) => ({ month: k, total: clampMoney(v.total), count: v.count }));
   }
 
   // ---------------------------
@@ -602,285 +584,7 @@
   }
 
   // ---------------------------
-  // DRIVERS (Spreadsheet-style roster + driver logs)
-  // ---------------------------
-  function renderDrivers() {
-    const host = $("#view-drivers");
-    if (!host) return;
-
-    const drivers = state.drivers.slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
-
-    // Ensure selected driver still exists
-    if (state.selectedDriverId && !state.drivers.find(d => d.id === state.selectedDriverId)) {
-      state.selectedDriverId = "";
-    }
-    if (!state.selectedDriverId && drivers.length) state.selectedDriverId = drivers[0].id;
-
-    const selected = state.selectedDriverId ? state.drivers.find(d => d.id === state.selectedDriverId) : null;
-    const selectedName = selected?.name || "—";
-
-    const driverReceipts = selected ? receiptsByDriver(selected.id) : [];
-    driverReceipts.sort((a,b) => (b.date||"").localeCompare(a.date||""));
-
-    const monthGroups = groupReceiptsByMonth(driverReceipts).reverse(); // newest first
-    const monthSummaryHtml = monthGroups.length
-      ? monthGroups.map(m => `<div>${escapeHtml(m.month)} · <strong>${money(m.total)}</strong> · <span class="muted">${m.count} receipts</span></div>`).join("")
-      : `<div class="muted">No history yet.</div>`;
-
-    const recentReceiptsHtml = driverReceipts.length
-      ? driverReceipts.slice(0, 25).map(r => `
-          <div class="receipt-row">
-            <div class="receipt-main">
-              <div class="receipt-title">${escapeHtml(r.date)} · ${escapeHtml(r.vendor)} · ${escapeHtml(r.category)}</div>
-              <div class="receipt-sub">${money(r.amount)} · ${escapeHtml(r.notes || "")}</div>
-            </div>
-            <div class="receipt-actions">
-              <button class="btn" type="button" data-rcpt-edit="${escapeHtml(r.id)}">Edit</button>
-              <button class="btn danger" type="button" data-rcpt-del="${escapeHtml(r.id)}">Delete</button>
-            </div>
-          </div>
-        `).join("")
-      : `<div class="muted empty">No receipts logged for this driver yet.</div>`;
-
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Drivers</div>
-          <div class="panel-sub">Roster + driver ledger (week/month). Receipts tie to driver_id.</div>
-        </div>
-
-        <div class="cards">
-          <div class="card" style="min-width:280px;">
-            <div class="card-title">Driver Roster</div>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-top:10px;">
-              <label class="field" style="min-width:260px;">
-                <span>Driver Name</span>
-                <input id="driversName" type="text" placeholder="Name" />
-              </label>
-              <label class="field" style="min-width:260px;">
-                <span>Notes</span>
-                <input id="driversNotes" type="text" placeholder="Phone, availability, etc." />
-              </label>
-              <button class="btn primary" type="button" id="driversAdd">Add</button>
-            </div>
-
-            <div id="driversList" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-              ${
-                drivers.length
-                  ? drivers.map(d => `
-                      <button type="button" class="job-row ${d.id === state.selectedDriverId ? "selected" : ""}" data-driver-pick="${escapeHtml(d.id)}" style="text-align:left;">
-                        <div class="job-main">
-                          <div class="job-title">${escapeHtml(d.name || "Driver")}</div>
-                          <div class="job-sub">${escapeHtml(d.notes || "")}</div>
-                        </div>
-                      </button>
-                    `).join("")
-                  : `<div class="muted empty">No drivers yet.</div>`
-              }
-            </div>
-          </div>
-
-          <div class="card" style="flex:1;">
-            <div class="card-title">Driver Log</div>
-            <div class="muted" id="selectedDriverLine" style="margin-top:6px;">
-              Selected: <strong>${escapeHtml(selectedName)}</strong>
-            </div>
-
-            <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-              <button id="btnDriverAddReceipt" class="btn primary" type="button">Add Receipt</button>
-              <button id="btnDriverAddUpload" class="btn" type="button">Add Receipt Photo (metadata)</button>
-              <button id="btnDriverDelete" class="btn danger" type="button" ${selected ? "" : "disabled"}>Delete Driver</button>
-            </div>
-
-            <div style="margin-top:12px;">
-              <div class="muted">Month-by-month</div>
-              <div id="driverSummary" class="card-body">${monthSummaryHtml}</div>
-            </div>
-
-            <div style="margin-top:12px;">
-              <div class="muted">Recent Receipts</div>
-              <div id="driverLogsList" class="card-body">${recentReceiptsHtml}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add driver
-    $("#driversAdd", host)?.addEventListener("click", () => {
-      const name = ($("#driversName", host)?.value || "").trim();
-      const notes = ($("#driversNotes", host)?.value || "").trim();
-      if (!name) return alert("Driver name is required.");
-      const row = normalizeNamedRow({ name, notes, createdAt: Date.now(), updatedAt: Date.now() }, "drv");
-      state.drivers.push(row);
-      state.selectedDriverId = row.id;
-      persist();
-      renderAll();
-    });
-
-    // Pick driver
-    $$("[data-driver-pick]", host).forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.selectedDriverId = btn.getAttribute("data-driver-pick") || "";
-        renderAll();
-      });
-    });
-
-    // Delete driver (keeps receipts, just detaches them)
-    $("#btnDriverDelete", host)?.addEventListener("click", () => {
-      if (!selected) return;
-      if (!confirm(`Delete driver "${selected.name}"? Receipts will remain but become unassigned.`)) return;
-
-      const id = selected.id;
-      state.drivers = state.drivers.filter(d => d.id !== id);
-      state.receipts = state.receipts.map(r => r.driverId === id ? normalizeReceipt({ ...r, driverId: "", updatedAt: Date.now() }) : r);
-      state.uploads = state.uploads.map(u => u.driverId === id ? normalizeUpload({ ...u, driverId: "", createdAt: u.createdAt || Date.now() }) : u);
-
-      state.selectedDriverId = state.drivers[0]?.id || "";
-      persist();
-      renderAll();
-    });
-
-    // Add receipt tied to driver
-    $("#btnDriverAddReceipt", host)?.addEventListener("click", () => {
-      if (!selected) return alert("Create/select a driver first.");
-      openReceiptModal(null, { driverId: selected.id });
-    });
-
-    // Add upload metadata (receipt photo metadata placeholder)
-    $("#btnDriverAddUpload", host)?.addEventListener("click", async () => {
-      if (!selected) return alert("Create/select a driver first.");
-
-      // Use a file picker. On iPad Safari this opens camera/photo library.
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.capture = "environment";
-      input.click();
-
-      input.onchange = () => {
-        const file = input.files?.[0];
-        if (!file) return;
-
-        state.uploads.unshift(normalizeUpload({
-          date: ymd(state.currentDate),
-          kind: "receipt",
-          driverId: selected.id,
-          jobId: "",
-          fileName: file.name || "receipt.jpg",
-          mime: file.type || "",
-          notes: "Driver receipt photo (metadata only in v1)",
-          createdAt: Date.now(),
-        }));
-
-        persist();
-        alert("Saved upload metadata. (Actual file storage comes with Supabase/IndexedDB.)");
-        renderAll();
-      };
-    });
-
-    // Receipt row edit/delete inside driver log
-    $$("[data-rcpt-edit]", host).forEach(btn =>
-      btn.addEventListener("click", () => openReceiptModal(btn.getAttribute("data-rcpt-edit")))
-    );
-    $$("[data-rcpt-del]", host).forEach(btn =>
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-rcpt-del");
-        if (!id) return;
-        if (!confirm("Delete this receipt?")) return;
-        state.receipts = state.receipts.filter(r => r.id !== id);
-        persist();
-        renderAll();
-      })
-    );
-  }
-
-  // ---------------------------
-  // TRUCKS roster (kept simple)
-  // ---------------------------
-  function renderTrucks() {
-    const host = $("#view-trucks");
-    if (!host) return;
-
-    const rows = state.trucks.slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
-
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Trucks</div>
-          <div class="panel-sub">Editable roster (local for now).</div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:260px;">
-            <span>Truck Name</span>
-            <input id="trucksName" type="text" placeholder="Truck 1, Sprinter, etc." />
-          </label>
-          <label class="field" style="min-width:320px;">
-            <span>Notes</span>
-            <input id="trucksNotes" type="text" placeholder="Plate, capacity, issues, etc." />
-          </label>
-          <button class="btn primary" type="button" id="trucksAdd">Add</button>
-        </div>
-
-        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${
-            rows.length
-              ? rows.map(r => `
-                <div class="job-row">
-                  <div class="job-main">
-                    <div class="job-title">${escapeHtml(r.name || "Truck")}</div>
-                    <div class="job-sub">${escapeHtml(r.notes || "")}</div>
-                  </div>
-                  <div class="job-actions">
-                    <button class="btn" type="button" data-trk-edit="${escapeHtml(r.id)}">Edit</button>
-                    <button class="btn danger" type="button" data-trk-del="${escapeHtml(r.id)}">Delete</button>
-                  </div>
-                </div>
-              `).join("")
-              : `<div class="muted empty">No trucks yet.</div>`
-          }
-        </div>
-      </div>
-    `;
-
-    $("#trucksAdd", host)?.addEventListener("click", () => {
-      const name = ($("#trucksName", host)?.value || "").trim();
-      const notes = ($("#trucksNotes", host)?.value || "").trim();
-      if (!name) return alert("Truck name is required.");
-      state.trucks.push(normalizeNamedRow({ name, notes, createdAt: Date.now(), updatedAt: Date.now() }, "trk"));
-      persist();
-      renderAll();
-    });
-
-    $$("[data-trk-del]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-trk-del");
-      if (!id) return;
-      if (!confirm("Delete this truck?")) return;
-      state.trucks = state.trucks.filter(x => x.id !== id);
-      persist();
-      renderAll();
-    }));
-
-    $$("[data-trk-edit]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-trk-edit");
-      const row = state.trucks.find(x => x.id === id);
-      if (!row) return;
-      const name = prompt("Truck name:", row.name || "");
-      if (name === null) return;
-      const notes = prompt("Notes:", row.notes || "");
-      if (notes === null) return;
-      row.name = name.trim();
-      row.notes = notes.trim();
-      row.updatedAt = Date.now();
-      persist();
-      renderAll();
-    }));
-  }
-
-  // ---------------------------
-  // DISPATCH (Spreadsheet table per selected date)
+  // Dispatch (assignments)
   // ---------------------------
   function getDispatchBucket(dateISO) {
     let b = state.dispatch.find(x => x.date === dateISO);
@@ -917,7 +621,7 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Dispatch</div>
-          <div class="panel-sub">Assign drivers + trucks to each job for <strong>${escapeHtml(dateISO)}</strong>.</div>
+          <div class="panel-sub">Assign drivers + trucks for <strong>${escapeHtml(dateISO)}</strong>.</div>
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
@@ -939,7 +643,6 @@
 
     const rows = jobs.map(job => {
       const jobId = String(job.id);
-      const a = assignments[jobId] || {};
       return `
         <tr data-job-id="${escapeHtml(jobId)}">
           <td style="min-width:220px;">
@@ -1054,14 +757,14 @@
         </div>
 
         <div class="muted" style="margin-top:10px;">
-          Next: export receipts CSV, driver totals, payout rules.
+          Use Sheets view for inline edits + CSV export.
         </div>
       </div>
     `;
   }
 
   // ---------------------------
-  // Inventory (kept as your working CRUD)
+  // Inventory (unchanged core)
   // ---------------------------
   function renderInventory() {
     const host = $("#view-inventory");
@@ -1074,7 +777,7 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Inventory</div>
-          <div class="panel-sub">Track items and estimated cubic feet (spreadsheet-friendly).</div>
+          <div class="panel-sub">Track items and estimated cubic feet.</div>
         </div>
 
         <div class="day-totals">
@@ -1105,8 +808,6 @@
 
           <button class="btn primary" type="button" id="invAdd">Add Item</button>
         </div>
-
-        <div class="muted" style="margin-top:12px;">Next: inventory photo uploads (stored as Upload rows).</div>
 
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
           ${
@@ -1181,7 +882,7 @@
   }
 
   // ---------------------------
-  // AI Scanner
+  // Scanner (kept minimal)
   // ---------------------------
   function classifyText(text) {
     const t = (text || "").toLowerCase();
@@ -1265,7 +966,7 @@
   }
 
   // ---------------------------
-  // Modals (Job)
+  // Modals (Jobs/Receipts)
   // ---------------------------
   function openModal(modalId) {
     const overlay = $("#modalOverlay");
@@ -1369,11 +1070,7 @@
     renderAll();
   }
 
-  // ---------------------------
-  // Modals (Receipt)
-  // openReceiptModal can accept an optional preset (driverId)
-  // ---------------------------
-  function openReceiptModal(receiptId = null, preset = null) {
+  function openReceiptModal(receiptId = null) {
     state.editingReceiptId = receiptId;
 
     const title = $("#receiptModalTitle");
@@ -1393,15 +1090,6 @@
     $("#receiptLinkedJobId").value = r ? r.linkedJobId : "";
     $("#receiptNotes").value = r ? r.notes : "";
 
-    // driver preset (if creating from Drivers page)
-    const driverId = r ? r.driverId : (preset?.driverId || "");
-    // If your HTML has a hidden #receiptDriverId, use it; otherwise we store on save via closure state
-    const hid = $("#receiptDriverId");
-    if (hid) hid.value = driverId;
-
-    // store preset on state temporarily for save
-    state._receiptModalDriverPreset = driverId;
-
     openModal("#receiptModal");
   }
 
@@ -1419,10 +1107,6 @@
     const linkedJobId = ($("#receiptLinkedJobId").value || "").trim();
     const notes = ($("#receiptNotes").value || "").trim();
 
-    // driver binding: prefer hidden field if exists
-    const driverIdFromHidden = ($("#receiptDriverId")?.value || "").trim();
-    const driverId = driverIdFromHidden || (state._receiptModalDriverPreset || "");
-
     if (!date) return fail("Date is required.");
     if (!vendor) return fail("Vendor is required.");
     if (amount <= 0) return fail("Amount must be greater than 0.");
@@ -1437,21 +1121,19 @@
       r.category = category;
       r.amount = amount;
       r.linkedJobId = linkedJobId;
-      r.driverId = driverId;
       r.notes = notes;
       r.updatedAt = Date.now();
     } else {
       state.receipts.push(normalizeReceipt({
         id: makeId("rcpt"),
         date, vendor, category, amount, linkedJobId,
-        driverId,
+        driverId: "", // can be edited in Sheets
         notes,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }));
     }
 
-    state._receiptModalDriverPreset = "";
     persist();
     closeModal("#receiptModal");
     renderAll();
@@ -1470,7 +1152,298 @@
   }
 
   // ---------------------------
-  // Render All
+  // SHEETS VIEW (editable cells)
+  // ---------------------------
+  function csvEscape(v) {
+    const s = String(v ?? "");
+    if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
+    return s;
+  }
+
+  function downloadTextFile(filename, text, mime = "text/csv") {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  function renderSheets() {
+    const host = $("#view-sheets");
+    if (!host) return;
+
+    const wrap = $("#sheetTableWrap", host);
+    if (!wrap) return;
+
+    // Button states
+    const tabs = [
+      ["sheetTabJobs", "jobs"],
+      ["sheetTabReceipts", "receipts"],
+      ["sheetTabDrivers", "drivers"],
+      ["sheetTabTrucks", "trucks"],
+      ["sheetTabDispatch", "dispatch"],
+    ];
+    for (const [id, key] of tabs) {
+      const b = $(`#${id}`, host);
+      if (b) b.classList.toggle("primary", state.sheetTab === key);
+    }
+
+    const tab = state.sheetTab;
+
+    if (tab === "jobs") return renderSheetJobs(wrap);
+    if (tab === "receipts") return renderSheetReceipts(wrap);
+    if (tab === "drivers") return renderSheetNamed(wrap, "drivers");
+    if (tab === "trucks") return renderSheetNamed(wrap, "trucks");
+    if (tab === "dispatch") return renderSheetDispatch(wrap);
+
+    wrap.innerHTML = `<div class="muted">Unknown sheet tab.</div>`;
+  }
+
+  function inputCell(value, attrs = "") {
+    return `<input ${attrs} value="${escapeHtml(value ?? "")}" />`;
+  }
+
+  function renderSheetJobs(wrap) {
+    const rows = state.jobs.slice().sort((a,b) => (a.date||"").localeCompare(b.date||""));
+
+    const header = ["date","customer","pickup","dropoff","amount","status","notes","id"];
+    const body = rows.map(j => `
+      <tr data-id="${escapeHtml(j.id)}">
+        <td>${inputCell(j.date, 'class="cell" data-field="date" type="date"')}</td>
+        <td>${inputCell(j.customer, 'class="cell" data-field="customer" type="text"')}</td>
+        <td>${inputCell(j.pickup, 'class="cell" data-field="pickup" type="text"')}</td>
+        <td>${inputCell(j.dropoff, 'class="cell" data-field="dropoff" type="text"')}</td>
+        <td>${inputCell(j.amount, 'class="cell" data-field="amount" type="number" step="0.01"')}</td>
+        <td>
+          <select class="cell" data-field="status">
+            <option value="scheduled" ${j.status==="scheduled"?"selected":""}>scheduled</option>
+            <option value="completed" ${j.status==="completed"?"selected":""}>completed</option>
+            <option value="cancelled" ${j.status==="cancelled"?"selected":""}>cancelled</option>
+          </select>
+        </td>
+        <td>${inputCell(j.notes, 'class="cell" data-field="notes" type="text"')}</td>
+        <td class="muted" style="font-size:12px;">${escapeHtml(j.id)}</td>
+      </tr>
+    `).join("");
+
+    wrap.innerHTML = `
+      <div class="muted" style="margin-bottom:10px;">Jobs table (click into cells to edit). Changes auto-save.</div>
+      <div style="overflow:auto;">
+        <table class="table" style="width:100%;">
+          <thead><tr>${header.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+          <tbody>${body || `<tr><td colspan="8" class="muted">No jobs yet.</td></tr>`}</tbody>
+        </table>
+      </div>
+    `;
+
+    bindSheetEdits(wrap, "jobs");
+  }
+
+  function renderSheetReceipts(wrap) {
+    const rows = state.receipts.slice().sort((a,b) => (a.date||"").localeCompare(b.date||""));
+
+    const header = ["date","vendor","category","amount","driverId","linkedJobId","notes","id"];
+    const body = rows.map(r => `
+      <tr data-id="${escapeHtml(r.id)}">
+        <td>${inputCell(r.date, 'class="cell" data-field="date" type="date"')}</td>
+        <td>${inputCell(r.vendor, 'class="cell" data-field="vendor" type="text"')}</td>
+        <td>${inputCell(r.category, 'class="cell" data-field="category" type="text"')}</td>
+        <td>${inputCell(r.amount, 'class="cell" data-field="amount" type="number" step="0.01"')}</td>
+        <td>${inputCell(r.driverId, 'class="cell" data-field="driverId" type="text" placeholder="drv_... or uuid"')}</td>
+        <td>${inputCell(r.linkedJobId, 'class="cell" data-field="linkedJobId" type="text" placeholder="job_... or uuid"')}</td>
+        <td>${inputCell(r.notes, 'class="cell" data-field="notes" type="text"')}</td>
+        <td class="muted" style="font-size:12px;">${escapeHtml(r.id)}</td>
+      </tr>
+    `).join("");
+
+    wrap.innerHTML = `
+      <div class="muted" style="margin-bottom:10px;">Receipts table (click into cells to edit). Changes auto-save.</div>
+      <div style="overflow:auto;">
+        <table class="table" style="width:100%;">
+          <thead><tr>${header.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+          <tbody>${body || `<tr><td colspan="8" class="muted">No receipts yet.</td></tr>`}</tbody>
+        </table>
+      </div>
+    `;
+
+    bindSheetEdits(wrap, "receipts");
+  }
+
+  function renderSheetNamed(wrap, key) {
+    const rows = (state[key] || []).slice().sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
+    const header = ["name","notes","id"];
+    const body = rows.map(x => `
+      <tr data-id="${escapeHtml(x.id)}">
+        <td>${inputCell(x.name, 'class="cell" data-field="name" type="text"')}</td>
+        <td>${inputCell(x.notes, 'class="cell" data-field="notes" type="text"')}</td>
+        <td class="muted" style="font-size:12px;">${escapeHtml(x.id)}</td>
+      </tr>
+    `).join("");
+
+    wrap.innerHTML = `
+      <div class="muted" style="margin-bottom:10px;">${escapeHtml(key)} table (click cells). Changes auto-save.</div>
+      <div style="overflow:auto;">
+        <table class="table" style="width:100%;">
+          <thead><tr>${header.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+          <tbody>${body || `<tr><td colspan="3" class="muted">No rows yet.</td></tr>`}</tbody>
+        </table>
+      </div>
+    `;
+
+    bindSheetEdits(wrap, key);
+  }
+
+  function renderSheetDispatch(wrap) {
+    // Flatten dispatch assignments into rows
+    // Columns: date, jobId, driverId, truckId, updatedAt
+    const flat = [];
+    for (const b of state.dispatch || []) {
+      const date = b.date;
+      const a = b.assignments || {};
+      for (const jobId of Object.keys(a)) {
+        flat.push({
+          date,
+          jobId,
+          driverId: a[jobId]?.driverId || "",
+          truckId: a[jobId]?.truckId || "",
+          updatedAt: a[jobId]?.updatedAt || b.updatedAt || "",
+        });
+      }
+    }
+    flat.sort((a,b) => (a.date||"").localeCompare(b.date||""));
+
+    const header = ["date","jobId","driverId","truckId","updatedAt"];
+    const body = flat.map((r, idx) => `
+      <tr data-flat-index="${idx}">
+        <td class="muted">${escapeHtml(r.date)}</td>
+        <td class="muted" style="font-size:12px;">${escapeHtml(r.jobId)}</td>
+        <td>${inputCell(r.driverId, `class="dispatchCell" data-field="driverId" data-date="${escapeHtml(r.date)}" data-jobid="${escapeHtml(r.jobId)}" type="text"`)}</td>
+        <td>${inputCell(r.truckId, `class="dispatchCell" data-field="truckId" data-date="${escapeHtml(r.date)}" data-jobid="${escapeHtml(r.jobId)}" type="text"`)}</td>
+        <td class="muted" style="font-size:12px;">${escapeHtml(r.updatedAt)}</td>
+      </tr>
+    `).join("");
+
+    wrap.innerHTML = `
+      <div class="muted" style="margin-bottom:10px;">Dispatch table (edit driverId/truckId inline). Auto-save.</div>
+      <div style="overflow:auto;">
+        <table class="table" style="width:100%;">
+          <thead><tr>${header.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+          <tbody>${body || `<tr><td colspan="5" class="muted">No dispatch assignments yet.</td></tr>`}</tbody>
+        </table>
+      </div>
+    `;
+
+    // bind dispatch edits
+    wrap.querySelectorAll(".dispatchCell").forEach(el => {
+      const save = () => {
+        const date = el.getAttribute("data-date");
+        const jobId = el.getAttribute("data-jobid");
+        const field = el.getAttribute("data-field");
+        const value = (el.value || "").trim();
+        if (!date || !jobId) return;
+
+        const bucket = getDispatchBucket(date);
+        if (!bucket.assignments[jobId]) bucket.assignments[jobId] = { driverId:"", truckId:"", updatedAt: Date.now() };
+        bucket.assignments[jobId][field] = value;
+        bucket.assignments[jobId].updatedAt = Date.now();
+        bucket.updatedAt = Date.now();
+        persist();
+      };
+      el.addEventListener("change", save);
+      el.addEventListener("blur", save);
+    });
+  }
+
+  function bindSheetEdits(wrap, key) {
+    // key is one of: jobs, receipts, drivers, trucks
+    wrap.querySelectorAll(".cell").forEach(el => {
+      const save = () => {
+        const tr = el.closest("tr[data-id]");
+        if (!tr) return;
+        const id = tr.getAttribute("data-id");
+        const field = el.getAttribute("data-field");
+        if (!id || !field) return;
+
+        const arr = state[key];
+        const row = arr?.find(x => x.id === id);
+        if (!row) return;
+
+        let value = el.value;
+
+        if (field === "amount") value = clampMoney(value);
+        if (field === "date") value = (value || "").trim();
+        if (field === "status") value = (value || "").trim();
+
+        row[field] = value;
+        row.updatedAt = Date.now();
+
+        // normalize to avoid broken values
+        if (key === "jobs") Object.assign(row, normalizeJob(row));
+        if (key === "receipts") Object.assign(row, normalizeReceipt(row));
+        if (key === "drivers" || key === "trucks") Object.assign(row, normalizeNamedRow(row, key === "drivers" ? "drv" : "trk"));
+
+        persist();
+      };
+
+      el.addEventListener("change", save);
+      el.addEventListener("blur", save);
+    });
+  }
+
+  function exportCurrentSheetCsv() {
+    const tab = state.sheetTab;
+
+    if (tab === "jobs") {
+      const cols = ["id","date","customer","pickup","dropoff","amount","status","notes","createdAt","updatedAt"];
+      const rows = state.jobs.map(r => cols.map(c => csvEscape(r[c])).join(","));
+      downloadTextFile(`jobs_${ymd(state.currentDate)}.csv`, [cols.join(","), ...rows].join("\n"));
+      return;
+    }
+
+    if (tab === "receipts") {
+      const cols = ["id","date","vendor","category","amount","driverId","linkedJobId","notes","createdAt","updatedAt"];
+      const rows = state.receipts.map(r => cols.map(c => csvEscape(r[c])).join(","));
+      downloadTextFile(`receipts_${ymd(state.currentDate)}.csv`, [cols.join(","), ...rows].join("\n"));
+      return;
+    }
+
+    if (tab === "drivers" || tab === "trucks") {
+      const cols = ["id","name","notes","createdAt","updatedAt"];
+      const rows = (state[tab] || []).map(r => cols.map(c => csvEscape(r[c])).join(","));
+      downloadTextFile(`${tab}_${ymd(state.currentDate)}.csv`, [cols.join(","), ...rows].join("\n"));
+      return;
+    }
+
+    if (tab === "dispatch") {
+      const cols = ["date","jobId","driverId","truckId","updatedAt"];
+      const flat = [];
+      for (const b of state.dispatch || []) {
+        const date = b.date;
+        const a = b.assignments || {};
+        for (const jobId of Object.keys(a)) {
+          flat.push({
+            date,
+            jobId,
+            driverId: a[jobId]?.driverId || "",
+            truckId: a[jobId]?.truckId || "",
+            updatedAt: a[jobId]?.updatedAt || b.updatedAt || "",
+          });
+        }
+      }
+      const rows = flat.map(r => cols.map(c => csvEscape(r[c])).join(","));
+      downloadTextFile(`dispatch_${ymd(state.currentDate)}.csv`, [cols.join(","), ...rows].join("\n"));
+      return;
+    }
+
+    alert("No sheet selected.");
+  }
+
+  // ---------------------------
+  // Render all
   // ---------------------------
   function renderAll() {
     const ctx = $("#contextLine");
@@ -1480,25 +1453,24 @@
         state.view === "dashboard" ? "Dashboard" :
         state.view === "calendar" ? "Calendar" :
         state.view === "day" ? `Day Workspace: ${dateStr}` :
+        state.view === "sheets" ? `Sheets: ${state.sheetTab}` :
         state.view[0].toUpperCase() + state.view.slice(1);
     }
 
     if (state.view === "dashboard") renderDashboard();
     if (state.view === "calendar") renderCalendar();
     if (state.view === "day") renderDay();
-    if (state.view === "drivers") renderDrivers();
-    if (state.view === "trucks") renderTrucks();
     if (state.view === "dispatch") renderDispatch();
     if (state.view === "finance") renderFinance();
     if (state.view === "inventory") renderInventory();
     if (state.view === "scanner") renderScanner();
+    if (state.view === "sheets") renderSheets();
   }
 
   // ---------------------------
-  // Navigation bindings (bind once)
+  // Bind navigation once
   // ---------------------------
   function bindNavOnce() {
-    // Sidebar routing
     $$("[data-view]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -1507,7 +1479,6 @@
       });
     });
 
-    // Topbar date nav
     $("#btnToday")?.addEventListener("click", () => {
       const now = startOfDay(new Date());
       state.currentDate = now;
@@ -1537,7 +1508,6 @@
       renderAll();
     });
 
-    // Calendar view controls
     $("#calPrev")?.addEventListener("click", () => {
       state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() - 1, 1);
       renderAll();
@@ -1553,11 +1523,9 @@
       renderAll();
     });
 
-    // Add buttons
     $("#btnAddJob")?.addEventListener("click", () => openJobModal(null));
     $("#btnAddReceipt")?.addEventListener("click", () => openReceiptModal(null));
 
-    // Modal close hooks
     $("#modalOverlay")?.addEventListener("click", () => {
       closeModal("#jobModal");
       closeModal("#receiptModal");
@@ -1572,13 +1540,25 @@
     $("#receiptCancel")?.addEventListener("click", () => closeModal("#receiptModal"));
     $("#receiptSave")?.addEventListener("click", () => saveReceiptFromModal());
     $("#receiptDelete")?.addEventListener("click", () => deleteReceiptFromModal());
+
+    // Sheets tab buttons (if the view exists)
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+
+      if (t.id === "sheetTabJobs") { state.sheetTab = "jobs"; renderAll(); }
+      if (t.id === "sheetTabReceipts") { state.sheetTab = "receipts"; renderAll(); }
+      if (t.id === "sheetTabDrivers") { state.sheetTab = "drivers"; renderAll(); }
+      if (t.id === "sheetTabTrucks") { state.sheetTab = "trucks"; renderAll(); }
+      if (t.id === "sheetTabDispatch") { state.sheetTab = "dispatch"; renderAll(); }
+      if (t.id === "sheetExportCsv") { exportCurrentSheetCsv(); }
+    });
   }
 
   // ---------------------------
   // Boot
   // ---------------------------
   function init() {
-    // normalize stored data (in case older saves exist)
     state.jobs = (state.jobs || []).map(normalizeJob);
     state.receipts = (state.receipts || []).map(normalizeReceipt);
     state.drivers = (state.drivers || []).map(x => normalizeNamedRow(x, "drv"));
@@ -1591,7 +1571,6 @@
     persist();
     bindNavOnce();
 
-    // default view
     if ($("#view-dashboard")) setView("dashboard");
     else if ($("#view-day")) setView("day");
     else if ($("#view-calendar")) setView("calendar");
