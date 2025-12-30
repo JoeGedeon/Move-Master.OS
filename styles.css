@@ -10,37 +10,49 @@
   --ok:#2ecc71;
   --bad:#ff5d5d;
   --accent:#66d9ff;
-  --shadow: 0 12px 28px rgba(0,0,0,.35);
+  --shadow:0 12px 28px rgba(0,0,0,.35);
   --radius:16px;
 }
+
 *{box-sizing:border-box}
 html,body{height:100%}
+
 body{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  background: radial-gradient(1200px 800px at 70% 10%, rgba(102,217,255,.10), transparent 60%),
-              radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
-              var(--bg);
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  background:
+    radial-gradient(1200px 800px at 70% 10%, rgba(102,217,255,.10), transparent 60%),
+    radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
+    var(--bg);
   color:var(--text);
+  overflow-x:auto; /* STRUCTURE > responsiveness */
 }
-a{color:inherit}
 
-/* Layout */
+/* =========================
+   APP SHELL (LOCKED)
+   ========================= */
+
 .app{
   display:flex;
+  flex-direction:row !important;
+  align-items:stretch;
   gap:16px;
   padding:16px;
   height:100%;
+  min-width:1100px; /* prevents Safari from “helping” */
 }
 
+/* =========================
+   SIDEBAR (FIXED LEFT)
+   ========================= */
+
 .sidebar{
-  width:260px;
-  min-width:240px;
-  background: rgba(255,255,255,.03);
+  flex:0 0 260px;
+  background:rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius:var(--radius);
   padding:14px;
-  box-shadow: var(--shadow);
+  box-shadow:var(--shadow);
   display:flex;
   flex-direction:column;
   gap:10px;
@@ -50,15 +62,16 @@ a{color:inherit}
   padding:10px 10px 14px;
   border-bottom:1px solid var(--line);
 }
+
 .brand .title{
   font-weight:800;
-  letter-spacing:.2px;
   font-size:18px;
 }
+
 .brand .sub{
   margin-top:4px;
-  color:var(--muted);
   font-size:12px;
+  color:var(--muted);
 }
 
 .nav{
@@ -71,315 +84,195 @@ a{color:inherit}
 .nav-item{
   width:100%;
   border:1px solid var(--line);
-  background: rgba(255,255,255,.03);
+  background:rgba(255,255,255,.03);
   color:var(--text);
-  padding:12px 12px;
-  border-radius: 14px;
-  cursor:pointer;
+  padding:12px;
+  border-radius:14px;
   text-align:left;
   font-weight:650;
-  transition: transform .06s ease, background .15s ease;
-}
-.nav-item:active{transform: scale(.99)}
-.nav-item.active{
-  outline: 2px solid rgba(102,217,255,.25);
-  background: rgba(102,217,255,.06);
+  cursor:pointer;
 }
 
+.nav-item.active{
+  outline:2px solid rgba(102,217,255,.25);
+  background:rgba(102,217,255,.06);
+}
+
+/* =========================
+   MAIN AREA
+   ========================= */
+
 .main{
-  flex:1;
+  flex:1 1 auto;
+  min-width:0;
   display:flex;
   flex-direction:column;
   gap:12px;
-  min-width:0;
 }
+
+/* =========================
+   TOPBAR
+   ========================= */
 
 .topbar{
   display:flex;
   align-items:center;
   gap:10px;
   padding:12px 14px;
-  background: rgba(255,255,255,.03);
+  background:rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  min-height:58px;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
 }
-.topbar .left{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  flex:1;
-}
-.context{
-  font-weight:750;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+
 .topbar .controls{
+  margin-left:auto;
   display:flex;
   gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
 }
 
-/* Buttons/Inputs */
-.btn{
-  border:1px solid var(--line);
-  background: rgba(255,255,255,.04);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight:650;
-}
-.btn:hover{background: rgba(255,255,255,.06)}
-.btn.primary{
-  background: rgba(102,217,255,.10);
-  border-color: rgba(102,217,255,.25);
-}
-.btn.danger{
-  background: rgba(255,93,93,.10);
-  border-color: rgba(255,93,93,.25);
-}
-
-.pill{
-  border:1px solid var(--line);
-  background: rgba(255,255,255,.04);
-  color:var(--text);
-  padding:8px 10px;
-  border-radius: 999px;
-  cursor:pointer;
-  font-weight:700;
-  min-width:40px;
-}
-.pill.active{outline:2px solid rgba(102,217,255,.25)}
-.pill.has-jobs{border-color: rgba(102,217,255,.35)}
-.pill.has-receipts{border-color: rgba(0,255,180,.35)}
+/* =========================
+   PANELS
+   ========================= */
 
 .panel{
-  background: rgba(255,255,255,.03);
+  background:rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius:var(--radius);
   padding:14px;
-  box-shadow: var(--shadow);
+  box-shadow:var(--shadow);
 }
-.panel-header{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
+
 .panel-title{
   font-weight:850;
   font-size:18px;
 }
+
 .panel-sub{
   color:var(--muted);
   font-size:12px;
-  text-align:right;
 }
-.muted{color:var(--muted)}
-.empty{padding:10px 0}
 
-.field{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.field span{font-size:12px;color:var(--muted);font-weight:650}
-input, select, textarea{
-  width:100%;
-  border:1px solid var(--line);
-  background: rgba(255,255,255,.04);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius: 12px;
-  outline:none;
-  font: inherit;
-}
-textarea{resize:vertical}
+/* =========================
+   VIEWS
+   ========================= */
 
 .views{
   flex:1;
-  min-height:0;
   overflow:auto;
-  padding-bottom:12px;
 }
+
 .view{display:none}
 .view.active{display:block}
 
-/* Job/Receipt rows */
-.job-row,.receipt-row{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-  padding:12px;
-  border:1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255,255,255,.02);
-}
-.job-main,.receipt-main{min-width:0;flex:1}
-.job-title,.receipt-title{font-weight:800}
-.job-sub,.receipt-sub{color:var(--muted);font-size:12px;margin-top:4px}
-.job-actions,.receipt-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* =========================
+   BUTTONS / INPUTS
+   ========================= */
 
-.day-totals{
-  padding:12px;
+.btn{
   border:1px solid var(--line);
-  border-radius:14px;
-  background: rgba(255,255,255,.02);
-  margin-bottom:10px;
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  font-weight:650;
+  cursor:pointer;
 }
 
-/* Calendar grid */
-.calendar-bar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:12px;
+.btn.primary{
+  background:rgba(102,217,255,.10);
+  border-color:rgba(102,217,255,.25);
 }
+
+input,select,textarea{
+  width:100%;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  font:inherit;
+}
+
+/* =========================
+   CALENDAR (NO SQUISH)
+   ========================= */
+
 #calendarGrid{
   display:grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns:repeat(7, minmax(120px, 1fr));
   gap:10px;
-  grid-auto-rows: minmax(72px, auto); /* helps touch + prevents squish */
+  overflow-x:auto;
+  padding-bottom:6px;
 }
-.dow{
-  color:var(--muted);
-  font-weight:750;
-  font-size:12px;
-  padding:6px 8px;
-}
+
 .day{
   border:1px solid var(--line);
-  background: rgba(255,255,255,.03);
-  color:var(--text);
+  background:rgba(255,255,255,.03);
   border-radius:14px;
   padding:10px;
+  min-height:90px;
   cursor:pointer;
-  min-height:86px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  text-align:left;
 }
-.day.pad{opacity:.25; cursor:default}
-.day.today{outline:2px solid rgba(102,217,255,.25)}
-.day.selected{border-color: rgba(102,217,255,.35)}
-.day .num{font-weight:900}
-.markerbar{display:flex;gap:6px;flex-wrap:wrap}
-.chip{
-  font-size:11px;
-  padding:4px 8px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background: rgba(255,255,255,.03);
-  color:var(--muted);
-  font-weight:750;
-}
-.chip-jobs{border-color: rgba(102,217,255,.25)}
-.chip-receipts{border-color: rgba(0,255,180,.25)}
 
-/* Modal */
+.day.today{
+  outline:2px solid rgba(102,217,255,.25);
+}
+
+/* =========================
+   JOB / RECEIPT ROWS
+   ========================= */
+
+.job-row,
+.receipt-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+}
+
+/* =========================
+   MODALS
+   ========================= */
+
 #modalOverlay{
   position:fixed;
   inset:0;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(2px);
+  background:rgba(0,0,0,.55);
   z-index:100;
 }
+
 .modal{
   position:fixed;
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
   width:min(720px, calc(100% - 28px));
-  background: rgba(10,24,40,.95);
+  background:rgba(10,24,40,.95);
   border:1px solid var(--line);
-  border-radius: 18px;
+  border-radius:18px;
   padding:16px;
-  box-shadow: 0 26px 60px rgba(0,0,0,.55);
   z-index:101;
 }
-.modal-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-.modal-title{font-weight:900;font-size:18px}
-.modal-grid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-.modal-actions{
-  display:flex;
-  gap:8px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
-.modal-error{
-  display:none;
-  margin-top:10px;
-  padding:10px 12px;
-  border-radius: 12px;
-  background: rgba(255,93,93,.10);
-  border:1px solid rgba(255,93,93,.25);
-  color: #ffd0d0;
-  font-weight:700;
-  font-size:13px;
-}
 
-/* Bottom badge */
-.footerbar{
-  display:flex;
-  justify-content:flex-end;
-  margin-top:auto;
-  padding-top:10px;
-  border-top:1px solid var(--line);
-}
+/* =========================
+   FOOTER / STATUS
+   ========================= */
+
 #jsPill{
   font-size:12px;
   padding:8px 10px;
-  border-radius: 999px;
+  border-radius:999px;
   border:1px solid var(--line);
+  background:rgba(255,255,255,.03);
   color:var(--muted);
-  background: rgba(255,255,255,.03);
-  font-weight:750;
-}
-#jsPill.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
-#jsPill.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
-
-/* =========================================
-   iPad + Tablet Fixes (the important part)
-   ========================================= */
-
-/* Keep side-by-side on iPad/tablet. Only reduce spacing a bit. */
-@media (max-width: 900px){
-  .app{gap:12px;padding:12px}
-  #calendarGrid{gap:6px}
 }
 
-/* Phones only: stack layout */
-@media (max-width: 680px){
-  .app{flex-direction:column}
-  .sidebar{width:100%; min-width:0}
-  .topbar{flex-wrap:wrap}
-  .topbar .controls{width:100%; justify-content:flex-start}
-}
-
-/* Very small phones: modal + calendar safety */
-@media (max-width: 520px){
-  .modal-grid{grid-template-columns: 1fr}
-  #calendarGrid{grid-template-columns: repeat(4, 1fr)}
+#jsPill.ok{
+  border-color:rgba(46,204,113,.30);
+  color:rgba(232,240,255,.9);
 }
