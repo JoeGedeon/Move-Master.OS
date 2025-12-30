@@ -10,27 +10,16 @@
   --ok:#2ecc71;
   --bad:#ff5d5d;
   --accent:#66d9ff;
-  --shadow: 0 12px 28px rgba(0,0,0,.35);
+  --shadow:0 12px 28px rgba(0,0,0,.35);
   --radius:16px;
 
-  /* HARD LOCKS (structure never changes) */
-  --sidebarW:260px;
-  --gap:16px;
-
-  /* Minimum width where calendar/table stays usable.
-     When viewport is smaller, we scroll horizontally instead of stacking. */
-  --appMinW:980px;
+  /* Layout lock */
+  --minAppW: 1040px;
+  --sidebarW: 260px;
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
-
-/* KEY: allow horizontal scroll instead of layout stacking */
-html, body{
-  overflow-x:auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -39,27 +28,22 @@ body{
     radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
     var(--bg);
   color:var(--text);
+
+  /* IMPORTANT: allow horizontal scroll instead of stacking layout */
+  overflow-x:auto;
 }
 
-a{color:inherit}
-
-/* =========================
-   LAYOUT (LOCKED SIDE-BY-SIDE)
-   ========================= */
-
-.app{
+.app-shell{
   display:flex;
-  flex-direction:row;           /* NEVER STACK */
-  align-items:stretch;
-  gap:var(--gap);
+  gap:16px;
   padding:16px;
   height:100%;
-  min-width:var(--appMinW);     /* prevents calendar from getting crushed */
+  min-width: var(--minAppW);
 }
 
+/* Sidebar */
 .sidebar{
   width:var(--sidebarW);
-  min-width:240px;
   flex:0 0 var(--sidebarW);
   background: rgba(255,255,255,.03);
   border:1px solid var(--line);
@@ -71,209 +55,160 @@ a{color:inherit}
   gap:10px;
 }
 
-.brand{
-  padding:10px 10px 14px;
-  border-bottom:1px solid var(--line);
-}
+.brand{padding:10px 10px 14px;border-bottom:1px solid var(--line)}
+.brand-title{font-weight:800;letter-spacing:.2px;font-size:18px}
+.brand-sub{margin-top:4px;color:var(--muted);font-size:12px}
 
-.brand .title{
-  font-weight:800;
-  letter-spacing:.2px;
-  font-size:18px;
-}
-
-.brand .sub{
-  margin-top:4px;
-  color:var(--muted);
-  font-size:12px;
-}
-
-.nav{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  padding-top:10px;
-}
-
+.side-nav{display:flex;flex-direction:column;gap:10px;padding-top:10px}
 .nav-item{
   width:100%;
   border:1px solid var(--line);
   background: rgba(255,255,255,.03);
   color:var(--text);
-  padding:12px 12px;
-  border-radius: 14px;
+  padding:12px;
+  border-radius:14px;
   cursor:pointer;
   text-align:left;
   font-weight:650;
-  transition: transform .06s ease, background .15s ease;
 }
-
-.nav-item:active{transform: scale(.99)}
-
 .nav-item.active{
-  outline: 2px solid rgba(102,217,255,.25);
+  outline:2px solid rgba(102,217,255,.25);
   background: rgba(102,217,255,.06);
 }
+.nav-sep{height:8px}
 
-.main{
-  flex:1 1 auto;
+.sidebar-footer{
+  margin-top:auto;
+  padding-top:10px;
+  border-top:1px solid var(--line);
   display:flex;
-  flex-direction:column;
-  gap:12px;
-  min-width:0; /* critical for proper overflow behavior */
+  justify-content:flex-end;
 }
+.pill-status{
+  font-size:12px;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  color:var(--muted);
+  background: rgba(255,255,255,.03);
+  font-weight:750;
+}
+.pill-status.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
+.pill-status.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
 
-/* =========================
-   TOPBAR
-   ========================= */
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
 
 .topbar{
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:10px;
   padding:12px 14px;
   background: rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius:var(--radius);
   box-shadow: var(--shadow);
-  min-height:58px;
 }
-
-.topbar .left{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  flex:1;
-}
-
-.context{
-  font-weight:750;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.topbar .controls{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-
-/* =========================
-   BUTTONS / INPUTS
-   ========================= */
+.top-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.context-line{font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-right{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 
 .btn{
   border:1px solid var(--line);
   background: rgba(255,255,255,.04);
   color:var(--text);
   padding:10px 12px;
-  border-radius: 12px;
+  border-radius:12px;
   cursor:pointer;
   font-weight:650;
 }
-
+.btn.primary{background: rgba(102,217,255,.10); border-color: rgba(102,217,255,.25)}
+.btn.danger{background: rgba(255,93,93,.10); border-color: rgba(255,93,93,.25)}
 .btn:hover{background: rgba(255,255,255,.06)}
 
-.btn.primary{
-  background: rgba(102,217,255,.10);
-  border-color: rgba(102,217,255,.25);
-}
+.content{flex:1;min-height:0;overflow:auto;padding-bottom:12px}
+.view{display:none}
+.view.active{display:block}
 
-.btn.danger{
-  background: rgba(255,93,93,.10);
-  border-color: rgba(255,93,93,.25);
+.panel{
+  background: rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px;
+  box-shadow: var(--shadow);
 }
+.panel-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+.panel-title{font-weight:850;font-size:18px}
+.panel-sub{color:var(--muted);font-size:12px;text-align:right}
+.muted{color:var(--muted)}
 
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{border:1px solid var(--line);background: rgba(255,255,255,.02);border-radius:14px;padding:12px}
+.card-title{font-weight:800;margin-bottom:6px}
+.card-body{color:var(--muted);font-size:13px}
+
+.quick-calendar{display:flex;gap:8px;flex-wrap:wrap}
 .pill{
   border:1px solid var(--line);
   background: rgba(255,255,255,.04);
   color:var(--text);
   padding:8px 10px;
-  border-radius: 999px;
+  border-radius:999px;
   cursor:pointer;
   font-weight:700;
   min-width:40px;
 }
-
 .pill.active{outline:2px solid rgba(102,217,255,.25)}
 .pill.has-jobs{border-color: rgba(102,217,255,.35)}
 .pill.has-receipts{border-color: rgba(0,255,180,.35)}
 
-.field{
+.calendar-head{align-items:center}
+.calendar-controls{display:flex;gap:8px;flex-wrap:wrap}
+.month-label{font-weight:900}
+
+.calendar-grid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(130px, 1fr));
+  gap:10px;
+  overflow:auto;
+  padding-bottom:4px;
+}
+
+.dow{color:var(--muted);font-weight:750;font-size:12px;padding:6px 8px}
+.day{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color:var(--text);
+  border-radius:14px;
+  padding:10px;
+  cursor:pointer;
+  min-height:96px;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:8px;
+  text-align:left;
 }
-
-.field span{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:650
-}
-
-input, select, textarea{
-  width:100%;
+.day.pad{opacity:.25;cursor:default}
+.day.today{outline:2px solid rgba(102,217,255,.25)}
+.day.selected{border-color: rgba(102,217,255,.35)}
+.day .num{font-weight:900}
+.markerbar{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:999px;
   border:1px solid var(--line);
-  background: rgba(255,255,255,.04);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius: 12px;
-  outline:none;
-  font: inherit;
-}
-
-textarea{resize:vertical}
-
-/* =========================
-   PANELS / VIEWS
-   ========================= */
-
-.panel{
   background: rgba(255,255,255,.03);
-  border:1px solid var(--line);
-  border-radius: var(--radius);
-  padding:14px;
-  box-shadow: var(--shadow);
-}
-
-.panel-header{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-
-.panel-title{
-  font-weight:850;
-  font-size:18px;
-}
-
-.panel-sub{
   color:var(--muted);
-  font-size:12px;
-  text-align:right;
+  font-weight:750;
 }
+.chip-jobs{border-color: rgba(102,217,255,.25)}
+.chip-receipts{border-color: rgba(0,255,180,.25)}
+.calendar-legend{margin-top:10px;font-size:12px}
 
-.muted{color:var(--muted)}
-.empty{padding:10px 0}
-
-.views{
-  flex:1;
-  min-height:0;
-  overflow:auto;
-  padding-bottom:12px;
-}
-
-.view{display:none}
-.view.active{display:block}
-
-/* =========================
-   JOB / RECEIPT ROWS
-   ========================= */
+.day-list{display:flex;flex-direction:column;gap:10px}
+.panel-spacer{height:12px}
 
 .job-row,.receipt-row{
   display:flex;
@@ -282,10 +217,9 @@ textarea{resize:vertical}
   justify-content:space-between;
   padding:12px;
   border:1px solid var(--line);
-  border-radius: 14px;
+  border-radius:14px;
   background: rgba(255,255,255,.02);
 }
-
 .job-main,.receipt-main{min-width:0;flex:1}
 .job-title,.receipt-title{font-weight:800}
 .job-sub,.receipt-sub{color:var(--muted);font-size:12px;margin-top:4px}
@@ -299,176 +233,55 @@ textarea{resize:vertical}
   margin-bottom:10px;
 }
 
-/* =========================
-   CALENDAR (DON'T SQUISH)
-   ========================= */
-
-.calendar-bar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:12px;
-}
-
-/* The grid stays 7 columns, but each cell keeps a minimum width.
-   Combined with app min-width + horizontal scroll, it won't crush. */
-#calendarGrid{
-  display:grid;
-  grid-template-columns: repeat(7, minmax(120px, 1fr));
-  gap:10px;
-  min-width: 900px; /* ensures calendar has breathing room */
-}
-
-.dow{
-  color:var(--muted);
-  font-weight:750;
-  font-size:12px;
-  padding:6px 8px;
-}
-
-.day{
+.field{display:flex;flex-direction:column;gap:6px}
+.field span{font-size:12px;color:var(--muted);font-weight:650}
+input,select,textarea{
+  width:100%;
   border:1px solid var(--line);
-  background: rgba(255,255,255,.03);
+  background: rgba(255,255,255,.04);
   color:var(--text);
-  border-radius:14px;
-  padding:10px;
-  cursor:pointer;
-  min-height:86px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  text-align:left;
+  padding:10px 12px;
+  border-radius:12px;
+  outline:none;
+  font:inherit;
 }
+textarea{resize:vertical}
 
-.day.pad{opacity:.25; cursor:default}
-.day.today{outline:2px solid rgba(102,217,255,.25)}
-.day.selected{border-color: rgba(102,217,255,.35)}
-.day .num{font-weight:900}
-
-.markerbar{display:flex;gap:6px;flex-wrap:wrap}
-
-.chip{
-  font-size:11px;
-  padding:4px 8px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background: rgba(255,255,255,.03);
-  color:var(--muted);
-  font-weight:750;
-}
-
-.chip-jobs{border-color: rgba(102,217,255,.25)}
-.chip-receipts{border-color: rgba(0,255,180,.25)}
-
-/* =========================
-   MODAL
-   ========================= */
-
-#modalOverlay{
-  position:fixed;
-  inset:0;
+/* Modals */
+.modal-overlay{
+  position:fixed;inset:0;
   background: rgba(0,0,0,.55);
   backdrop-filter: blur(2px);
   z-index:100;
 }
-
 .modal{
-  position:fixed;
-  left:50%;
-  top:50%;
+  position:fixed;left:50%;top:50%;
   transform:translate(-50%,-50%);
   width:min(720px, calc(100% - 28px));
   background: rgba(10,24,40,.95);
   border:1px solid var(--line);
-  border-radius: 18px;
+  border-radius:18px;
   padding:16px;
   box-shadow: 0 26px 60px rgba(0,0,0,.55);
   z-index:101;
 }
-
-.modal-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-
-.modal-title{font-weight:900;font-size:18px}
-
-.modal-grid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-
-.modal-actions{
-  display:flex;
-  gap:8px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
-
+.modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.icon-btn{border:1px solid var(--line);background: rgba(255,255,255,.04);color:var(--text);padding:8px 10px;border-radius:12px;cursor:pointer}
+.modal-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
 .modal-error{
-  display:none;
-  margin-top:10px;
+  margin:10px 0 0;
   padding:10px 12px;
-  border-radius: 12px;
+  border-radius:12px;
   background: rgba(255,93,93,.10);
   border:1px solid rgba(255,93,93,.25);
-  color: #ffd0d0;
+  color:#ffd0d0;
   font-weight:700;
   font-size:13px;
 }
 
-/* =========================
-   FOOTER BADGE
-   ========================= */
-
-.footerbar{
-  display:flex;
-  justify-content:flex-end;
-  margin-top:auto;
-  padding-top:10px;
-  border-top:1px solid var(--line);
-}
-
-#jsPill{
-  font-size:12px;
-  padding:8px 10px;
-  border-radius: 999px;
-  border:1px solid var(--line);
-  color:var(--muted);
-  background: rgba(255,255,255,.03);
-  font-weight:750;
-}
-
-#jsPill.ok{
-  border-color: rgba(46,204,113,.30);
-  color: rgba(232,240,255,.85)
-}
-
-#jsPill.bad{
-  border-color: rgba(255,93,93,.35);
-  color: rgba(232,240,255,.85)
-}
-
-/* =========================
-   MOBILE BEHAVIOR (STRUCTURE STILL LOCKED)
-   ========================= */
-
-/* Do NOT stack. Only make spacing tighter on smaller screens. */
-@media (max-width: 1024px){
-  :root{
-    --sidebarW:240px;
-    --appMinW:980px; /* still lock width; horizontal scroll is allowed */
-  }
-}
-
-/* Modal grid becomes 1 column on small widths */
-@media (max-width: 520px){
-  .modal-grid{grid-template-columns: 1fr}
+/* Mobile: ONLY modal grid changes, not layout */
+@media (max-width:520px){
+  .modal-body{grid-template-columns:1fr}
+  .cards{grid-template-columns:1fr}
 }
