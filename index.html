@@ -21,14 +21,9 @@
       --shadow: 0 12px 28px rgba(0,0,0,.35);
       --radius:16px;
 
-      /* LOCKED LAYOUT SIZES */
       --sidebar-w:260px;
       --app-gap:16px;
       --app-pad:16px;
-
-      /* Minimum width where the 2-panel layout looks sane.
-         If viewport is smaller, we DO NOT stack.
-         We allow horizontal scroll instead. */
       --app-minw: 1020px;
     }
 
@@ -42,28 +37,24 @@
                   radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
                   var(--bg);
       color:var(--text);
-      overflow:hidden; /* important: the app manages its own scrolling */
+      overflow:hidden;
     }
     a{color:inherit}
 
-    /* =========================================================
-       LOCKED 2-COLUMN APP SHELL (NEVER STACKS)
-       ========================================================= */
-    .app{
-      display:flex;
-      flex-direction:row;         /* NEVER becomes column */
-      gap:var(--app-gap);
-      padding:var(--app-pad);
-      height:100%;
-      min-width: var(--app-minw); /* forces horizontal scroll instead of stacking */
-    }
-
-    /* A scroll container around the app so small viewports scroll sideways */
     .app-scroll{
       height:100%;
       width:100%;
-      overflow:auto;              /* both x & y allowed here */
+      overflow:auto;
       -webkit-overflow-scrolling: touch;
+    }
+
+    .app{
+      display:flex;
+      flex-direction:row;
+      gap:var(--app-gap);
+      padding:var(--app-pad);
+      height:100%;
+      min-width: var(--app-minw);
     }
 
     .sidebar{
@@ -124,12 +115,9 @@
       display:flex;
       flex-direction:column;
       gap:12px;
-      min-width:0; /* critical so content can shrink without blowing layout */
+      min-width:0;
     }
 
-    /* =========================================================
-       TOPBAR
-       ========================================================= */
     .topbar{
       display:flex;
       align-items:center;
@@ -140,7 +128,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       min-height:58px;
-      flex-wrap:nowrap; /* locked */
+      flex-wrap:nowrap;
     }
     .topbar .left{
       display:flex;
@@ -158,14 +146,11 @@
     .topbar .controls{
       display:flex;
       gap:8px;
-      flex-wrap:wrap;  /* allow buttons to wrap within the topbar if needed */
+      flex-wrap:wrap;
       justify-content:flex-end;
       max-width: 560px;
     }
 
-    /* =========================================================
-       Buttons/Inputs
-       ========================================================= */
     .btn{
       border:1px solid var(--line);
       background: rgba(255,255,255,.04);
@@ -184,20 +169,6 @@
       background: rgba(255,93,93,.10);
       border-color: rgba(255,93,93,.25);
     }
-
-    .pill{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color:var(--text);
-      padding:8px 10px;
-      border-radius: 999px;
-      cursor:pointer;
-      font-weight:700;
-      min-width:40px;
-    }
-    .pill.active{outline:2px solid rgba(102,217,255,.25)}
-    .pill.has-jobs{border-color: rgba(102,217,255,.35)}
-    .pill.has-receipts{border-color: rgba(0,255,180,.35)}
 
     .panel{
       background: rgba(255,255,255,.03);
@@ -223,57 +194,16 @@
       text-align:right;
     }
     .muted{color:var(--muted)}
-    .empty{padding:10px 0}
 
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-    .field span{font-size:12px;color:var(--muted);font-weight:650}
-
-    input, select, textarea{
-      width:100%;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      color:var(--text);
-      padding:10px 12px;
-      border-radius: 12px;
-      outline:none;
-      font: inherit;
-    }
-    textarea{resize:vertical}
-
-    /* =========================================================
-       Views scroller
-       ========================================================= */
     .views{
       flex:1;
       min-height:0;
-      overflow:auto; /* this is your main vertical scroll area */
+      overflow:auto;
       padding-bottom:12px;
       -webkit-overflow-scrolling: touch;
     }
     .view{display:none;}
     .view.active{display:block;}
-
-    /* =========================================================
-       Job/Receipt rows
-       ========================================================= */
-    .job-row,.receipt-row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      padding:12px;
-      border:1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255,255,255,.02);
-    }
-    .job-main,.receipt-main{min-width:0;flex:1}
-    .job-title,.receipt-title{font-weight:800}
-    .job-sub,.receipt-sub{color:var(--muted);font-size:12px;margin-top:4px}
-    .job-actions,.receipt-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
     .day-totals{
       padding:12px;
@@ -283,9 +213,6 @@
       margin-bottom:10px;
     }
 
-    /* =========================================================
-       Calendar grid
-       ========================================================= */
     .calendar-bar{
       display:flex;
       align-items:center;
@@ -297,7 +224,7 @@
 
     #calendarGrid{
       display:grid;
-      grid-template-columns: repeat(7, minmax(130px, 1fr)); /* prevents squishing */
+      grid-template-columns: repeat(7, minmax(130px, 1fr));
       gap:10px;
       overflow:auto;
       -webkit-overflow-scrolling: touch;
@@ -327,22 +254,7 @@
     .day.today{outline:2px solid rgba(102,217,255,.25)}
     .day.selected{border-color: rgba(102,217,255,.35)}
     .day .num{font-weight:900}
-    .markerbar{display:flex;gap:6px;flex-wrap:wrap}
-    .chip{
-      font-size:11px;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      color:var(--muted);
-      font-weight:750;
-    }
-    .chip-jobs{border-color: rgba(102,217,255,.25)}
-    .chip-receipts{border-color: rgba(0,255,180,.25)}
 
-    /* =========================================================
-       Modal
-       ========================================================= */
     #modalOverlay{
       position:fixed;
       inset:0;
@@ -363,46 +275,7 @@
       box-shadow: 0 26px 60px rgba(0,0,0,.55);
       z-index:101;
     }
-    .modal-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:10px;
-    }
-    .modal-title{font-weight:900;font-size:18px}
-    .modal-grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    .modal-actions{
-      display:flex;
-      gap:8px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-    .modal-error{
-      display:none;
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius: 12px;
-      background: rgba(255,93,93,.10);
-      border:1px solid rgba(255,93,93,.25);
-      color: #ffd0d0;
-      font-weight:700;
-      font-size:13px;
-    }
 
-    /* On small screens, modal becomes 1 column (this is fine and not the app layout) */
-    @media (max-width: 520px){
-      .modal-grid{grid-template-columns: 1fr}
-    }
-
-    /* =========================================================
-       Bottom badge
-       ========================================================= */
     .footerbar{
       display:flex;
       justify-content:flex-end;
@@ -421,14 +294,16 @@
     }
     #jsPill.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
     #jsPill.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
+
+    @media (max-width: 520px){
+      .modal-grid{grid-template-columns: 1fr}
+    }
   </style>
 </head>
 
 <body>
-  <!-- Scroll wrapper forces horizontal scroll instead of layout stacking -->
   <div class="app-scroll">
     <div class="app">
-      <!-- Sidebar -->
       <aside class="sidebar">
         <div class="brand">
           <div class="title">Move-Master.OS</div>
@@ -451,13 +326,11 @@
         </nav>
 
         <div class="footerbar">
-          <div id="jsPill" class="ok">JS: loading…</div>
+          <div id="jsPill" class="">JS: loading…</div>
         </div>
       </aside>
 
-      <!-- Main -->
       <main class="main">
-        <!-- Topbar -->
         <div class="topbar">
           <div class="left">
             <div id="contextLine" class="context">Dashboard</div>
@@ -467,15 +340,12 @@
             <button class="btn" id="btnPrev" type="button">◀</button>
             <button class="btn" id="btnToday" type="button">Today</button>
             <button class="btn" id="btnNext" type="button">▶</button>
-
             <button class="btn primary" id="btnAddJob" type="button">Add Job</button>
             <button class="btn primary" id="btnAddReceipt" type="button">Add Receipt</button>
           </div>
         </div>
 
-        <!-- Views -->
         <section class="views">
-          <!-- Dashboard -->
           <div class="view" id="view-dashboard">
             <div class="panel">
               <div class="panel-header">
@@ -497,7 +367,6 @@
             </div>
           </div>
 
-          <!-- Calendar -->
           <div class="view" id="view-calendar">
             <div class="panel">
               <div class="panel-header">
@@ -518,7 +387,6 @@
             </div>
           </div>
 
-          <!-- Day Workspace -->
           <div class="view" id="view-day">
             <div class="panel">
               <div class="panel-header">
@@ -539,151 +407,49 @@
             </div>
           </div>
 
-          <!-- Drivers -->
           <div class="view" id="view-drivers"></div>
-
-          <!-- Trucks -->
           <div class="view" id="view-trucks"></div>
-
-          <!-- Dispatch -->
           <div class="view" id="view-dispatch"></div>
-
-          <!-- Finance -->
           <div class="view" id="view-finance"></div>
-
-          <!-- Inventory -->
           <div class="view" id="view-inventory"></div>
-
-          <!-- Scanner -->
           <div class="view" id="view-scanner"></div>
         </section>
       </main>
     </div>
   </div>
 
-  <!-- Modal overlay -->
   <div id="modalOverlay" hidden></div>
 
-  <!-- Job Modal -->
-  <div class="modal" id="jobModal" hidden aria-hidden="true">
-    <div class="modal-header">
-      <div class="modal-title" id="jobModalTitle">Add Job</div>
-      <button class="btn" id="jobModalClose" type="button">✕</button>
-    </div>
+  <!-- Script loader that tells you immediately if the JS file is actually loading -->
+  <script>
+    (function(){
+      const pill = document.getElementById('jsPill');
+      if (!pill) return;
 
-    <div class="modal-grid">
-      <label class="field">
-        <span>Date</span>
-        <input id="jobDate" type="date" />
-      </label>
+      pill.textContent = 'JS: loading…';
+      pill.classList.remove('ok','bad');
 
-      <label class="field">
-        <span>Status</span>
-        <select id="jobStatus">
-          <option value="scheduled">Scheduled</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </label>
+      const s = document.createElement('script');
 
-      <label class="field" style="grid-column:1 / -1">
-        <span>Customer</span>
-        <input id="jobCustomer" type="text" placeholder="Customer name" />
-      </label>
+      /* ✅ CORRECT PATH: JS is in the same folder as your HTML
+         because this URL works:
+         /Move-Master.OS/app_v5_01.js
+      */
+      s.src = './app_v5_01.js?v=20251230_3';
+      s.defer = true;
 
-      <label class="field">
-        <span>Pickup</span>
-        <input id="jobPickup" type="text" placeholder="Pickup address / city" />
-      </label>
+      s.onload = () => {
+        pill.textContent = 'JS: loaded ✅';
+        pill.classList.add('ok');
+      };
 
-      <label class="field">
-        <span>Dropoff</span>
-        <input id="jobDropoff" type="text" placeholder="Dropoff address / city" />
-      </label>
+      s.onerror = () => {
+        pill.textContent = 'JS: missing ❌ (wrong path)';
+        pill.classList.add('bad');
+      };
 
-      <label class="field">
-        <span>Amount</span>
-        <input id="jobAmount" type="number" step="0.01" value="0" />
-      </label>
-
-      <label class="field">
-        <span>Notes</span>
-        <input id="jobNotes" type="text" placeholder="Notes…" />
-      </label>
-    </div>
-
-    <div id="jobError" class="modal-error"></div>
-
-    <div class="modal-actions">
-      <button class="btn danger" id="jobDelete" type="button" hidden>Delete</button>
-      <button class="btn" id="jobCancel" type="button">Cancel</button>
-      <button class="btn primary" id="jobSave" type="button">Save</button>
-    </div>
-  </div>
-
-  <!-- Receipt Modal -->
-  <div class="modal" id="receiptModal" hidden aria-hidden="true">
-    <div class="modal-header">
-      <div class="modal-title" id="receiptModalTitle">Add Receipt</div>
-      <button class="btn" id="receiptModalClose" type="button">✕</button>
-    </div>
-
-    <div class="modal-grid">
-      <label class="field">
-        <span>Date</span>
-        <input id="receiptDate" type="date" />
-      </label>
-
-      <label class="field">
-        <span>Amount</span>
-        <input id="receiptAmount" type="number" step="0.01" value="0" />
-      </label>
-
-      <label class="field">
-        <span>Vendor</span>
-        <input id="receiptVendor" type="text" placeholder="Vendor" />
-      </label>
-
-      <label class="field">
-        <span>Category</span>
-        <input id="receiptCategory" type="text" placeholder="Fuel, Tolls, Supplies…" />
-      </label>
-
-      <label class="field">
-        <span>Linked Job ID (optional)</span>
-        <input id="receiptLinkedJobId" type="text" placeholder="Paste job id if you want" />
-      </label>
-
-      <!-- If your JS supports these, keep them. If not, they’ll just sit there harmlessly. -->
-      <label class="field">
-        <span>Driver (optional)</span>
-        <select id="receiptDriverId">
-          <option value="">(no driver)</option>
-        </select>
-      </label>
-
-      <label class="field" style="grid-column:1 / -1">
-        <span>Receipt Photo (optional)</span>
-        <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
-        <div id="receiptPhotoHint" class="muted" style="font-size:12px; margin-top:6px;">No photo</div>
-      </label>
-
-      <label class="field" style="grid-column:1 / -1">
-        <span>Notes</span>
-        <input id="receiptNotes" type="text" placeholder="Notes…" />
-      </label>
-    </div>
-
-    <div id="receiptError" class="modal-error"></div>
-
-    <div class="modal-actions">
-      <button class="btn danger" id="receiptDelete" type="button" hidden>Delete</button>
-      <button class="btn" id="receiptCancel" type="button">Cancel</button>
-      <button class="btn primary" id="receiptSave" type="button">Save</button>
-    </div>
-  </div>
-
-  <!-- IMPORTANT: This file must exist at this path in your repo -->
-  <script src="./js/app_v5_01.js?v=20251230_2" defer></script>
+      document.head.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
