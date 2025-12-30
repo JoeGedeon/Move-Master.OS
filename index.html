@@ -33,7 +33,6 @@
     }
     a{color:inherit}
 
-    /* Layout */
     .app{
       display:flex;
       gap:16px;
@@ -130,7 +129,6 @@
       justify-content:flex-end;
     }
 
-    /* Buttons/Inputs */
     .btn{
       border:1px solid var(--line);
       background: rgba(255,255,255,.04);
@@ -214,14 +212,9 @@
       overflow:auto;
       padding-bottom:12px;
     }
-    .view{
-      display:none;
-    }
-    .view.active{
-      display:block;
-    }
+    .view{display:none}
+    .view.active{display:block}
 
-    /* Job/Receipt rows */
     .job-row,.receipt-row{
       display:flex;
       gap:10px;
@@ -245,7 +238,6 @@
       margin-bottom:10px;
     }
 
-    /* Calendar grid */
     .calendar-bar{
       display:flex;
       align-items:center;
@@ -295,7 +287,6 @@
     .chip-jobs{border-color: rgba(102,217,255,.25)}
     .chip-receipts{border-color: rgba(0,255,180,.25)}
 
-    /* Modal */
     #modalOverlay{
       position:fixed;
       inset:0;
@@ -348,7 +339,6 @@
       font-size:13px;
     }
 
-    /* Bottom badge */
     .footerbar{
       display:flex;
       justify-content:flex-end;
@@ -368,7 +358,6 @@
     #jsPill.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
     #jsPill.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
 
-    /* Mobile tweaks */
     @media (max-width: 920px){
       .app{flex-direction:column}
       .sidebar{width:100%}
@@ -383,7 +372,6 @@
 
 <body>
   <div class="app">
-    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
         <div class="title">Move-Master.OS</div>
@@ -391,7 +379,7 @@
       </div>
 
       <nav class="nav">
-        <button class="nav-item" data-view="dashboard" type="button">Dashboard</button>
+        <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
         <button class="nav-item" data-view="calendar" type="button">Calendar</button>
         <button class="nav-item" data-view="day" type="button">Day Workspace</button>
 
@@ -406,13 +394,11 @@
       </nav>
 
       <div class="footerbar">
-        <div id="jsPill" class="ok">JS: loading…</div>
+        <div id="jsPill" class="bad">JS: loading…</div>
       </div>
     </aside>
 
-    <!-- Main -->
     <main class="main">
-      <!-- Topbar -->
       <div class="topbar">
         <div class="left">
           <div id="contextLine" class="context">Dashboard</div>
@@ -428,10 +414,8 @@
         </div>
       </div>
 
-      <!-- Views -->
       <section class="views">
-        <!-- Dashboard -->
-        <div class="view" id="view-dashboard">
+        <div class="view active" id="view-dashboard">
           <div class="panel">
             <div class="panel-header">
               <div class="panel-title">Dashboard</div>
@@ -452,7 +436,6 @@
           </div>
         </div>
 
-        <!-- Calendar -->
         <div class="view" id="view-calendar">
           <div class="panel">
             <div class="panel-header">
@@ -473,7 +456,6 @@
           </div>
         </div>
 
-        <!-- Day Workspace -->
         <div class="view" id="view-day">
           <div class="panel">
             <div class="panel-header">
@@ -494,43 +476,18 @@
           </div>
         </div>
 
-        <!-- Drivers -->
-        <div class="view" id="view-drivers">
-          <!-- JS renders this -->
-        </div>
-
-        <!-- Trucks -->
-        <div class="view" id="view-trucks">
-          <!-- JS renders this -->
-        </div>
-
-        <!-- Dispatch -->
-        <div class="view" id="view-dispatch">
-          <!-- JS renders this -->
-        </div>
-
-        <!-- Finance -->
-        <div class="view" id="view-finance">
-          <!-- JS renders this -->
-        </div>
-
-        <!-- Inventory -->
-        <div class="view" id="view-inventory">
-          <!-- JS renders this -->
-        </div>
-
-        <!-- Scanner -->
-        <div class="view" id="view-scanner">
-          <!-- JS renders this -->
-        </div>
+        <div class="view" id="view-drivers"></div>
+        <div class="view" id="view-trucks"></div>
+        <div class="view" id="view-dispatch"></div>
+        <div class="view" id="view-finance"></div>
+        <div class="view" id="view-inventory"></div>
+        <div class="view" id="view-scanner"></div>
       </section>
     </main>
   </div>
 
-  <!-- Modal overlay -->
   <div id="modalOverlay" hidden></div>
 
-  <!-- Job Modal -->
   <div class="modal" id="jobModal" hidden aria-hidden="true">
     <div class="modal-header">
       <div class="modal-title" id="jobModalTitle">Add Job</div>
@@ -587,7 +544,6 @@
     </div>
   </div>
 
-  <!-- Receipt Modal -->
   <div class="modal" id="receiptModal" hidden aria-hidden="true">
     <div class="modal-header">
       <div class="modal-title" id="receiptModalTitle">Add Receipt</div>
@@ -620,7 +576,6 @@
         <input id="receiptLinkedJobId" type="text" placeholder="Paste job id if you want" />
       </label>
 
-      <!-- NEW: Driver dropdown for receipt ownership -->
       <label class="field">
         <span>Driver (optional)</span>
         <select id="receiptDriverId">
@@ -628,7 +583,6 @@
         </select>
       </label>
 
-      <!-- NEW: Receipt Photo upload -->
       <label class="field" style="grid-column:1 / -1">
         <span>Receipt Photo (optional)</span>
         <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
@@ -650,7 +604,7 @@
     </div>
   </div>
 
-  <!-- JS (make sure this filename exists in your repo) -->
-  <script src="./js/app_v5_01.js?v=20251230_1" defer></script>
+  <!-- IMPORTANT: this must match your repo file location -->
+  <script src="./app_v5_01.js?v=20251230_2" defer></script>
 </body>
 </html>
