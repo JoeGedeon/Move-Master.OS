@@ -1,3 +1,11 @@
+/* =========================================================
+   Move-Master.OS — FULL LOCKED CSS
+   Goal: structure NEVER changes (sidebar always left)
+   - No stacking sidebar on top
+   - Main content scrolls, not layout collapsing
+   - Calendar stays usable (grid + scroll safety)
+   ========================================================= */
+
 :root{
   --bg:#07121f;
   --panel:#0b1b2c;
@@ -10,68 +18,82 @@
   --ok:#2ecc71;
   --bad:#ff5d5d;
   --accent:#66d9ff;
-  --shadow:0 12px 28px rgba(0,0,0,.35);
+  --shadow: 0 12px 28px rgba(0,0,0,.35);
   --radius:16px;
+
+  /* Layout lock */
+  --sidebarW: 280px;         /* fixed sidebar width */
+  --gap: 16px;
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
-
+*{ box-sizing:border-box; }
+html, body{ height:100%; }
 body{
   margin:0;
-  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   background:
     radial-gradient(1200px 800px at 70% 10%, rgba(102,217,255,.10), transparent 60%),
     radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
     var(--bg);
   color:var(--text);
-  overflow-x:auto; /* STRUCTURE > responsiveness */
+  overflow:hidden; /* IMPORTANT: app handles scrolling */
 }
+a{ color:inherit; }
 
-/* =========================
-   APP SHELL (LOCKED)
-   ========================= */
+/* =========================================================
+   App shell (LOCKED: sidebar left, main right)
+   ========================================================= */
 
 .app{
-  display:flex;
-  flex-direction:row !important;
-  align-items:stretch;
-  gap:16px;
-  padding:16px;
   height:100%;
-  min-width:1100px; /* prevents Safari from “helping” */
+  display:grid;
+  grid-template-columns: var(--sidebarW) minmax(0, 1fr);
+  gap:var(--gap);
+  padding:var(--gap);
+  overflow:hidden; /* prevent body scroll */
 }
 
-/* =========================
-   SIDEBAR (FIXED LEFT)
-   ========================= */
+/* If the screen is too narrow, DO NOT stack.
+   Instead, allow horizontal scroll for the whole app. */
+@media (max-width: 720px){
+  body{ overflow:auto; }
+  .app{
+    width: max(720px, 100%);
+    overflow:auto;
+  }
+}
+
+/* =========================================================
+   Sidebar
+   ========================================================= */
 
 .sidebar{
-  flex:0 0 260px;
-  background:rgba(255,255,255,.03);
+  height:100%;
+  background: rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius:var(--radius);
+  border-radius: var(--radius);
   padding:14px;
-  box-shadow:var(--shadow);
+  box-shadow: var(--shadow);
+
   display:flex;
   flex-direction:column;
   gap:10px;
+  overflow:hidden;
 }
 
 .brand{
   padding:10px 10px 14px;
   border-bottom:1px solid var(--line);
 }
-
 .brand .title{
   font-weight:800;
+  letter-spacing:.2px;
   font-size:18px;
 }
-
 .brand .sub{
   margin-top:4px;
-  font-size:12px;
   color:var(--muted);
+  font-size:12px;
 }
 
 .nav{
@@ -79,170 +101,306 @@ body{
   flex-direction:column;
   gap:10px;
   padding-top:10px;
+  overflow:auto;
+  padding-right:6px;
 }
 
 .nav-item{
   width:100%;
   border:1px solid var(--line);
-  background:rgba(255,255,255,.03);
+  background: rgba(255,255,255,.03);
   color:var(--text);
-  padding:12px;
-  border-radius:14px;
+  padding:12px 12px;
+  border-radius: 14px;
+  cursor:pointer;
   text-align:left;
   font-weight:650;
-  cursor:pointer;
+  transition: transform .06s ease, background .15s ease;
 }
-
+.nav-item:active{ transform: scale(.99); }
 .nav-item.active{
-  outline:2px solid rgba(102,217,255,.25);
-  background:rgba(102,217,255,.06);
+  outline: 2px solid rgba(102,217,255,.25);
+  background: rgba(102,217,255,.06);
 }
 
-/* =========================
-   MAIN AREA
-   ========================= */
+.footerbar{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:auto;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+}
+#jsPill{
+  font-size:12px;
+  padding:8px 10px;
+  border-radius: 999px;
+  border:1px solid var(--line);
+  color:var(--muted);
+  background: rgba(255,255,255,.03);
+  font-weight:750;
+}
+#jsPill.ok{ border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85); }
+#jsPill.bad{ border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85); }
+
+/* =========================================================
+   Main
+   ========================================================= */
 
 .main{
-  flex:1 1 auto;
-  min-width:0;
+  height:100%;
   display:flex;
   flex-direction:column;
   gap:12px;
+  min-width:0;
+  overflow:hidden;
 }
 
-/* =========================
-   TOPBAR
-   ========================= */
-
+/* Topbar */
 .topbar{
   display:flex;
   align-items:center;
   gap:10px;
   padding:12px 14px;
-  background:rgba(255,255,255,.03);
+  background: rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  min-height:58px;
+  flex-wrap:wrap; /* controls can wrap but main structure stays */
+}
+
+.topbar .left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  flex:1;
+}
+
+.context{
+  font-weight:750;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .topbar .controls{
-  margin-left:auto;
   display:flex;
   gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
-/* =========================
-   PANELS
-   ========================= */
+/* Views container */
+.views{
+  flex:1;
+  min-height:0;
+  overflow:auto; /* MAIN content scrolls */
+  padding-bottom:12px;
+}
+
+.view{ display:none; }
+.view.active{ display:block; }
+
+/* =========================================================
+   UI atoms
+   ========================================================= */
+
+.btn{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.04);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius: 12px;
+  cursor:pointer;
+  font-weight:650;
+}
+.btn:hover{ background: rgba(255,255,255,.06); }
+.btn.primary{
+  background: rgba(102,217,255,.10);
+  border-color: rgba(102,217,255,.25);
+}
+.btn.danger{
+  background: rgba(255,93,93,.10);
+  border-color: rgba(255,93,93,.25);
+}
+
+.pill{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.04);
+  color:var(--text);
+  padding:8px 10px;
+  border-radius: 999px;
+  cursor:pointer;
+  font-weight:700;
+  min-width:40px;
+  flex:0 0 auto;
+}
+.pill.active{ outline:2px solid rgba(102,217,255,.25); }
+.pill.has-jobs{ border-color: rgba(102,217,255,.35); }
+.pill.has-receipts{ border-color: rgba(0,255,180,.35); }
 
 .panel{
-  background:rgba(255,255,255,.03);
+  background: rgba(255,255,255,.03);
   border:1px solid var(--line);
-  border-radius:var(--radius);
+  border-radius: var(--radius);
   padding:14px;
-  box-shadow:var(--shadow);
+  box-shadow: var(--shadow);
 }
 
+.panel-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
 .panel-title{
   font-weight:850;
   font-size:18px;
 }
-
 .panel-sub{
   color:var(--muted);
   font-size:12px;
+  text-align:right;
 }
 
-/* =========================
-   VIEWS
-   ========================= */
+.muted{ color:var(--muted); }
+.empty{ padding:10px 0; }
 
-.views{
-  flex:1;
-  overflow:auto;
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
-
-.view{display:none}
-.view.active{display:block}
-
-/* =========================
-   BUTTONS / INPUTS
-   ========================= */
-
-.btn{
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.04);
-  color:var(--text);
-  padding:10px 12px;
-  border-radius:12px;
+.field span{
+  font-size:12px;
+  color:var(--muted);
   font-weight:650;
-  cursor:pointer;
 }
 
-.btn.primary{
-  background:rgba(102,217,255,.10);
-  border-color:rgba(102,217,255,.25);
-}
-
-input,select,textarea{
+input, select, textarea{
   width:100%;
   border:1px solid var(--line);
-  background:rgba(255,255,255,.04);
+  background: rgba(255,255,255,.04);
   color:var(--text);
   padding:10px 12px;
-  border-radius:12px;
-  font:inherit;
+  border-radius: 12px;
+  outline:none;
+  font: inherit;
 }
+textarea{ resize:vertical; }
 
-/* =========================
-   CALENDAR (NO SQUISH)
-   ========================= */
+/* =========================================================
+   Job / Receipt rows
+   ========================================================= */
 
-#calendarGrid{
-  display:grid;
-  grid-template-columns:repeat(7, minmax(120px, 1fr));
-  gap:10px;
-  overflow-x:auto;
-  padding-bottom:6px;
-}
-
-.day{
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.03);
-  border-radius:14px;
-  padding:10px;
-  min-height:90px;
-  cursor:pointer;
-}
-
-.day.today{
-  outline:2px solid rgba(102,217,255,.25);
-}
-
-/* =========================
-   JOB / RECEIPT ROWS
-   ========================= */
-
-.job-row,
-.receipt-row{
+.job-row, .receipt-row{
   display:flex;
   gap:10px;
   align-items:center;
   justify-content:space-between;
   padding:12px;
   border:1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,.02);
+}
+.job-main, .receipt-main{ min-width:0; flex:1; }
+.job-title, .receipt-title{ font-weight:800; }
+.job-sub, .receipt-sub{ color:var(--muted); font-size:12px; margin-top:4px; }
+.job-actions, .receipt-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+.day-totals{
+  padding:12px;
+  border:1px solid var(--line);
   border-radius:14px;
-  background:rgba(255,255,255,.02);
+  background: rgba(255,255,255,.02);
+  margin-bottom:10px;
 }
 
-/* =========================
-   MODALS
-   ========================= */
+/* =========================================================
+   Quick Calendar (dashboard) - DO NOT SQUISH
+   ========================================================= */
+
+#dashboardCalendar{
+  display:flex;
+  gap:8px;
+  flex-wrap:nowrap;          /* prevents squish */
+  overflow:auto;             /* scroll instead */
+  padding-bottom:6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* =========================================================
+   Full Calendar - grid stays readable
+   ========================================================= */
+
+.calendar-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+/* The grid can scroll horizontally if needed */
+#calendarGrid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(110px, 1fr));
+  gap:10px;
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom:6px;
+}
+
+.dow{
+  color:var(--muted);
+  font-weight:750;
+  font-size:12px;
+  padding:6px 8px;
+}
+
+.day{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color:var(--text);
+  border-radius:14px;
+  padding:10px;
+  cursor:pointer;
+  min-height:96px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  text-align:left;
+}
+.day.pad{ opacity:.25; cursor:default; }
+.day.today{ outline:2px solid rgba(102,217,255,.25); }
+.day.selected{ border-color: rgba(102,217,255,.35); }
+.day .num{ font-weight:900; }
+.markerbar{ display:flex; gap:6px; flex-wrap:wrap; }
+
+.chip{
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color:var(--muted);
+  font-weight:750;
+}
+.chip-jobs{ border-color: rgba(102,217,255,.25); }
+.chip-receipts{ border-color: rgba(0,255,180,.25); }
+
+/* =========================================================
+   Modal
+   ========================================================= */
 
 #modalOverlay{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.55);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(2px);
   z-index:100;
 }
 
@@ -252,27 +410,51 @@ input,select,textarea{
   top:50%;
   transform:translate(-50%,-50%);
   width:min(720px, calc(100% - 28px));
-  background:rgba(10,24,40,.95);
+  background: rgba(10,24,40,.95);
   border:1px solid var(--line);
-  border-radius:18px;
+  border-radius: 18px;
   padding:16px;
+  box-shadow: 0 26px 60px rgba(0,0,0,.55);
   z-index:101;
 }
 
-/* =========================
-   FOOTER / STATUS
-   ========================= */
+.modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.modal-title{ font-weight:900; font-size:18px; }
 
-#jsPill{
-  font-size:12px;
-  padding:8px 10px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.03);
-  color:var(--muted);
+.modal-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
 }
 
-#jsPill.ok{
-  border-color:rgba(46,204,113,.30);
-  color:rgba(232,240,255,.9);
+.modal-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+/* Error block */
+.modal-error{
+  display:none;
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius: 12px;
+  background: rgba(255,93,93,.10);
+  border:1px solid rgba(255,93,93,.25);
+  color: #ffd0d0;
+  font-weight:700;
+  font-size:13px;
+}
+
+/* Modal grid becomes 1-col only on truly small screens */
+@media (max-width: 520px){
+  .modal-grid{ grid-template-columns: 1fr; }
 }
