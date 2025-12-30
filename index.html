@@ -6,12 +6,11 @@
   <title>Move-Master.OS</title>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=20251225_7">
+  <link rel="stylesheet" href="./styles.css?v=20251229_1">
 </head>
 
 <body>
   <div class="app-shell">
-
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
@@ -20,19 +19,23 @@
       </div>
 
       <nav class="side-nav">
-        <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
-        <button class="nav-item" data-view="calendar" type="button">Calendar</button>
-        <button class="nav-item" data-view="day" type="button">Day Workspace</button>
+        <button class="nav-item active" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" data-view="calendar">Calendar</button>
+        <button class="nav-item" data-view="day">Day Workspace</button>
 
         <div class="nav-sep"></div>
 
-        <!-- These are now "real" pages -->
-        <button class="nav-item" data-view="drivers" type="button">Drivers</button>
-        <button class="nav-item" data-view="trucks" type="button">Trucks (coming soon)</button>
-        <button class="nav-item" data-view="dispatch" type="button">Dispatch</button>
-        <button class="nav-item" data-view="finance" type="button">Finance (coming soon)</button>
-        <button class="nav-item" data-view="inventory" type="button">Inventory</button>
-        <button class="nav-item" data-view="scanner" type="button">AI Scanner (coming soon)</button>
+        <button class="nav-item" data-view="dispatch">Dispatch</button>
+        <button class="nav-item" data-view="drivers">Drivers</button>
+        <button class="nav-item" data-view="trucks">Trucks</button>
+        <button class="nav-item" data-view="finance">Finance</button>
+        <button class="nav-item" data-view="inventory">Inventory</button>
+        <button class="nav-item" data-view="scanner">AI Scanner</button>
+
+        <div class="nav-sep"></div>
+
+        <!-- NEW: Spreadsheet-style editing -->
+        <button class="nav-item" data-view="sheets">Sheets</button>
       </nav>
 
       <div class="sidebar-footer">
@@ -42,25 +45,23 @@
 
     <!-- Main -->
     <main class="main">
-
       <!-- Top Toolbar -->
       <header class="topbar">
         <div class="top-left">
-          <button id="btnPrev" class="btn" type="button">◀</button>
-          <button id="btnToday" class="btn" type="button">Today</button>
-          <button id="btnNext" class="btn" type="button">▶</button>
+          <button id="btnPrev" class="btn">◀</button>
+          <button id="btnToday" class="btn">Today</button>
+          <button id="btnNext" class="btn">▶</button>
           <div id="contextLine" class="context-line">Foundation mode (Smart)</div>
         </div>
 
         <div class="top-right">
-          <button id="btnAddJob" class="btn primary" type="button">Add Job</button>
-          <button id="btnAddReceipt" class="btn" type="button">Add Receipt</button>
+          <button id="btnAddJob" class="btn primary">Add Job</button>
+          <button id="btnAddReceipt" class="btn">Add Receipt</button>
         </div>
       </header>
 
       <!-- Content -->
       <section class="content">
-
         <!-- DASHBOARD -->
         <div id="view-dashboard" class="view active">
           <div class="panel">
@@ -95,6 +96,7 @@
               <div class="panel-sub">Tap a day to open Day Workspace</div>
             </div>
 
+            <!-- Quick calendar container used by JS -->
             <div id="dashboardCalendar" class="quick-calendar"></div>
           </div>
         </div>
@@ -106,18 +108,19 @@
               <div class="panel-title">Fleet Calendar</div>
 
               <div class="calendar-controls">
-                <button id="calPrev" class="btn" type="button">◀</button>
-                <button id="calToday" class="btn" type="button">This Month</button>
-                <button id="calNext" class="btn" type="button">▶</button>
+                <button id="calPrev" class="btn">◀</button>
+                <button id="calToday" class="btn">This Month</button>
+                <button id="calNext" class="btn">▶</button>
               </div>
 
               <div id="monthLabel" class="month-label">—</div>
             </div>
 
+            <!-- Full month calendar grid container used by JS -->
             <div id="calendarGrid" class="calendar-grid"></div>
 
             <div class="muted calendar-legend">
-              Legend: S = Scheduled · C = Completed · X = Cancelled
+              Legend: S = Scheduled · C = Completed · X = Cancelled · 🧾 = Receipts
             </div>
           </div>
         </div>
@@ -130,80 +133,29 @@
               <div class="panel-sub">Jobs + Receipts for the selected date</div>
             </div>
 
+            <!-- Jobs list container used by JS -->
             <div id="dayJobsList" class="day-list"></div>
 
             <div class="panel-spacer"></div>
 
+            <!-- Receipts list container used by JS -->
             <div id="dayReceiptsList" class="day-list"></div>
+          </div>
+        </div>
+
+        <!-- DISPATCH -->
+        <div id="view-dispatch" class="view">
+          <div class="panel">
+            <div class="panel-title">Dispatch</div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
         <!-- DRIVERS -->
         <div id="view-drivers" class="view">
           <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Drivers</div>
-              <div id="driversSub" class="panel-sub">
-                Upload receipts, mileage, damage photos, PODs (tied to selected date).
-              </div>
-            </div>
-
-            <div class="cards">
-              <div class="card">
-                <div class="card-title">Driver Upload</div>
-
-                <div class="modal-body" style="padding:0;margin-top:10px;">
-                  <label class="field">
-                    <span>Upload Type</span>
-                    <select id="driverUploadKind">
-                      <option value="receipt">Receipt</option>
-                      <option value="damage">Damage / Condition</option>
-                      <option value="mileage">Mileage / Dashboard</option>
-                      <option value="pod">Signed POD</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>Linked Job ID (optional)</span>
-                    <input id="driverUploadJobId" type="text" placeholder="(optional) job id" />
-                  </label>
-
-                  <label class="field">
-                    <span>Notes (optional)</span>
-                    <input id="driverUploadNotes" type="text" placeholder="Anything important…" />
-                  </label>
-
-                  <div class="field">
-                    <span class="muted" style="display:block;margin-bottom:8px;">Camera / File Upload</span>
-
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                      <label class="btn">
-                        Add Photo
-                        <input id="driverPhotoInput" type="file" accept="image/*" capture="environment" hidden />
-                      </label>
-
-                      <label class="btn">
-                        Add Video
-                        <input id="driverVideoInput" type="file" accept="video/*" capture="environment" hidden />
-                      </label>
-
-                      <button id="driverUploadClear" class="btn" type="button">Clear</button>
-                      <button id="driverUploadSave" class="btn primary" type="button">Save Upload</button>
-                    </div>
-
-                    <div id="driverUploadPreview" class="muted" style="margin-top:10px;">
-                      No file selected.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card">
-                <div class="card-title">Uploads for Selected Date</div>
-                <div id="driverUploadsList" class="card-body muted">No uploads yet.</div>
-              </div>
-            </div>
+            <div class="panel-title">Drivers</div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
@@ -211,47 +163,7 @@
         <div id="view-trucks" class="view">
           <div class="panel">
             <div class="panel-title">Trucks</div>
-            <div class="muted">Coming soon</div>
-          </div>
-        </div>
-
-        <!-- DISPATCH (DONE: includes table container + controls) -->
-        <div id="view-dispatch" class="view">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Dispatch</div>
-              <div id="dispatchSub" class="panel-sub">
-                Assign drivers & trucks to jobs for the selected date.
-              </div>
-            </div>
-
-            <div class="cards">
-              <div class="card">
-                <div class="card-title">Dispatch Board</div>
-
-                <div class="muted" id="dispatchHint" style="margin-top:6px;">
-                  Select a date, then assign a Driver + Truck to each Job.
-                </div>
-
-                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                  <button id="dispatchSaveAll" class="btn primary" type="button">Save Assignments</button>
-                  <button id="dispatchClear" class="btn danger" type="button">Clear Date Assignments</button>
-                </div>
-
-                <div id="dispatchTableWrap" style="margin-top:14px; overflow:auto;"></div>
-
-                <div id="dispatchEmpty" class="muted" style="margin-top:12px;">
-                  No jobs found for this date.
-                </div>
-              </div>
-
-              <div class="card">
-                <div class="card-title">Notes</div>
-                <div class="card-body muted">
-                  Tip: If Drivers/Trucks lists are empty, add them first. Dispatch can’t assign ghosts.
-                </div>
-              </div>
-            </div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
@@ -259,81 +171,49 @@
         <div id="view-finance" class="view">
           <div class="panel">
             <div class="panel-title">Finance</div>
-            <div class="muted">Coming soon</div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
         <!-- INVENTORY -->
         <div id="view-inventory" class="view">
           <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Inventory</div>
-              <div id="inventorySub" class="panel-sub">
-                Customer inventory photos/videos tied to selected date (and job if provided).
-              </div>
-            </div>
-
-            <div class="cards">
-              <div class="card">
-                <div class="card-title">Inventory Upload</div>
-
-                <div class="modal-body" style="padding:0;margin-top:10px;">
-                  <label class="field">
-                    <span>Linked Job ID (recommended)</span>
-                    <input id="inventoryUploadJobId" type="text" placeholder="job id (recommended)" />
-                  </label>
-
-                  <label class="field">
-                    <span>Attach to Inventory Item (optional)</span>
-                    <input id="inventoryUploadItemRef" type="text" placeholder="e.g., 'Sofa', 'Master Bedroom', 'Kitchen boxes'" />
-                  </label>
-
-                  <label class="field">
-                    <span>Notes (optional)</span>
-                    <input id="inventoryUploadNotes" type="text" placeholder="Fragile, scratches, stairs, etc." />
-                  </label>
-
-                  <div class="field">
-                    <span class="muted" style="display:block;margin-bottom:8px;">Camera / File Upload</span>
-
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                      <label class="btn">
-                        Add Photo
-                        <input id="inventoryPhotoInput" type="file" accept="image/*" capture="environment" hidden />
-                      </label>
-
-                      <label class="btn">
-                        Add Video
-                        <input id="inventoryVideoInput" type="file" accept="video/*" capture="environment" hidden />
-                      </label>
-
-                      <button id="inventoryUploadClear" class="btn" type="button">Clear</button>
-                      <button id="inventoryUploadSave" class="btn primary" type="button">Save Upload</button>
-                    </div>
-
-                    <div id="inventoryUploadPreview" class="muted" style="margin-top:10px;">
-                      No file selected.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card">
-                <div class="card-title">Inventory Uploads for Selected Date</div>
-                <div id="inventoryUploadsList" class="card-body muted">No uploads yet.</div>
-              </div>
-            </div>
+            <div class="panel-title">Inventory</div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
-        <!-- SCANNER -->
+        <!-- AI SCANNER -->
         <div id="view-scanner" class="view">
           <div class="panel">
             <div class="panel-title">AI Scanner</div>
-            <div class="muted">Coming soon</div>
+            <div class="muted">Loading…</div>
           </div>
         </div>
 
+        <!-- NEW: SHEETS VIEW -->
+        <div id="view-sheets" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Sheets</div>
+              <div class="panel-sub">Editable tables. Click into cells to edit. Auto-saves locally.</div>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+              <button class="btn" type="button" id="sheetTabJobs">Jobs</button>
+              <button class="btn" type="button" id="sheetTabReceipts">Receipts</button>
+              <button class="btn" type="button" id="sheetTabDrivers">Drivers</button>
+              <button class="btn" type="button" id="sheetTabTrucks">Trucks</button>
+              <button class="btn" type="button" id="sheetTabDispatch">Dispatch</button>
+
+              <div style="flex:1;"></div>
+
+              <button class="btn primary" type="button" id="sheetExportCsv">Export CSV</button>
+            </div>
+
+            <div id="sheetTableWrap"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -433,19 +313,6 @@
         <input id="receiptLinkedJobId" type="text" placeholder="(optional) job id" />
       </label>
 
-      <!-- Receipt camera upload -->
-      <div class="field">
-        <span class="muted" style="display:block;margin-bottom:8px;">Receipt Photo (optional)</span>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <label class="btn">
-            Add Photo
-            <input id="receiptPhotoInput" type="file" accept="image/*" capture="environment" hidden />
-          </label>
-          <button id="receiptPhotoClear" class="btn" type="button">Clear</button>
-        </div>
-        <div id="receiptPhotoPreview" class="muted" style="margin-top:10px;">No file selected.</div>
-      </div>
-
       <label class="field">
         <span>Notes</span>
         <textarea id="receiptNotes" rows="3" placeholder="Notes"></textarea>
@@ -459,10 +326,10 @@
     </div>
   </div>
 
-  <!-- Supabase JS (UMD) -->
+  <!-- Supabase JS (optional for later) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- App JS -->
-  <script src="./apps_v5_1.js?v=force-2001" defer></script>
+  <!-- Your app -->
+  <script src="./apps_v5_1.js?v=20251229_2" defer></script>
 </body>
 </html>
