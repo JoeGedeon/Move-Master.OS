@@ -1,248 +1,546 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Move-Master.OS</title>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="./styles.css?v=20251229_1">
+  <style>
+    :root{
+      --bg:#07121f;
+      --panel:#0b1b2c;
+      --panel2:#0e2337;
+      --text:#e8f0ff;
+      --muted:rgba(232,240,255,.65);
+      --line:rgba(232,240,255,.10);
+      --btn:#102a44;
+      --btn2:#12314f;
+      --ok:#2ecc71;
+      --bad:#ff5d5d;
+      --accent:#66d9ff;
+      --shadow: 0 12px 28px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 800px at 70% 10%, rgba(102,217,255,.10), transparent 60%),
+                  radial-gradient(900px 700px at 20% 20%, rgba(0,255,180,.06), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    a{color:inherit}
+
+    /* Layout */
+    .app{
+      display:flex;
+      gap:16px;
+      padding:16px;
+      height:100%;
+    }
+    .sidebar{
+      width:260px;
+      min-width:240px;
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding:14px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .brand{
+      padding:10px 10px 14px;
+      border-bottom:1px solid var(--line);
+    }
+    .brand .title{
+      font-weight:800;
+      letter-spacing:.2px;
+      font-size:18px;
+    }
+    .brand .sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .nav{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      padding-top:10px;
+    }
+    .nav-item{
+      width:100%;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color:var(--text);
+      padding:12px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      text-align:left;
+      font-weight:650;
+      transition: transform .06s ease, background .15s ease;
+    }
+    .nav-item:active{transform: scale(.99)}
+    .nav-item.active{
+      outline: 2px solid rgba(102,217,255,.25);
+      background: rgba(102,217,255,.06);
+    }
+
+    .main{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-width:0;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 14px;
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-height:58px;
+    }
+    .topbar .left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex:1;
+    }
+    .context{
+      font-weight:750;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .topbar .controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    /* Buttons/Inputs */
+    .btn{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-weight:650;
+    }
+    .btn:hover{background: rgba(255,255,255,.06)}
+    .btn.primary{
+      background: rgba(102,217,255,.10);
+      border-color: rgba(102,217,255,.25);
+    }
+    .btn.danger{
+      background: rgba(255,93,93,.10);
+      border-color: rgba(255,93,93,.25);
+    }
+
+    .pill{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight:700;
+      min-width:40px;
+    }
+    .pill.active{outline:2px solid rgba(102,217,255,.25)}
+    .pill.has-jobs{border-color: rgba(102,217,255,.35)}
+    .pill.has-receipts{border-color: rgba(0,255,180,.35)}
+
+    .panel{
+      background: rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding:14px;
+      box-shadow: var(--shadow);
+    }
+    .panel-header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    .panel-title{
+      font-weight:850;
+      font-size:18px;
+    }
+    .panel-sub{
+      color:var(--muted);
+      font-size:12px;
+      text-align:right;
+    }
+    .muted{color:var(--muted)}
+    .empty{padding:10px 0}
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .field span{font-size:12px;color:var(--muted);font-weight:650}
+    input, select, textarea{
+      width:100%;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      outline:none;
+      font: inherit;
+    }
+    textarea{resize:vertical}
+
+    .views{
+      flex:1;
+      min-height:0;
+      overflow:auto;
+      padding-bottom:12px;
+    }
+    .view{
+      display:none;
+    }
+    .view.active{
+      display:block;
+    }
+
+    /* Job/Receipt rows */
+    .job-row,.receipt-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.02);
+    }
+    .job-main,.receipt-main{min-width:0;flex:1}
+    .job-title,.receipt-title{font-weight:800}
+    .job-sub,.receipt-sub{color:var(--muted);font-size:12px;margin-top:4px}
+    .job-actions,.receipt-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+    .day-totals{
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background: rgba(255,255,255,.02);
+      margin-bottom:10px;
+    }
+
+    /* Calendar grid */
+    .calendar-bar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    #calendarGrid{
+      display:grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap:10px;
+    }
+    .dow{
+      color:var(--muted);
+      font-weight:750;
+      font-size:12px;
+      padding:6px 8px;
+    }
+    .day{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px;
+      cursor:pointer;
+      min-height:86px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      text-align:left;
+    }
+    .day.pad{opacity:.25; cursor:default}
+    .day.today{outline:2px solid rgba(102,217,255,.25)}
+    .day.selected{border-color: rgba(102,217,255,.35)}
+    .day .num{font-weight:900}
+    .markerbar{display:flex;gap:6px;flex-wrap:wrap}
+    .chip{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color:var(--muted);
+      font-weight:750;
+    }
+    .chip-jobs{border-color: rgba(102,217,255,.25)}
+    .chip-receipts{border-color: rgba(0,255,180,.25)}
+
+    /* Modal */
+    #modalOverlay{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(2px);
+      z-index:100;
+    }
+    .modal{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:min(720px, calc(100% - 28px));
+      background: rgba(10,24,40,.95);
+      border:1px solid var(--line);
+      border-radius: 18px;
+      padding:16px;
+      box-shadow: 0 26px 60px rgba(0,0,0,.55);
+      z-index:101;
+    }
+    .modal-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    .modal-title{font-weight:900;font-size:18px}
+    .modal-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .modal-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .modal-error{
+      display:none;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius: 12px;
+      background: rgba(255,93,93,.10);
+      border:1px solid rgba(255,93,93,.25);
+      color: #ffd0d0;
+      font-weight:700;
+      font-size:13px;
+    }
+
+    /* Bottom badge */
+    .footerbar{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:auto;
+      padding-top:10px;
+      border-top:1px solid var(--line);
+    }
+    #jsPill{
+      font-size:12px;
+      padding:8px 10px;
+      border-radius: 999px;
+      border:1px solid var(--line);
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+      font-weight:750;
+    }
+    #jsPill.ok{border-color: rgba(46,204,113,.30); color: rgba(232,240,255,.85)}
+    #jsPill.bad{border-color: rgba(255,93,93,.35); color: rgba(232,240,255,.85)}
+
+    /* Mobile tweaks */
+    @media (max-width: 920px){
+      .app{flex-direction:column}
+      .sidebar{width:100%}
+      .topbar{flex-wrap:wrap}
+      .topbar .controls{width:100%; justify-content:flex-start}
+    }
+    @media (max-width: 520px){
+      .modal-grid{grid-template-columns: 1fr}
+    }
+  </style>
 </head>
 
 <body>
-  <div class="app-shell">
+  <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-title">Move-Master.OS</div>
-        <div class="brand-sub">Fleet + Moving CRM</div>
+        <div class="title">Move-Master.OS</div>
+        <div class="sub">Fleet + Moving CRM</div>
       </div>
 
-      <nav class="side-nav">
-        <button class="nav-item active" data-view="dashboard">Dashboard</button>
-        <button class="nav-item" data-view="calendar">Calendar</button>
-        <button class="nav-item" data-view="day">Day Workspace</button>
+      <nav class="nav">
+        <button class="nav-item" data-view="dashboard" type="button">Dashboard</button>
+        <button class="nav-item" data-view="calendar" type="button">Calendar</button>
+        <button class="nav-item" data-view="day" type="button">Day Workspace</button>
 
-        <div class="nav-sep"></div>
+        <div style="height:6px"></div>
 
-        <button class="nav-item" data-view="dispatch">Dispatch</button>
-        <button class="nav-item" data-view="drivers">Drivers</button>
-        <button class="nav-item" data-view="trucks">Trucks</button>
-        <button class="nav-item" data-view="inventory">Inventory</button>
-        <button class="nav-item" data-view="finance">Finance</button>
-        <button class="nav-item" data-view="scanner">AI Scanner</button>
-
-        <div class="nav-sep"></div>
-
-        <button class="nav-item" data-view="sheets">Sheets</button>
+        <button class="nav-item" data-view="drivers" type="button">Drivers</button>
+        <button class="nav-item" data-view="trucks" type="button">Trucks</button>
+        <button class="nav-item" data-view="dispatch" type="button">Dispatch</button>
+        <button class="nav-item" data-view="finance" type="button">Finance</button>
+        <button class="nav-item" data-view="inventory" type="button">Inventory</button>
+        <button class="nav-item" data-view="scanner" type="button">Scanner</button>
       </nav>
 
-      <div class="sidebar-footer">
-        <span id="jsPill" class="pill-status bad">JS: loading…</span>
+      <div class="footerbar">
+        <div id="jsPill" class="ok">JS: loading…</div>
       </div>
     </aside>
 
     <!-- Main -->
     <main class="main">
-      <!-- Top Toolbar -->
-      <header class="topbar">
-        <div class="top-left">
-          <button id="btnPrev" class="btn">◀</button>
-          <button id="btnToday" class="btn">Today</button>
-          <button id="btnNext" class="btn">▶</button>
-          <div id="contextLine" class="context-line">Foundation mode (Smart)</div>
+      <!-- Topbar -->
+      <div class="topbar">
+        <div class="left">
+          <div id="contextLine" class="context">Dashboard</div>
         </div>
 
-        <div class="top-right">
-          <button id="btnAddJob" class="btn primary">Add Job</button>
-          <button id="btnAddReceipt" class="btn">Add Receipt</button>
+        <div class="controls">
+          <button class="btn" id="btnPrev" type="button">◀</button>
+          <button class="btn" id="btnToday" type="button">Today</button>
+          <button class="btn" id="btnNext" type="button">▶</button>
+
+          <button class="btn primary" id="btnAddJob" type="button">Add Job</button>
+          <button class="btn primary" id="btnAddReceipt" type="button">Add Receipt</button>
         </div>
-      </header>
+      </div>
 
-      <!-- Content -->
-      <section class="content">
-
-        <!-- DASHBOARD -->
-        <div id="view-dashboard" class="view active">
+      <!-- Views -->
+      <section class="views">
+        <!-- Dashboard -->
+        <div class="view" id="view-dashboard">
           <div class="panel">
             <div class="panel-header">
               <div class="panel-title">Dashboard</div>
-              <div id="todayLine" class="panel-sub">—</div>
+              <div class="panel-sub">Quick snapshot</div>
             </div>
 
-            <div class="cards">
-              <div class="card" id="todayCard">
-                <div class="card-title">Today</div>
-                <div id="todayStats" class="card-body">—</div>
-              </div>
-
-              <div class="card">
-                <div class="card-title">Month Snapshot</div>
-                <div id="monthSnapshot" class="card-body">—</div>
-              </div>
-
-              <div class="card">
-                <div class="card-title">Pressure Points</div>
-                <div class="card-body muted">
-                  Placeholder: upcoming load, revenue at risk, late receipts, etc.
-                </div>
-              </div>
+            <div class="day-totals">
+              <div><strong>Today</strong> <span id="todayLine" class="muted"></span></div>
+              <div id="todayStats" class="muted" style="margin-top:8px;">Loading…</div>
             </div>
+
+            <div class="day-totals">
+              <div id="monthSnapshot" class="muted">Loading…</div>
+            </div>
+
+            <div class="muted" style="margin-top:12px; font-weight:700;">Quick Calendar</div>
+            <div id="dashboardCalendar" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
           </div>
+        </div>
 
+        <!-- Calendar -->
+        <div class="view" id="view-calendar">
           <div class="panel">
             <div class="panel-header">
-              <div class="panel-title">Quick Calendar</div>
+              <div class="panel-title">Calendar</div>
               <div class="panel-sub">Tap a day to open Day Workspace</div>
             </div>
-            <div id="dashboardCalendar" class="quick-calendar"></div>
-          </div>
-        </div>
 
-        <!-- CALENDAR -->
-        <div id="view-calendar" class="view">
-          <div class="panel">
-            <div class="panel-header calendar-head">
-              <div class="panel-title">Fleet Calendar</div>
-
-              <div class="calendar-controls">
-                <button id="calPrev" class="btn">◀</button>
-                <button id="calToday" class="btn">This Month</button>
-                <button id="calNext" class="btn">▶</button>
+            <div class="calendar-bar">
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn" id="calPrev" type="button">◀</button>
+                <button class="btn" id="calToday" type="button">Today</button>
+                <button class="btn" id="calNext" type="button">▶</button>
               </div>
-
-              <div id="monthLabel" class="month-label">—</div>
+              <div id="monthLabel" style="font-weight:900;"></div>
             </div>
 
-            <div id="calendarGrid" class="calendar-grid"></div>
-
-            <div class="muted calendar-legend">
-              Legend: S = Scheduled · C = Completed · X = Cancelled
-            </div>
+            <div id="calendarGrid"></div>
           </div>
         </div>
 
-        <!-- DAY WORKSPACE -->
-        <div id="view-day" class="view">
+        <!-- Day Workspace -->
+        <div class="view" id="view-day">
           <div class="panel">
             <div class="panel-header">
-              <div id="dayTitle" class="panel-title">Day Workspace</div>
-              <div class="panel-sub">Jobs + Receipts for the selected date</div>
+              <div class="panel-title" id="dayTitle">Day Workspace</div>
+              <div class="panel-sub">Jobs + Receipts for selected day</div>
             </div>
 
-            <div id="dayJobsList" class="day-list"></div>
-
-            <div class="panel-spacer"></div>
-
-            <div id="dayReceiptsList" class="day-list"></div>
-          </div>
-        </div>
-
-        <!-- DISPATCH -->
-        <div id="view-dispatch" class="view">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Dispatch</div>
-              <div id="dispatchSub" class="panel-sub">Assign drivers & trucks to jobs for the selected day.</div>
-            </div>
-
-            <div class="muted" style="margin-bottom:12px;">
-              Uses the <strong>selected date</strong> (top bar). Jobs come from Day Workspace.
-            </div>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
-              <button id="dispatchSaveAll" class="btn primary" type="button">Save Assignments</button>
-              <button id="dispatchClear" class="btn danger" type="button">Clear for This Day</button>
-              <div class="muted">Tip: Add Drivers + Trucks first.</div>
-            </div>
-
-            <div id="dispatchEmpty" class="muted empty">No jobs found for this date. Add jobs in Day Workspace.</div>
-            <div id="dispatchTableWrap"></div>
-          </div>
-        </div>
-
-        <!-- DRIVERS -->
-        <div id="view-drivers" class="view"></div>
-
-        <!-- TRUCKS -->
-        <div id="view-trucks" class="view"></div>
-
-        <!-- INVENTORY -->
-        <div id="view-inventory" class="view"></div>
-
-        <!-- FINANCE -->
-        <div id="view-finance" class="view"></div>
-
-        <!-- SCANNER -->
-        <div id="view-scanner" class="view"></div>
-
-        <!-- SHEETS -->
-        <div id="view-sheets" class="view">
-          <div class="panel">
-            <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
               <div>
-                <div class="panel-title">Sheets</div>
-                <div class="panel-sub">Editable tables. Tap into cells to edit. Auto-saves locally.</div>
+                <div class="muted" style="font-weight:800; margin-bottom:8px;">Jobs</div>
+                <div id="dayJobsList">Loading…</div>
               </div>
-
-              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <button id="sheetExportCsv" class="btn">Export CSV</button>
+              <div>
+                <div class="muted" style="font-weight:800; margin-bottom:8px;">Receipts</div>
+                <div id="dayReceiptsList">Loading…</div>
               </div>
             </div>
-
-            <div id="sheetTabs" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-              <button class="btn" data-sheet="jobs">Jobs</button>
-              <button class="btn" data-sheet="receipts">Receipts</button>
-              <button class="btn" data-sheet="drivers">Drivers</button>
-              <button class="btn" data-sheet="trucks">Trucks</button>
-              <button class="btn" data-sheet="dispatch">Dispatch</button>
-            </div>
-
-            <div id="sheetHint" class="muted" style="margin-bottom:10px;">—</div>
-            <div id="sheetTableWrap"></div>
           </div>
         </div>
 
+        <!-- Drivers -->
+        <div class="view" id="view-drivers">
+          <!-- JS renders this -->
+        </div>
+
+        <!-- Trucks -->
+        <div class="view" id="view-trucks">
+          <!-- JS renders this -->
+        </div>
+
+        <!-- Dispatch -->
+        <div class="view" id="view-dispatch">
+          <!-- JS renders this -->
+        </div>
+
+        <!-- Finance -->
+        <div class="view" id="view-finance">
+          <!-- JS renders this -->
+        </div>
+
+        <!-- Inventory -->
+        <div class="view" id="view-inventory">
+          <!-- JS renders this -->
+        </div>
+
+        <!-- Scanner -->
+        <div class="view" id="view-scanner">
+          <!-- JS renders this -->
+        </div>
       </section>
     </main>
   </div>
 
-  <!-- Shared overlay for modals -->
-  <div id="modalOverlay" class="modal-overlay" hidden></div>
+  <!-- Modal overlay -->
+  <div id="modalOverlay" hidden></div>
 
-  <!-- JOB MODAL -->
-  <div id="jobModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+  <!-- Job Modal -->
+  <div class="modal" id="jobModal" hidden aria-hidden="true">
     <div class="modal-header">
-      <h3 id="jobModalTitle">Add Job</h3>
-      <button id="jobModalClose" class="icon-btn" type="button">✕</button>
+      <div class="modal-title" id="jobModalTitle">Add Job</div>
+      <button class="btn" id="jobModalClose" type="button">✕</button>
     </div>
 
-    <div id="jobError" class="modal-error" hidden></div>
-
-    <div class="modal-body">
+    <div class="modal-grid">
       <label class="field">
         <span>Date</span>
         <input id="jobDate" type="date" />
-      </label>
-
-      <label class="field">
-        <span>Customer</span>
-        <input id="jobCustomer" type="text" placeholder="Customer name" />
-      </label>
-
-      <label class="field">
-        <span>Pickup</span>
-        <input id="jobPickup" type="text" placeholder="Pickup address" />
-      </label>
-
-      <label class="field">
-        <span>Dropoff</span>
-        <input id="jobDropoff" type="text" placeholder="Dropoff address" />
-      </label>
-
-      <label class="field">
-        <span>Amount</span>
-        <input id="jobAmount" type="number" step="0.01" value="0" />
       </label>
 
       <label class="field">
@@ -254,42 +552,52 @@
         </select>
       </label>
 
+      <label class="field" style="grid-column:1 / -1">
+        <span>Customer</span>
+        <input id="jobCustomer" type="text" placeholder="Customer name" />
+      </label>
+
+      <label class="field">
+        <span>Pickup</span>
+        <input id="jobPickup" type="text" placeholder="Pickup address / city" />
+      </label>
+
+      <label class="field">
+        <span>Dropoff</span>
+        <input id="jobDropoff" type="text" placeholder="Dropoff address / city" />
+      </label>
+
+      <label class="field">
+        <span>Amount</span>
+        <input id="jobAmount" type="number" step="0.01" value="0" />
+      </label>
+
       <label class="field">
         <span>Notes</span>
-        <textarea id="jobNotes" rows="3" placeholder="Notes"></textarea>
+        <input id="jobNotes" type="text" placeholder="Notes…" />
       </label>
     </div>
 
+    <div id="jobError" class="modal-error"></div>
+
     <div class="modal-actions">
-      <button id="jobSave" class="btn primary" type="button">Save</button>
-      <button id="jobCancel" class="btn" type="button">Cancel</button>
-      <button id="jobDelete" class="btn danger" type="button" hidden>Delete</button>
+      <button class="btn danger" id="jobDelete" type="button" hidden>Delete</button>
+      <button class="btn" id="jobCancel" type="button">Cancel</button>
+      <button class="btn primary" id="jobSave" type="button">Save</button>
     </div>
   </div>
 
-  <!-- RECEIPT MODAL -->
-  <div id="receiptModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+  <!-- Receipt Modal -->
+  <div class="modal" id="receiptModal" hidden aria-hidden="true">
     <div class="modal-header">
-      <h3 id="receiptModalTitle">Add Receipt</h3>
-      <button id="receiptModalClose" class="icon-btn" type="button">✕</button>
+      <div class="modal-title" id="receiptModalTitle">Add Receipt</div>
+      <button class="btn" id="receiptModalClose" type="button">✕</button>
     </div>
 
-    <div id="receiptError" class="modal-error" hidden></div>
-
-    <div class="modal-body">
+    <div class="modal-grid">
       <label class="field">
         <span>Date</span>
         <input id="receiptDate" type="date" />
-      </label>
-
-      <label class="field">
-        <span>Vendor</span>
-        <input id="receiptVendor" type="text" placeholder="Gas station, Home Depot, etc." />
-      </label>
-
-      <label class="field">
-        <span>Category</span>
-        <input id="receiptCategory" type="text" placeholder="Fuel, Supplies, Tolls, Meals…" />
       </label>
 
       <label class="field">
@@ -298,37 +606,51 @@
       </label>
 
       <label class="field">
-        <span>Driver (optional)</span>
-        <input id="receiptDriverId" type="text" placeholder="Paste Driver ID (Sheets makes this easy)" />
+        <span>Vendor</span>
+        <input id="receiptVendor" type="text" placeholder="Vendor" />
+      </label>
+
+      <label class="field">
+        <span>Category</span>
+        <input id="receiptCategory" type="text" placeholder="Fuel, Tolls, Supplies…" />
       </label>
 
       <label class="field">
         <span>Linked Job ID (optional)</span>
-        <input id="receiptLinkedJobId" type="text" placeholder="(optional) job id" />
+        <input id="receiptLinkedJobId" type="text" placeholder="Paste job id if you want" />
       </label>
 
+      <!-- NEW: Driver dropdown for receipt ownership -->
       <label class="field">
+        <span>Driver (optional)</span>
+        <select id="receiptDriverId">
+          <option value="">(no driver)</option>
+        </select>
+      </label>
+
+      <!-- NEW: Receipt Photo upload -->
+      <label class="field" style="grid-column:1 / -1">
         <span>Receipt Photo (optional)</span>
         <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
+        <div id="receiptPhotoHint" class="muted" style="font-size:12px; margin-top:6px;">No photo</div>
       </label>
 
-      <label class="field">
+      <label class="field" style="grid-column:1 / -1">
         <span>Notes</span>
-        <textarea id="receiptNotes" rows="3" placeholder="Notes"></textarea>
+        <input id="receiptNotes" type="text" placeholder="Notes…" />
       </label>
     </div>
 
+    <div id="receiptError" class="modal-error"></div>
+
     <div class="modal-actions">
-      <button id="receiptSave" class="btn primary" type="button">Save</button>
-      <button id="receiptCancel" class="btn" type="button">Cancel</button>
-      <button id="receiptDelete" class="btn danger" type="button" hidden>Delete</button>
+      <button class="btn danger" id="receiptDelete" type="button" hidden>Delete</button>
+      <button class="btn" id="receiptCancel" type="button">Cancel</button>
+      <button class="btn primary" id="receiptSave" type="button">Save</button>
     </div>
   </div>
 
-  <!-- Optional: Supabase later -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Your app -->
-<script src="./apps_v5_1.js?v=force-2001" defer></script>
+  <!-- JS (make sure this filename exists in your repo) -->
+  <script src="./app_v5_2.js?v=20251229_1" defer></script>
 </body>
 </html>
