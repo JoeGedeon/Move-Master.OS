@@ -58,17 +58,83 @@
 
       <!-- Content -->
       <section class="content">
-
         <!-- DASHBOARD -->
-        <div id="view-dashboard" class="view active"></div>
+        <div id="view-dashboard" class="view active">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Dashboard</div>
+              <div id="todayLine" class="panel-sub">—</div>
+            </div>
+
+            <div class="cards">
+              <div class="card" id="todayCard">
+                <div class="card-title">Today</div>
+                <div id="todayStats" class="card-body">—</div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Month Snapshot</div>
+                <div id="monthSnapshot" class="card-body">—</div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Pressure Points</div>
+                <div class="card-body muted">
+                  Placeholder: upcoming load, revenue at risk, late receipts, etc.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Quick Calendar</div>
+              <div class="panel-sub">Tap a day to open Day Workspace</div>
+            </div>
+            <div id="dashboardCalendar" class="quick-calendar"></div>
+          </div>
+        </div>
 
         <!-- CALENDAR -->
-        <div id="view-calendar" class="view"></div>
+        <div id="view-calendar" class="view">
+          <div class="panel">
+            <div class="panel-header calendar-head">
+              <div class="panel-title">Fleet Calendar</div>
+
+              <div class="calendar-controls">
+                <button id="calPrev" class="btn" type="button">◀</button>
+                <button id="calToday" class="btn" type="button">This Month</button>
+                <button id="calNext" class="btn" type="button">▶</button>
+              </div>
+
+              <div id="monthLabel" class="month-label">—</div>
+            </div>
+
+            <div id="calendarGrid" class="calendar-grid"></div>
+
+            <div class="muted calendar-legend">
+              Legend: S = Scheduled · C = Completed · X = Cancelled
+            </div>
+          </div>
+        </div>
 
         <!-- DAY WORKSPACE -->
-        <div id="view-day" class="view"></div>
+        <div id="view-day" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <div id="dayTitle" class="panel-title">Day Workspace</div>
+              <div class="panel-sub">Jobs + Receipts for the selected date</div>
+            </div>
 
-        <!-- OTHER VIEWS -->
+            <div id="dayJobsList" class="day-list"></div>
+
+            <div class="panel-spacer"></div>
+
+            <div id="dayReceiptsList" class="day-list"></div>
+          </div>
+        </div>
+
+        <!-- DRIVERS / TRUCKS / DISPATCH / FINANCE / INVENTORY / SCANNER / SHEETS -->
         <div id="view-drivers" class="view"></div>
         <div id="view-trucks" class="view"></div>
         <div id="view-dispatch" class="view"></div>
@@ -76,7 +142,6 @@
         <div id="view-inventory" class="view"></div>
         <div id="view-scanner" class="view"></div>
         <div id="view-sheets" class="view"></div>
-
       </section>
     </main>
   </div>
@@ -84,11 +149,84 @@
   <!-- Shared overlay for modals -->
   <div id="modalOverlay" class="modal-overlay" hidden></div>
 
-  <!-- OCR ENGINE (MUST LOAD FIRST) -->
+  <!-- JOB MODAL -->
+  <div id="jobModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3 id="jobModalTitle">Add Job</h3>
+      <button id="jobModalClose" class="icon-btn" type="button">✕</button>
+    </div>
+
+    <div id="jobError" class="modal-error" hidden></div>
+
+    <div class="modal-body">
+      <label class="field"><span>Date</span><input id="jobDate" type="date" /></label>
+      <label class="field"><span>Customer</span><input id="jobCustomer" type="text" placeholder="Customer name" /></label>
+      <label class="field"><span>Pickup</span><input id="jobPickup" type="text" placeholder="Pickup address" /></label>
+      <label class="field"><span>Dropoff</span><input id="jobDropoff" type="text" placeholder="Dropoff address" /></label>
+      <label class="field"><span>Amount</span><input id="jobAmount" type="number" step="0.01" value="0" /></label>
+      <label class="field">
+        <span>Status</span>
+        <select id="jobStatus">
+          <option value="scheduled">Scheduled</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </label>
+      <label class="field"><span>Notes</span><textarea id="jobNotes" rows="3" placeholder="Notes"></textarea></label>
+    </div>
+
+    <div class="modal-actions">
+      <button id="jobSave" class="btn primary" type="button">Save</button>
+      <button id="jobCancel" class="btn" type="button">Cancel</button>
+      <button id="jobDelete" class="btn danger" type="button" hidden>Delete</button>
+    </div>
+  </div>
+
+  <!-- RECEIPT MODAL -->
+  <div id="receiptModal" class="modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3 id="receiptModalTitle">Add Receipt</h3>
+      <button id="receiptModalClose" class="icon-btn" type="button">✕</button>
+    </div>
+
+    <div id="receiptError" class="modal-error" hidden></div>
+
+    <div class="modal-body">
+      <label class="field"><span>Date</span><input id="receiptDate" type="date" /></label>
+      <label class="field"><span>Vendor</span><input id="receiptVendor" type="text" placeholder="Gas station, Home Depot, etc." /></label>
+      <label class="field"><span>Category</span><input id="receiptCategory" type="text" placeholder="Fuel, Supplies, Tolls, Meals…" /></label>
+      <label class="field"><span>Amount</span><input id="receiptAmount" type="number" step="0.01" value="0" /></label>
+
+      <label class="field">
+        <span>Driver (optional)</span>
+        <select id="receiptDriverId"><option value="">(no driver)</option></select>
+      </label>
+
+      <label class="field">
+        <span>Linked Job ID (optional)</span>
+        <input id="receiptLinkedJobId" type="text" placeholder="(optional) job id" />
+      </label>
+
+      <label class="field">
+        <span>Receipt Photo (optional)</span>
+        <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
+        <div id="receiptPhotoHint" class="muted" style="font-size:12px;margin-top:6px;">No photo</div>
+      </label>
+
+      <label class="field"><span>Notes</span><textarea id="receiptNotes" rows="3" placeholder="Notes"></textarea></label>
+    </div>
+
+    <div class="modal-actions">
+      <button id="receiptSave" class="btn primary" type="button">Save</button>
+      <button id="receiptCancel" class="btn" type="button">Cancel</button>
+      <button id="receiptDelete" class="btn danger" type="button" hidden>Delete</button>
+    </div>
+  </div>
+
+  <!-- OCR ENGINE (LOAD BEFORE APP JS) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-  <!-- CORE APP -->
+  <!-- APP -->
   <script src="./app_v5_3.js?v=20251230_9" defer></script>
-
 </body>
 </html>
