@@ -236,3 +236,18 @@
     init();
   }
 })();
+
+// Helper: show preview for image/video
+function setPreview(el, file) {
+  if (!el) return;
+  if (!file) { el.textContent = "No file selected."; return; }
+
+  const url = URL.createObjectURL(file);
+  if (file.type.startsWith("image/")) {
+    el.innerHTML = `<img src="${url}" style="max-width:260px;border-radius:12px;" />`;
+  } else if (file.type.startsWith("video/")) {
+    el.innerHTML = `<video src="${url}" controls style="max-width:260px;border-radius:12px;"></video>`;
+  } else {
+    el.textContent = `Selected: ${file.name}`;
+  }
+}
