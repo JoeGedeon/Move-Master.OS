@@ -1440,31 +1440,220 @@
   // ---------------------------
   // Scanner (simple placeholder)
   // ---------------------------
-  function classifyText(text) {
-    const t = (text || "").toLowerCase();
-    const receiptHints = ["total", "subtotal", "tax", "visa", "mastercard", "receipt", "thank you", "balance", "change"];
-    const receiptScore = receiptHints.reduce((acc, k) => acc + (t.includes(k) ? 1 : 0), 0);
-    if (receiptScore >= 2) return "receipt";
-    return "unknown";
-  }
+  
+        function renderScanner() {
+  const host = $("#view-scanner");
+  if (!host) return;
 
-  function renderScanner() {
-    const host = $("#view-scanner");
-    if (!host) return;
+  host.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">AI Scanner</div>
+        <div class="panel-sub">Camera + OCR (client-side). Works best in good lighting.</div>
+      </div>
 
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">AI Scanner</div>
-          <div class="panel-sub">Starter: paste text. Next: OCR.</div>
+      <div class="muted" style="margin-bottom:10px;">
+        If camera doesn’t start on iPad: make sure you’re on <strong>https</strong> (GitHub Pages is), and tap “Start Camera”.
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <button class="btn primary" type="button" id="scanStartCam">Start Camera</button>
+        <button class="btn" type="button" id="scanStopCam" disabled>Stop</button>
+        <button class="btn" type="button" id="scanCapture" disabled>Capture</button>
+        <button class="btn primary" type="button" id="scanOCR" disabled>Run OCR</button>
+        <div class="muted" id="scanStatus"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
+        <div class="panel" style="margin:0;">
+          <div class="panel-header">
+            <div class="panel-title">Camera</div>
+            <div class="panel-sub">Live preview</div>
+          </div>
+          <video id="scanVideo" style="width:100%; border-radius:14px; background:rgba(0,0,0,0.35);" playsinline muted></video>
         </div>
 
-        <div class="muted">
-          Scanner view is a foundation stub in this build. Next step is camera OCR + auto-fill receipt modal.
+        <div class="panel" style="margin:0;">
+          <div class="panel-header">
+            <div class="panel-title">Capture</div>
+            <div class="panel-sub">Used for OCR</div>
+          </div>
+          <canvas id="scanCanvas" style="width:100%; border-radius:14px; background:rgba(0,0,0,0.35);"></canvas>
         </div>
       </div>
-    `;
+
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-header">
+          <div class="panel-title">Extracted Text</div>
+          <div class="panel-sub">You can paste/edit before saving</div>
+        </div>
+
+        <label class="field">
+          <span>OCR Output</span>
+          <textarea id="scanTextOut" rows="6" placeholder="OCR text will appear here..."></textarea>
+        </label>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn primary" type="button" id="scanToReceipt">Send to Receipt Notes</button>
+          <button class="btn" type="button" id="scanSaveLog">Save Scan Log</button>
+          <button class="btn danger" type="button" id="scanClear">Clear</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const video = $("#scanVideo", host);
+  const canvas = $("#scanCanvas", host);
+  const ctx = canvas?.getContext("2d");
+  const statusEl = $("#scanStatus", host);
+  const textOut = $("#scanTextOut", host);
+
+  const btnStart = $("#scanStartCam", host);
+  const btnStop = $("#scanStopCam", host);
+  const btnCap = $("#scanCapture", host);
+  const btnOCR = $("#scanOCR", host);
+
+  let stream = null;
+  let lastImageDataUrl = "";
+
+  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+
+  async function startCamera() {
+    try {
+      setStatus("Requesting camera permission…");
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false
+      });
+
+      video.srcObject = stream;
+      await video.play();
+
+      btnStop.disabled = false;
+      btnCap.disabled = false;
+      setStatus("Camera ready ✅");
+    } catch (e) {
+      console.error(e);
+      setStatus("Camera failed ❌ (check permissions)");
+      alert("Camera failed. On iPad: Settings → Safari → Camera → Allow, then reload.");
+    }
   }
+
+  function stopCamera() {
+    try {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      if (video) video.srcObject = null;
+
+      btnStop.disabled = true;
+      btnCap.disabled = true;
+      btnOCR.disabled = true;
+      setStatus("Camera stopped.");
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function captureFrame() {
+    if (!video || !canvas || !ctx) return;
+    const w = video.videoWidth || 1280;
+    const h = video.videoHeight || 720;
+
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+
+    lastImageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    btnOCR.disabled = false;
+    setStatus("Captured ✅ Ready for OCR.");
+  }
+
+  async function runOCR() {
+    if (!lastImageDataUrl) return alert("Capture an image first.");
+    if (!window.Tesseract) {
+      alert("Tesseract.js not loaded. Add the CDN script tag in index.html.");
+      return;
+    }
+
+    setStatus("OCR running… (this can take a bit on iPad)");
+    btnOCR.disabled = true;
+
+    try {
+      const { data } = await window.Tesseract.recognize(
+        lastImageDataUrl,
+        "eng",
+        {
+          logger: (m) => {
+            if (m.status && typeof m.progress === "number") {
+              setStatus(`${m.status}… ${Math.round(m.progress * 100)}%`);
+            }
+          }
+        }
+      );
+
+      const out = (data?.text || "").trim();
+      textOut.value = out;
+      setStatus(out ? "OCR complete ✅" : "OCR complete (no text found)");
+    } catch (e) {
+      console.error(e);
+      setStatus("OCR failed ❌");
+      alert("OCR failed. Try better lighting or a closer shot.");
+    } finally {
+      btnOCR.disabled = false;
+    }
+  }
+
+  // Actions
+  btnStart?.addEventListener("click", startCamera);
+  btnStop?.addEventListener("click", stopCamera);
+  btnCap?.addEventListener("click", captureFrame);
+  btnOCR?.addEventListener("click", runOCR);
+
+  $("#scanClear", host)?.addEventListener("click", () => {
+    if (textOut) textOut.value = "";
+    lastImageDataUrl = "";
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    btnOCR.disabled = true;
+    setStatus("Cleared.");
+  });
+
+  // Save scan entry into your state.scans (if your JS has that array)
+  $("#scanSaveLog", host)?.addEventListener("click", () => {
+    const txt = (textOut?.value || "").trim();
+    if (!txt) return alert("No OCR text to save.");
+
+    const type = classifyText(txt);
+    state.scans.unshift(normalizeScan({
+      type,
+      source: "camera_ocr",
+      text: txt,
+      result: { image: lastImageDataUrl ? "attached" : "" },
+      createdAt: Date.now(),
+    }));
+    persist();
+    setStatus("Saved to scan log ✅");
+  });
+
+  // Send OCR text into the Receipt modal notes (and optionally open it)
+  $("#scanToReceipt", host)?.addEventListener("click", () => {
+    const txt = (textOut?.value || "").trim();
+    if (!txt) return alert("No OCR text to send.");
+
+    // Open receipt modal and insert text into Notes
+    openReceiptModal(null);
+    const notes = $("#receiptNotes");
+    if (notes) notes.value = txt;
+
+    // Optional: attach photo into the modal hint (we store it when saving)
+    setReceiptPhotoHint(lastImageDataUrl ? "photo" : "");
+    setStatus("Sent to Receipt Notes ✅");
+  });
+
+  // If user leaves the view, camera should stop (prevents iPad safari being a drama queen)
+  // This will get called because renderAll() refreshes views, so also safe:
+  // stopCamera();
+}
+  
 
   // ---------------------------
   // Sheets view (your nav expects this)
