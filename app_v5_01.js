@@ -1226,3 +1226,212 @@
     safe(init);
   }
 })();
+
+// -------------------------
+// DISPATCH (Assignments)
+// -------------------------
+
+const DISPATCH_KEY = "mm_dispatch_v1"; // local persistence
+let dispatchState = loadDispatchState(); // { "YYYY-MM-DD": { [jobId]: {driverId, truckId} } }
+
+// TODO: Replace these with your real data getters
+function getSelectedDateISO() {
+  // You likely already have something like selectedDate
+  // Return YYYY-MM-DD
+  if (window.selectedDateISO) return window.selectedDateISO;
+  // fallback: today
+  return new Date().toISOString().slice(0,10);
+}
+
+function getJobsForDate(dateISO) {
+  // TODO: wire to your actual jobs store
+  // Expected: [{id, customer, pickup, dropoff, amount, status}]
+  return (window.mmJobsByDate && window.mmJobsByDate[dateISO]) ? window.mmJobsByDate[dateISO] : [];
+}
+
+function getDriversList() {
+  // TODO: wire to your drivers store
+  // Expected: [{id, name}]
+  return window.mmDrivers || [];
+}
+
+function getTrucksList() {
+  // TODO: wire to your trucks store
+  // Expected: [{id, name}]
+  return window.mmTrucks || [];
+}
+
+function loadDispatchState() {
+  try {
+    return JSON.parse(localStorage.getItem(DISPATCH_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveDispatchState() {
+  localStorage.setItem(DISPATCH_KEY, JSON.stringify(dispatchState));
+}
+
+function ensureDispatchDateBucket(dateISO) {
+  if (!dispatchState[dateISO]) dispatchState[dateISO] = {};
+  return dispatchState[dateISO];
+}
+
+function renderDispatch() {
+  const dateISO = getSelectedDateISO();
+  const jobs = getJobsForDate(dateISO);
+  const drivers = getDriversList();
+  const trucks = getTrucksList();
+
+  const wrap = document.getElementById("dispatchTableWrap");
+  const empty = document.getElementById("dispatchEmpty");
+  const sub = document.getElementById("dispatchSub");
+
+  if (!wrap || !empty) return;
+
+  sub && (sub.textContent = `Assign drivers & trucks for ${dateISO}`);
+
+  if (!jobs || jobs.length === 0) {
+    wrap.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  const bucket = ensureDispatchDateBucket(dateISO);
+
+  // Build options once
+  const driverOptions = [`<option value="">— Driver —</option>`]
+    .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`))
+    .join("");
+
+  const truckOptions = [`<option value="">— Truck —</option>`]
+    .concat(trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`))
+    .join("");
+
+  const rows = jobs.map(job => {
+    const jobId = String(job.id);
+    const assigned = bucket[jobId] || {};
+    const dVal = assigned.driverId || "";
+    const tVal = assigned.truckId || "";
+
+    return `
+      <tr data-job-id="${escapeHtml(jobId)}">
+        <td style="min-width:170px;">
+          <div style="font-weight:600;">${escapeHtml(job.customer || "Job")}</div>
+          <div class="muted" style="font-size:12px;">${escapeHtml(job.pickup || "")}</div>
+        </td>
+        <td style="min-width:120px;">$${Number(job.amount || 0).toFixed(2)}</td>
+        <td style="min-width:200px;">
+          <select class="dispatchDriver">
+            ${driverOptions}
+          </select>
+        </td>
+        <td style="min-width:200px;">
+          <select class="dispatchTruck">
+            ${truckOptions}
+          </select>
+        </td>
+        <td style="min-width:120px;">
+          <button class="btn dispatchRowSave" type="button">Save</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  wrap.innerHTML = `
+    <table class="table" style="width:100%; border-collapse:separate; border-spacing:0 10px;">
+      <thead>
+        <tr class="muted" style="text-align:left;">
+          <th>Job</th>
+          <th>Amount</th>
+          <th>Driver</th>
+          <th>Truck</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  // Apply selected values after render
+  wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+    const jobId = tr.getAttribute("data-job-id");
+    const assigned = bucket[jobId] || {};
+    const driverSel = tr.querySelector(".dispatchDriver");
+    const truckSel = tr.querySelector(".dispatchTruck");
+    if (driverSel) driverSel.value = assigned.driverId || "";
+    if (truckSel) truckSel.value = assigned.truckId || "";
+  });
+
+  // Row save handler (delegated)
+  wrap.onclick = (e) => {
+    const btn = e.target.closest(".dispatchRowSave");
+    if (!btn) return;
+
+    const tr = e.target.closest("tr[data-job-id]");
+    if (!tr) return;
+
+    const jobId = tr.getAttribute("data-job-id");
+    const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+    const truckId = tr.querySelector(".dispatchTruck")?.value || "";
+
+    bucket[jobId] = { driverId, truckId };
+    saveDispatchState();
+
+    btn.textContent = "Saved ✓";
+    setTimeout(() => (btn.textContent = "Save"), 900);
+  };
+}
+
+// Bulk save button
+function bindDispatchButtons() {
+  const saveAll = document.getElementById("dispatchSaveAll");
+  const clearBtn = document.getElementById("dispatchClear");
+
+  saveAll?.addEventListener("click", () => {
+    const dateISO = getSelectedDateISO();
+    const bucket = ensureDispatchDateBucket(dateISO);
+
+    const wrap = document.getElementById("dispatchTableWrap");
+    if (!wrap) return;
+
+    wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+      const jobId = tr.getAttribute("data-job-id");
+      const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+      const truckId = tr.querySelector(".dispatchTruck")?.value || "";
+      bucket[jobId] = { driverId, truckId };
+    });
+
+    saveDispatchState();
+    saveAll.textContent = "Saved ✓";
+    setTimeout(() => (saveAll.textContent = "Save Assignments"), 900);
+  });
+
+  clearBtn?.addEventListener("click", () => {
+    const dateISO = getSelectedDateISO();
+    dispatchState[dateISO] = {};
+    saveDispatchState();
+    renderDispatch();
+  });
+}
+
+// Simple escaping (prevents HTML injection from stored strings)
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[s]));
+}
+
+// Call these once during app init (after DOM ready)
+document.addEventListener("DOMContentLoaded", () => {
+  bindDispatchButtons();
+
+  // IMPORTANT: whenever your date changes OR jobs change, call renderDispatch()
+  // For now, call once:
+  renderDispatch();
+
+  // If you have a central "setSelectedDate()" function, add renderDispatch() there too.
+});
