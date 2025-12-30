@@ -677,105 +677,185 @@
   // ---------------------------
   // Dispatch
   // ---------------------------
-  function ensureDispatchBucket(dateISO) {
-    if (!state.dispatch[dateISO]) state.dispatch[dateISO] = {};
-    return state.dispatch[dateISO];
+ function renderDispatch() {
+  const host = $("#view-dispatch");
+  if (!host) return;
+
+  const dateISO = ymd(state.currentDate);
+  const jobs = jobsByDate(dateISO).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+  const trucks  = (state.trucks  || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+
+  const bucket = ensureDispatchBucket(dateISO);
+
+  const driverOptions = [`<option value="">— Driver —</option>`]
+    .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`))
+    .join("");
+
+  const truckOptions = [`<option value="">— Truck —</option>`]
+    .concat(trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || "Truck")}</option>`))
+    .join("");
+
+  host.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Dispatch</div>
+        <div class="panel-sub">Assign Driver + Truck per Job for <strong>${escapeHtml(dateISO)}</strong>.</div>
+      </div>
+
+      <div class="muted" style="margin-bottom:10px;">
+        If Jobs are empty, go to <strong>Day Workspace</strong> and add jobs for this date first.
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <button class="btn primary" type="button" id="dispatchSaveAll">Save Assignments</button>
+        <button class="btn danger" type="button" id="dispatchClear">Clear This Day</button>
+        <div class="muted" id="dispatchHint"></div>
+      </div>
+
+      <!-- Split layout: table + reference -->
+      <div class="dispatch-grid">
+        <div>
+          <div id="dispatchTableWrap"></div>
+          <div id="dispatchEmpty" class="muted empty" style="display:none;">No jobs for ${escapeHtml(dateISO)} yet.</div>
+        </div>
+
+        <aside class="dispatch-ref">
+          <div class="dispatch-ref-title">
+            <div>Job Completion Reference</div>
+            <div class="muted" style="font-size:12px;">Back-end semblance</div>
+          </div>
+          <div class="dispatch-ref-sub">
+            This is a visual guide while dispatching. Tap image to open full size.
+          </div>
+
+          <a href="./assets/dispatch_reference.png" target="_blank" rel="noopener">
+            <img src="./assets/dispatch_reference.png" alt="Dispatch reference: Job Completion screen" />
+          </a>
+
+          <div class="dispatch-ref-actions">
+            <a class="btn" href="./assets/dispatch_reference.png" target="_blank" rel="noopener">Open Full</a>
+            <a class="btn" href="./assets/dispatch_reference.png" download>Download</a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+
+  const wrap = $("#dispatchTableWrap", host);
+  const empty = $("#dispatchEmpty", host);
+  const hint = $("#dispatchHint", host);
+
+  if (!jobs.length) {
+    if (wrap) wrap.innerHTML = "";
+    if (empty) empty.style.display = "block";
+    if (hint) hint.textContent = "";
+    return;
   }
 
-  function renderDispatch() {
-    const host = $("#view-dispatch");
-    if (!host) return;
+  if (empty) empty.style.display = "none";
+  if (hint) hint.textContent = `Drivers: ${drivers.length} · Trucks: ${trucks.length}`;
 
-    const dateISO = ymd(state.currentDate);
-    const jobs = jobsByDate(dateISO).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
-    const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
-    const trucks  = (state.trucks  || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+  const rows = jobs.map(job => {
+    const assigned = bucket[job.id] || {};
+    const notes = assigned.notes || "";
 
-    const bucket = ensureDispatchBucket(dateISO);
-
-    const driverOptions = [`<option value="">— Driver —</option>`]
-      .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`))
-      .join("");
-
-    const truckOptions = [`<option value="">— Truck —</option>`]
-      .concat(trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || "Truck")}</option>`))
-      .join("");
-
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Dispatch</div>
-          <div class="panel-sub">Assign Driver + Truck per Job for <strong>${escapeHtml(dateISO)}</strong>.</div>
-        </div>
-
-        <div class="muted" style="margin-bottom:10px;">
-          If Jobs are empty, go to <strong>Day Workspace</strong> and add jobs for this date first.
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-          <button class="btn primary" type="button" id="dispatchSaveAll">Save Assignments</button>
-          <button class="btn danger" type="button" id="dispatchClear">Clear This Day</button>
-          <div class="muted" id="dispatchHint"></div>
-        </div>
-
-        <div id="dispatchTableWrap"></div>
-        <div id="dispatchEmpty" class="muted empty" style="display:none;">No jobs for ${escapeHtml(dateISO)} yet.</div>
-      </div>
+    return `
+      <tr data-job-id="${escapeHtml(job.id)}">
+        <td style="min-width:240px;">
+          <div style="font-weight:600;">${escapeHtml(job.customer || "Customer")}</div>
+          <div class="muted" style="font-size:12px;">${escapeHtml(job.pickup || "")} → ${escapeHtml(job.dropoff || "")}</div>
+        </td>
+        <td style="min-width:110px;">${money(job.amount || 0)}</td>
+        <td style="min-width:180px;">
+          <select class="dispatchDriver">${driverOptions}</select>
+        </td>
+        <td style="min-width:180px;">
+          <select class="dispatchTruck">${truckOptions}</select>
+        </td>
+        <td style="min-width:220px;">
+          <input class="dispatchNotes" type="text" placeholder="Notes (gate code, time, etc.)" value="${escapeHtml(notes)}" />
+        </td>
+        <td style="min-width:120px;">
+          <button class="btn dispatchRowSave" type="button">Save</button>
+        </td>
+      </tr>
     `;
+  }).join("");
 
-    const wrap = $("#dispatchTableWrap", host);
-    const empty = $("#dispatchEmpty", host);
-    const hint = $("#dispatchHint", host);
-
-    if (!jobs.length) {
-      if (wrap) wrap.innerHTML = "";
-      if (empty) empty.style.display = "block";
-      if (hint) hint.textContent = "";
-      return;
-    }
-
-    if (empty) empty.style.display = "none";
-    if (hint) hint.textContent = `Drivers: ${drivers.length} · Trucks: ${trucks.length}`;
-
-    const rows = jobs.map(job => {
-      const assigned = bucket[job.id] || {};
-      const notes = assigned.notes || "";
-
-      return `
-        <tr data-job-id="${escapeHtml(job.id)}" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);">
-          <td style="padding:10px; border-radius:14px 0 0 14px; min-width:240px;">
-            <div style="font-weight:700;">${escapeHtml(job.customer || "Customer")}</div>
-            <div class="muted" style="font-size:12px;">${escapeHtml(job.pickup || "")} → ${escapeHtml(job.dropoff || "")}</div>
-          </td>
-          <td style="padding:10px; min-width:110px;">${money(job.amount || 0)}</td>
-          <td style="padding:10px; min-width:180px;">
-            <select class="dispatchDriver">${driverOptions}</select>
-          </td>
-          <td style="padding:10px; min-width:180px;">
-            <select class="dispatchTruck">${truckOptions}</select>
-          </td>
-          <td style="padding:10px; min-width:220px;">
-            <input class="dispatchNotes" type="text" placeholder="Notes (gate code, time, etc.)" value="${escapeHtml(notes)}" />
-          </td>
-          <td style="padding:10px; min-width:120px; border-radius:0 14px 14px 0;">
-            <button class="btn dispatchRowSave" type="button">Save</button>
-          </td>
+  wrap.innerHTML = `
+    <table class="table" style="width:100%; border-collapse:separate; border-spacing:0 10px;">
+      <thead>
+        <tr class="muted" style="text-align:left;">
+          <th>Job</th>
+          <th>Amount</th>
+          <th>Driver</th>
+          <th>Truck</th>
+          <th>Notes</th>
+          <th>Action</th>
         </tr>
-      `;
-    }).join("");
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 
-    wrap.innerHTML = `
-      <div style="overflow:auto;">
-        <table style="width:100%; border-collapse:separate; border-spacing:0 10px;">
-          <thead>
-            <tr class="muted" style="text-align:left;">
-              <th>Job</th><th>Amount</th><th>Driver</th><th>Truck</th><th>Notes</th><th>Action</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
+  // Set selections
+  wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+    const jobId = tr.getAttribute("data-job-id");
+    const assigned = bucket[jobId] || {};
+    const driverSel = tr.querySelector(".dispatchDriver");
+    const truckSel = tr.querySelector(".dispatchTruck");
+    const notesInp = tr.querySelector(".dispatchNotes");
+    if (driverSel) driverSel.value = assigned.driverId || "";
+    if (truckSel) truckSel.value = assigned.truckId || "";
+    if (notesInp) notesInp.value = assigned.notes || "";
+  });
+
+  // Row save (event delegation)
+  wrap.onclick = (e) => {
+    const btn = e.target.closest(".dispatchRowSave");
+    if (!btn) return;
+
+    const tr = e.target.closest("tr[data-job-id]");
+    if (!tr) return;
+
+    const jobId = tr.getAttribute("data-job-id");
+    const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+    const truckId  = tr.querySelector(".dispatchTruck")?.value || "";
+    const notes    = (tr.querySelector(".dispatchNotes")?.value || "").trim();
+
+    bucket[jobId] = { driverId, truckId, notes, updatedAt: Date.now() };
+    persist();
+
+    btn.textContent = "Saved ✓";
+    setTimeout(() => (btn.textContent = "Save"), 900);
+  };
+
+  // Save all
+  $("#dispatchSaveAll", host)?.addEventListener("click", () => {
+    wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+      const jobId = tr.getAttribute("data-job-id");
+      const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+      const truckId  = tr.querySelector(".dispatchTruck")?.value || "";
+      const notes    = (tr.querySelector(".dispatchNotes")?.value || "").trim();
+      bucket[jobId] = { driverId, truckId, notes, updatedAt: Date.now() };
+    });
+    persist();
+    const b = $("#dispatchSaveAll", host);
+    if (b) {
+      b.textContent = "Saved ✓";
+      setTimeout(() => (b.textContent = "Save Assignments"), 900);
+    }
+  });
+
+  // Clear day
+  $("#dispatchClear", host)?.addEventListener("click", () => {
+    if (!confirm(`Clear all assignments for ${dateISO}?`)) return;
+    state.dispatch[dateISO] = {};
+    persist();
+    renderDispatch();
+  });
+}
 
     // Set selections
     wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
