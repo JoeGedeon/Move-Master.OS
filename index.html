@@ -4,11 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Move-Master.OS</title>
+
+  <!-- Styles -->
   <link rel="stylesheet" href="./styles.css?v=20251225_7">
 </head>
 
 <body>
   <div class="app-shell">
+
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
@@ -17,19 +20,19 @@
       </div>
 
       <nav class="side-nav">
-        <button class="nav-item active" data-view="dashboard">Dashboard</button>
-        <button class="nav-item" data-view="calendar">Calendar</button>
-        <button class="nav-item" data-view="day">Day Workspace</button>
+        <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
+        <button class="nav-item" data-view="calendar" type="button">Calendar</button>
+        <button class="nav-item" data-view="day" type="button">Day Workspace</button>
 
         <div class="nav-sep"></div>
 
-        <!-- remove "(coming soon)" text if these are now real -->
-        <button class="nav-item" data-view="drivers">Drivers</button>
-        <button class="nav-item" data-view="trucks">Trucks (coming soon)</button>
-        <button class="nav-item" data-view="dispatch">Dispatch (coming soon)</button>
-        <button class="nav-item" data-view="finance">Finance (coming soon)</button>
-        <button class="nav-item" data-view="inventory">Inventory</button>
-        <button class="nav-item" data-view="scanner">AI Scanner (coming soon)</button>
+        <!-- These are now "real" pages -->
+        <button class="nav-item" data-view="drivers" type="button">Drivers</button>
+        <button class="nav-item" data-view="trucks" type="button">Trucks (coming soon)</button>
+        <button class="nav-item" data-view="dispatch" type="button">Dispatch</button>
+        <button class="nav-item" data-view="finance" type="button">Finance (coming soon)</button>
+        <button class="nav-item" data-view="inventory" type="button">Inventory</button>
+        <button class="nav-item" data-view="scanner" type="button">AI Scanner (coming soon)</button>
       </nav>
 
       <div class="sidebar-footer">
@@ -39,6 +42,7 @@
 
     <!-- Main -->
     <main class="main">
+
       <!-- Top Toolbar -->
       <header class="topbar">
         <div class="top-left">
@@ -90,6 +94,7 @@
               <div class="panel-title">Quick Calendar</div>
               <div class="panel-sub">Tap a day to open Day Workspace</div>
             </div>
+
             <div id="dashboardCalendar" class="quick-calendar"></div>
           </div>
         </div>
@@ -133,19 +138,21 @@
           </div>
         </div>
 
-        <!-- DRIVERS (now includes camera uploads) -->
+        <!-- DRIVERS -->
         <div id="view-drivers" class="view">
           <div class="panel">
             <div class="panel-header">
               <div class="panel-title">Drivers</div>
-              <div id="driversSub" class="panel-sub">Upload proof, receipts, mileage, damage photos (tied to selected date)</div>
+              <div id="driversSub" class="panel-sub">
+                Upload receipts, mileage, damage photos, PODs (tied to selected date).
+              </div>
             </div>
 
             <div class="cards">
               <div class="card">
                 <div class="card-title">Driver Upload</div>
 
-                <div class="modal-body" style="padding: 0; margin-top: 10px;">
+                <div class="modal-body" style="padding:0;margin-top:10px;">
                   <label class="field">
                     <span>Upload Type</span>
                     <select id="driverUploadKind">
@@ -171,13 +178,11 @@
                     <span class="muted" style="display:block;margin-bottom:8px;">Camera / File Upload</span>
 
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                      <!-- Photo -->
                       <label class="btn">
                         Add Photo
                         <input id="driverPhotoInput" type="file" accept="image/*" capture="environment" hidden />
                       </label>
 
-                      <!-- Video (optional) -->
                       <label class="btn">
                         Add Video
                         <input id="driverVideoInput" type="file" accept="video/*" capture="environment" hidden />
@@ -210,11 +215,43 @@
           </div>
         </div>
 
-        <!-- DISPATCH -->
+        <!-- DISPATCH (DONE: includes table container + controls) -->
         <div id="view-dispatch" class="view">
           <div class="panel">
-            <div class="panel-title">Dispatch</div>
-            <div class="muted">Coming soon</div>
+            <div class="panel-header">
+              <div class="panel-title">Dispatch</div>
+              <div id="dispatchSub" class="panel-sub">
+                Assign drivers & trucks to jobs for the selected date.
+              </div>
+            </div>
+
+            <div class="cards">
+              <div class="card">
+                <div class="card-title">Dispatch Board</div>
+
+                <div class="muted" id="dispatchHint" style="margin-top:6px;">
+                  Select a date, then assign a Driver + Truck to each Job.
+                </div>
+
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                  <button id="dispatchSaveAll" class="btn primary" type="button">Save Assignments</button>
+                  <button id="dispatchClear" class="btn danger" type="button">Clear Date Assignments</button>
+                </div>
+
+                <div id="dispatchTableWrap" style="margin-top:14px; overflow:auto;"></div>
+
+                <div id="dispatchEmpty" class="muted" style="margin-top:12px;">
+                  No jobs found for this date.
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">Notes</div>
+                <div class="card-body muted">
+                  Tip: If Drivers/Trucks lists are empty, add them first. Dispatch can’t assign ghosts.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -226,19 +263,21 @@
           </div>
         </div>
 
-        <!-- INVENTORY (now includes customer camera uploads) -->
+        <!-- INVENTORY -->
         <div id="view-inventory" class="view">
           <div class="panel">
             <div class="panel-header">
               <div class="panel-title">Inventory</div>
-              <div id="inventorySub" class="panel-sub">Customer inventory photos/videos tied to selected date (and job if provided)</div>
+              <div id="inventorySub" class="panel-sub">
+                Customer inventory photos/videos tied to selected date (and job if provided).
+              </div>
             </div>
 
             <div class="cards">
               <div class="card">
                 <div class="card-title">Inventory Upload</div>
 
-                <div class="modal-body" style="padding: 0; margin-top: 10px;">
+                <div class="modal-body" style="padding:0;margin-top:10px;">
                   <label class="field">
                     <span>Linked Job ID (recommended)</span>
                     <input id="inventoryUploadJobId" type="text" placeholder="job id (recommended)" />
@@ -394,7 +433,7 @@
         <input id="receiptLinkedJobId" type="text" placeholder="(optional) job id" />
       </label>
 
-      <!-- OPTIONAL receipt camera upload (v1 stores only reference in JS) -->
+      <!-- Receipt camera upload -->
       <div class="field">
         <span class="muted" style="display:block;margin-bottom:8px;">Receipt Photo (optional)</span>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
