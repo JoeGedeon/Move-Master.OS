@@ -1,17 +1,11 @@
 /* =========================================================
-   Move-Master.OS — app_v5_3.js (FULL SMART + SHEETS VIEW)
-   Compatible with your HTML + styles.css baseline
-
-   Features:
-   - Single file, no half-code, no duplicates
-   - LocalStorage persistence (migrates from v5_1/v5_2)
-   - Calendar + Day Workspace (Jobs + Receipts)
-   - Drivers roster + Driver Ledger (week/month rollups + export)
-   - Trucks roster
-   - Dispatch table: assign driver+truck+notes per job per day (+ export)
-   - Finance snapshot
-   - Sheets view: Export/Import CSV (Jobs/Receipts/Dispatch/Driver Ledger)
-   - Receipt modal supports optional Driver + Photo (your HTML includes these)
+   Move-Master.OS — app_v5_3.js (FULL + DISPATCH INTELLIGENCE)
+   - Single file. No “half code”. No duplicate functions.
+   - LocalStorage persistence
+   - Dispatch assigns Driver + Truck per Job per date
+   - Adds: Dispatch Reference Panel + warnings + Auto-Assign
+   - AI Scanner: camera capture + optional Tesseract OCR
+   - Sheets: store Apps Script endpoint + push JSON
    ========================================================= */
 
 (() => {
@@ -71,64 +65,6 @@
     }
   }
 
-  function downloadTextFile(filename, text, mime = "text/plain") {
-    const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
-  }
-
-  // CSV helpers
-  function toCSV(rows) {
-    const esc = (v) => {
-      const s = String(v ?? "");
-      if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
-      return s;
-    };
-    return rows.map(r => r.map(esc).join(",")).join("\n");
-  }
-
-  function parseCSV(text) {
-    const rows = [];
-    let row = [];
-    let cur = "";
-    let inQ = false;
-
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      const next = text[i + 1];
-
-      if (inQ) {
-        if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
-        if (ch === '"') { inQ = false; continue; }
-        cur += ch;
-      } else {
-        if (ch === '"') { inQ = true; continue; }
-        if (ch === ",") { row.push(cur); cur = ""; continue; }
-        if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
-        if (ch === "\r") continue;
-        cur += ch;
-      }
-    }
-    row.push(cur);
-    rows.push(row);
-    return rows.filter(r => r.some(x => String(x).trim() !== ""));
-  }
-
-  function fileToDataURL(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("File read failed"));
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.readAsDataURL(file);
-    });
-  }
-
   // ---------------------------
   // Storage keys
   // ---------------------------
@@ -141,13 +77,9 @@
     finance: "mm_finance_v5_3",
     inventory: "mm_inventory_v5_3",
     scans: "mm_scans_v5_3",
+    sheets: "mm_sheets_v5_3",
+    dispatchRef: "mm_dispatch_ref_v5_3",
   };
-
-  // Prior versions (for migration)
-  const LS_OLD = [
-    { jobs:"mm_jobs_v5_2", receipts:"mm_receipts_v5_2", drivers:"mm_drivers_v5_2", trucks:"mm_trucks_v5_2", dispatch:"mm_dispatch_v5_2", inventory:"mm_inventory_v5_2", scans:"mm_scans_v5_2" },
-    { jobs:"mm_jobs_v5_1", receipts:"mm_receipts_v5_1", drivers:"mm_drivers_v5_1", trucks:"mm_trucks_v5_1", dispatch:"mm_dispatch_v5_1", inventory:"mm_inventory_v5_1", scans:"mm_scans_v5_1" },
-  ];
 
   function loadArray(key) {
     try {
@@ -160,31 +92,17 @@
     try { localStorage.setItem(key, JSON.stringify(arr)); } catch {}
   }
 
-  function loadObj(key) {
-    try { return JSON.parse(localStorage.getItem(key) || "{}") || {}; }
-    catch { return {}; }
+  function loadObj(key, fallback = {}) {
+    try {
+      const raw = localStorage.getItem(key);
+      const obj = raw ? JSON.parse(raw) : fallback;
+      return obj && typeof obj === "object" ? obj : fallback;
+    } catch {
+      return fallback;
+    }
   }
   function saveObj(key, obj) {
-    try { localStorage.setItem(key, JSON.stringify(obj || {})); } catch {}
-  }
-
-  function migrateIfNeeded() {
-    const hasNew = localStorage.getItem(LS.jobs);
-    if (hasNew) return;
-
-    for (const old of LS_OLD) {
-      const hasOld = localStorage.getItem(old.jobs);
-      if (!hasOld) continue;
-
-      localStorage.setItem(LS.jobs, localStorage.getItem(old.jobs));
-      localStorage.setItem(LS.receipts, localStorage.getItem(old.receipts) || "[]");
-      localStorage.setItem(LS.drivers, localStorage.getItem(old.drivers) || "[]");
-      localStorage.setItem(LS.trucks, localStorage.getItem(old.trucks) || "[]");
-      localStorage.setItem(LS.dispatch, localStorage.getItem(old.dispatch) || "{}");
-      localStorage.setItem(LS.inventory, localStorage.getItem(old.inventory) || "[]");
-      localStorage.setItem(LS.scans, localStorage.getItem(old.scans) || "[]");
-      break;
-    }
+    try { localStorage.setItem(key, JSON.stringify(obj)); } catch {}
   }
 
   // ---------------------------
@@ -214,10 +132,10 @@
     o.vendor = (o.vendor || "").trim();
     o.category = (o.category || "").trim();
     o.amount = clampMoney(o.amount ?? 0);
+    o.driverId = (o.driverId || "").trim();
     o.linkedJobId = (o.linkedJobId || "").trim();
     o.notes = (o.notes || "").trim();
-    o.driverId = (o.driverId || "").trim();
-    o.photoDataUrl = (o.photoDataUrl || "").trim();
+    o.photo = o.photo || ""; // dataURL (optional)
     o.createdAt = o.createdAt || Date.now();
     o.updatedAt = o.updatedAt || o.createdAt;
     return o;
@@ -252,6 +170,7 @@
     o.type = (o.type || "unknown").trim();
     o.source = (o.source || "manual").trim();
     o.text = (o.text || "").trim();
+    o.image = o.image || ""; // dataURL (optional)
     o.result = o.result || {};
     o.createdAt = o.createdAt || Date.now();
     return o;
@@ -263,32 +182,29 @@
     return obj;
   }
 
-  function groupReceiptsByWeek(receipts) {
-    const by = {};
-    for (const r of receipts) {
-      const d = new Date(r.date);
-      if (Number.isNaN(d.getTime())) continue;
+  // Dispatch reference panel state: { collapsed:boolean, url:string, dataUrl:string }
+  function normalizeDispatchRef(x) {
+    const o = (x && typeof x === "object") ? x : {};
+    return {
+      collapsed: !!o.collapsed,
+      url: (o.url || "").trim(),
+      dataUrl: (o.dataUrl || "").trim(),
+    };
+  }
 
-      const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const dayNum = tmp.getUTCDay() || 7;
-      tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
-
-      const key = `${tmp.getUTCFullYear()}-W${pad2(weekNo)}`;
-      by[key] = by[key] || { count: 0, total: 0 };
-      by[key].count += 1;
-      by[key].total += clampMoney(r.amount);
-    }
-    for (const k of Object.keys(by)) by[k].total = clampMoney(by[k].total);
-    return by;
+  // Sheets config: { endpoint:string, token:string }
+  function normalizeSheets(x) {
+    const o = (x && typeof x === "object") ? x : {};
+    return {
+      endpoint: (o.endpoint || "").trim(),
+      token: (o.token || "").trim(),
+      lastPushAt: o.lastPushAt || 0,
+    };
   }
 
   // ---------------------------
   // State
   // ---------------------------
-  migrateIfNeeded();
-
   const state = {
     view: "dashboard",
     currentDate: startOfDay(new Date()),
@@ -300,16 +216,20 @@
     drivers: loadArray(LS.drivers).map((x) => normalizeNamedRow(x, "drv")),
     trucks: loadArray(LS.trucks).map((x) => normalizeNamedRow(x, "trk")),
 
-    dispatch: normalizeDispatchState(loadObj(LS.dispatch)),
-
+    dispatch: normalizeDispatchState(loadObj(LS.dispatch, {})),
     finance: loadArray(LS.finance),
     inventory: loadArray(LS.inventory).map(normalizeInventoryItem),
     scans: loadArray(LS.scans).map(normalizeScan),
 
+    sheets: normalizeSheets(loadObj(LS.sheets, {})),
+    dispatchRef: normalizeDispatchRef(loadObj(LS.dispatchRef, {})),
+
     editingJobId: null,
     editingReceiptId: null,
 
-    selectedDriverId: "",
+    // scanner runtime
+    camStream: null,
+    camLastImage: "",
   };
 
   function persist() {
@@ -321,6 +241,8 @@
     saveArray(LS.finance, state.finance);
     saveArray(LS.inventory, state.inventory);
     saveArray(LS.scans, state.scans);
+    saveObj(LS.sheets, state.sheets);
+    saveObj(LS.dispatchRef, state.dispatchRef);
   }
 
   // ---------------------------
@@ -395,12 +317,15 @@
       const rev = sumRevenue(todayStr);
       const exp = sumExpenses(todayStr);
       const net = clampMoney(rev - exp);
+      const unassigned = countDispatchUnassigned(todayStr);
+
       todayStats.innerHTML = `
         <div>Jobs: <strong>${jobsByDate(todayStr).length}</strong></div>
         <div>Receipts: <strong>${receiptsByDate(todayStr).length}</strong></div>
         <div style="margin-top:6px;">Revenue: <strong>${money(rev)}</strong></div>
         <div>Expenses: <strong>${money(exp)}</strong></div>
         <div>Net: <strong>${money(net)}</strong></div>
+        <div style="margin-top:6px;">Dispatch unassigned: <strong>${unassigned}</strong></div>
       `;
     }
 
@@ -451,7 +376,7 @@
   }
 
   // ---------------------------
-  // Calendar
+  // Full calendar
   // ---------------------------
   function renderCalendar() {
     const grid = $("#calendarGrid");
@@ -553,7 +478,7 @@
   function renderDay() {
     const dateStr = ymd(state.currentDate);
     const title = $("#dayTitle");
-    if (title) title.textContent = `Day Workspace — ${dateStr}`;
+    if (title) title.textContent = `Day Workspace – ${dateStr}`;
     renderDayJobs(dateStr);
     renderDayReceipts(dateStr);
   }
@@ -624,16 +549,11 @@
         const id = btn.getAttribute("data-job-del");
         if (!id) return;
         if (!confirm("Delete this job?")) return;
-
         state.jobs = state.jobs.filter(j => j.id !== id);
-        state.receipts = state.receipts.map(r =>
-          (r.linkedJobId === id ? normalizeReceipt({ ...r, linkedJobId:"", updatedAt:Date.now() }) : r)
-        );
-
+        state.receipts = state.receipts.map(r => (r.linkedJobId === id ? normalizeReceipt({ ...r, linkedJobId:"", updatedAt:Date.now() }) : r));
         for (const dateISO of Object.keys(state.dispatch || {})) {
           if (state.dispatch[dateISO] && state.dispatch[dateISO][id]) delete state.dispatch[dateISO][id];
         }
-
         persist();
         renderAll();
       })
@@ -660,15 +580,13 @@
     }
 
     for (const r of receipts) {
-      const drv = (r.driverId ? (state.drivers.find(d => d.id === r.driverId)?.name || "") : "");
-      const drvTag = drv ? ` · <span class="muted">${escapeHtml(drv)}</span>` : "";
-
+      const driverName = r.driverId ? (state.drivers.find(d => d.id === r.driverId)?.name || "Driver") : "";
       const row = document.createElement("div");
       row.className = "receipt-row";
       row.innerHTML = `
         <div class="receipt-main">
-          <div class="receipt-title">${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Category")}${drvTag}</div>
-          <div class="receipt-sub">${money(r.amount)} · ${escapeHtml(r.notes || "")}</div>
+          <div class="receipt-title">${escapeHtml(r.vendor || "Vendor")} · ${escapeHtml(r.category || "Category")}</div>
+          <div class="receipt-sub">${money(r.amount)}${driverName ? ` · ${escapeHtml(driverName)}` : ""} · ${escapeHtml(r.notes || "")}</div>
         </div>
         <div class="receipt-actions">
           <button class="btn" type="button" data-rcpt-edit="${escapeHtml(r.id)}">Edit</button>
@@ -695,401 +613,59 @@
   }
 
   // ---------------------------
-  // Export/Import (Sheets)
+  // Drivers & Trucks rosters
   // ---------------------------
-  function exportJobsCSV() {
-    const header = ["id","date","customer","pickup","dropoff","amount","status","notes","createdAt","updatedAt"];
-    const rows = [header];
-    for (const j of state.jobs) {
-      rows.push([
-        j.id, j.date, j.customer, j.pickup, j.dropoff,
-        String(clampMoney(j.amount)), j.status, j.notes,
-        String(j.createdAt || ""), String(j.updatedAt || "")
-      ]);
-    }
-    downloadTextFile(`MoveMasters_Jobs_${ymd(new Date())}.csv`, toCSV(rows), "text/csv");
-  }
-
-  function exportReceiptsCSV() {
-    const header = ["id","date","vendor","category","amount","linkedJobId","driverId","notes","photoDataUrl","createdAt","updatedAt"];
-    const rows = [header];
-    for (const r of state.receipts) {
-      rows.push([
-        r.id, r.date, r.vendor, r.category,
-        String(clampMoney(r.amount)),
-        r.linkedJobId || "",
-        r.driverId || "",
-        r.notes || "",
-        r.photoDataUrl || "",
-        String(r.createdAt || ""), String(r.updatedAt || "")
-      ]);
-    }
-    downloadTextFile(`MoveMasters_Receipts_${ymd(new Date())}.csv`, toCSV(rows), "text/csv");
-  }
-
-  function exportDispatchCSV() {
-    const header = ["date","jobId","customer","driverId","driverName","truckId","truckName","notes","updatedAt"];
-    const rows = [header];
-
-    const drvMap = Object.fromEntries((state.drivers || []).map(d => [d.id, d.name || ""]));
-    const trkMap = Object.fromEntries((state.trucks || []).map(t => [t.id, t.name || ""]));
-    const jobMap = Object.fromEntries((state.jobs || []).map(j => [j.id, j]));
-
-    for (const dateISO of Object.keys(state.dispatch || {}).sort()) {
-      const bucket = state.dispatch[dateISO] || {};
-      for (const jobId of Object.keys(bucket)) {
-        const a = bucket[jobId] || {};
-        const job = jobMap[jobId] || {};
-        rows.push([
-          dateISO,
-          jobId,
-          job.customer || "",
-          a.driverId || "",
-          drvMap[a.driverId] || "",
-          a.truckId || "",
-          trkMap[a.truckId] || "",
-          a.notes || "",
-          String(a.updatedAt || "")
-        ]);
-      }
-    }
-
-    downloadTextFile(`MoveMasters_Dispatch_${ymd(new Date())}.csv`, toCSV(rows), "text/csv");
-  }
-
-  function exportDriverLedgerCSV(driverId) {
-    const driver = (state.drivers || []).find(d => d.id === driverId);
-    if (!driver) return alert("Select a driver first.");
-
-    const receipts = state.receipts
-      .filter(r => (r.driverId || "") === driverId)
-      .slice()
-      .sort((a,b) => (a.date || "").localeCompare(b.date || ""));
-
-    const byWeek = groupReceiptsByWeek(receipts);
-
-    const rows = [];
-    rows.push(["Driver", driver.name || "Driver"]);
-    rows.push([]);
-    rows.push(["Weekly Summary"]);
-    rows.push(["weekKey","receiptCount","total"]);
-    for (const wk of Object.keys(byWeek).sort()) {
-      rows.push([wk, String(byWeek[wk].count), String(byWeek[wk].total)]);
-    }
-    rows.push([]);
-    rows.push(["Receipts"]);
-    rows.push(["id","date","vendor","category","amount","notes"]);
-    for (const r of receipts) {
-      rows.push([r.id, r.date, r.vendor, r.category, String(r.amount), r.notes || ""]);
-    }
-
-    downloadTextFile(`MoveMasters_DriverLedger_${(driver.name || driverId).replaceAll(" ", "_")}_${ymd(new Date())}.csv`, toCSV(rows), "text/csv");
-  }
-
-  function importJobsCSVFromFile(file) {
-    return file.text().then((text) => {
-      const parsed = parseCSV(text);
-      if (!parsed.length) return alert("CSV looks empty.");
-
-      const header = parsed[0].map(h => String(h || "").trim());
-      const idx = (name) => header.indexOf(name);
-
-      if (idx("date") === -1 || idx("customer") === -1) {
-        return alert("Jobs CSV needs at least columns: date, customer");
-      }
-
-      const next = [];
-      for (let i = 1; i < parsed.length; i++) {
-        const row = parsed[i];
-        const j = normalizeJob({
-          id: row[idx("id")] || makeId("job"),
-          date: row[idx("date")] || ymd(new Date()),
-          customer: row[idx("customer")] || "",
-          pickup: row[idx("pickup")] || "",
-          dropoff: row[idx("dropoff")] || "",
-          amount: clampMoney(row[idx("amount")] || 0),
-          status: row[idx("status")] || "scheduled",
-          notes: row[idx("notes")] || "",
-          createdAt: Number(row[idx("createdAt")] || Date.now()),
-          updatedAt: Number(row[idx("updatedAt")] || Date.now()),
-        });
-        next.push(j);
-      }
-
-      state.jobs = next;
-      persist();
-      renderAll();
-      alert("Jobs imported.");
-    });
-  }
-
-  function importReceiptsCSVFromFile(file) {
-    return file.text().then((text) => {
-      const parsed = parseCSV(text);
-      if (!parsed.length) return alert("CSV looks empty.");
-
-      const header = parsed[0].map(h => String(h || "").trim());
-      const idx = (name) => header.indexOf(name);
-
-      if (idx("date") === -1 || idx("vendor") === -1 || idx("amount") === -1) {
-        return alert("Receipts CSV needs at least columns: date, vendor, amount");
-      }
-
-      const next = [];
-      for (let i = 1; i < parsed.length; i++) {
-        const row = parsed[i];
-        const r = normalizeReceipt({
-          id: row[idx("id")] || makeId("rcpt"),
-          date: row[idx("date")] || ymd(new Date()),
-          vendor: row[idx("vendor")] || "",
-          category: row[idx("category")] || "",
-          amount: clampMoney(row[idx("amount")] || 0),
-          linkedJobId: row[idx("linkedJobId")] || "",
-          driverId: row[idx("driverId")] || "",
-          notes: row[idx("notes")] || "",
-          photoDataUrl: row[idx("photoDataUrl")] || "",
-          createdAt: Number(row[idx("createdAt")] || Date.now()),
-          updatedAt: Number(row[idx("updatedAt")] || Date.now()),
-        });
-        next.push(r);
-      }
-
-      state.receipts = next;
-      persist();
-      renderAll();
-      alert("Receipts imported.");
-    });
-  }
-
-  // ---------------------------
-  // Drivers
-  // ---------------------------
-  function renderDrivers() {
-    const host = $("#view-drivers");
+  function renderRoster(viewName, arrKey, singularLabel) {
+    const host = $(`#view-${viewName}`);
     if (!host) return;
 
-    const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
-    const driverOptions = [`<option value="">(select driver)</option>`]
-      .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`))
-      .join("");
-
-    const selected = state.selectedDriverId || "";
-    const selectedDriver = drivers.find(d => d.id === selected) || null;
-
-    let ledgerHtml = `<div class="muted">Select a driver to see ledger.</div>`;
-    if (selectedDriver) {
-      const receipts = state.receipts
-        .filter(r => (r.driverId || "") === selectedDriver.id)
-        .slice()
-        .sort((a,b) => (b.date || "").localeCompare(a.date || ""));
-
-      const monthKey = `${state.monthCursor.getFullYear()}-${pad2(state.monthCursor.getMonth()+1)}`;
-      const monthReceipts = receipts.filter(r => String(r.date || "").startsWith(monthKey));
-      const monthTotal = clampMoney(monthReceipts.reduce((acc, r) => acc + clampMoney(r.amount), 0));
-      const weekTotals = groupReceiptsByWeek(receipts);
-
-      ledgerHtml = `
-        <div class="day-totals">
-          <div><strong>Driver Ledger:</strong> ${escapeHtml(selectedDriver.name || "Driver")}</div>
-          <div class="muted" style="margin-top:6px;">
-            This month (${monthKey}): <strong>${money(monthTotal)}</strong> · Receipts: <strong>${monthReceipts.length}</strong>
-          </div>
-          <div class="muted" style="margin-top:6px;">
-            Weekly rollups (latest 6):
-            ${
-              Object.keys(weekTotals).sort().slice(-6).map(k =>
-                `<div>${escapeHtml(k)}: ${money(weekTotals[k].total)} (${weekTotals[k].count})</div>`
-              ).join("") || "<div>(none)</div>"
-            }
-          </div>
-          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn primary" type="button" id="exportDriverLedger">Export Driver Ledger CSV</button>
-          </div>
-        </div>
-
-        <div class="muted" style="font-weight:800; margin:10px 0 6px;">Driver Receipts (latest)</div>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          ${
-            receipts.slice(0, 20).map(r => `
-              <div class="receipt-row">
-                <div class="receipt-main">
-                  <div class="receipt-title">${escapeHtml(r.date)} · ${escapeHtml(r.vendor)} · ${money(r.amount)}</div>
-                  <div class="receipt-sub">${escapeHtml(r.category)} · ${escapeHtml(r.notes || "")}</div>
-                </div>
-                <div class="receipt-actions">
-                  <button class="btn" type="button" data-rcpt-edit="${escapeHtml(r.id)}">Edit</button>
-                </div>
-              </div>
-            `).join("") || `<div class="muted empty">No receipts yet for this driver.</div>`
-          }
-        </div>
-      `;
-    }
+    const rows = state[arrKey] || [];
 
     host.innerHTML = `
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">Drivers</div>
-          <div class="panel-sub">Roster + driver ledger (week/month).</div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:260px;">
-            <span>Driver Name</span>
-            <input id="driversName" type="text" placeholder="Name" />
-          </label>
-          <label class="field" style="min-width:320px;">
-            <span>Notes</span>
-            <input id="driversNotes" type="text" placeholder="Phone, availability, etc." />
-          </label>
-          <button class="btn primary" type="button" id="driversAdd">Add</button>
-        </div>
-
-        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:320px;">
-            <span>Ledger Driver</span>
-            <select id="driverLedgerSelect">${driverOptions}</select>
-          </label>
-        </div>
-
-        <div style="margin-top:12px;">
-          ${ledgerHtml}
-        </div>
-
-        <div class="muted" style="font-weight:800; margin:14px 0 8px;">Driver Roster</div>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          ${
-            drivers.length
-              ? drivers.map(d => `
-                <div class="job-row">
-                  <div class="job-main">
-                    <div class="job-title">${escapeHtml(d.name || "Driver")}</div>
-                    <div class="job-sub">${escapeHtml(d.notes || "")}</div>
-                  </div>
-                  <div class="job-actions">
-                    <button class="btn" type="button" data-edit="${escapeHtml(d.id)}">Edit</button>
-                    <button class="btn danger" type="button" data-del="${escapeHtml(d.id)}">Delete</button>
-                  </div>
-                </div>
-              `).join("")
-              : `<div class="muted empty">No drivers yet.</div>`
-          }
-        </div>
-      </div>
-    `;
-
-    $("#driversAdd")?.addEventListener("click", () => {
-      const name = ($("#driversName")?.value || "").trim();
-      const notes = ($("#driversNotes")?.value || "").trim();
-      if (!name) return alert("Driver name is required.");
-      state.drivers.push(normalizeNamedRow({ name, notes, createdAt:Date.now(), updatedAt:Date.now() }, "drv"));
-      persist();
-      renderAll();
-    });
-
-    $("#driverLedgerSelect")?.addEventListener("change", (e) => {
-      state.selectedDriverId = e.target.value || "";
-      renderAll();
-    });
-    if ($("#driverLedgerSelect")) $("#driverLedgerSelect").value = selected;
-
-    $("#exportDriverLedger")?.addEventListener("click", () => exportDriverLedgerCSV(state.selectedDriverId));
-
-    $$("[data-del]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-del");
-      if (!id) return;
-      if (!confirm("Delete this driver?")) return;
-
-      state.drivers = state.drivers.filter(x => x.id !== id);
-
-      for (const r of state.receipts) if (r.driverId === id) r.driverId = "";
-      for (const dateISO of Object.keys(state.dispatch || {})) {
-        const bucket = state.dispatch[dateISO];
-        if (!bucket) continue;
-        for (const jobId of Object.keys(bucket)) {
-          if (bucket[jobId]?.driverId === id) bucket[jobId].driverId = "";
-        }
-      }
-
-      if (state.selectedDriverId === id) state.selectedDriverId = "";
-      persist();
-      renderAll();
-    }));
-
-    $$("[data-edit]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-edit");
-      const row = state.drivers.find(x => x.id === id);
-      if (!row) return;
-      const name = prompt("Driver name:", row.name || "");
-      if (name === null) return;
-      const notes = prompt("Notes:", row.notes || "");
-      if (notes === null) return;
-      row.name = name.trim();
-      row.notes = notes.trim();
-      row.updatedAt = Date.now();
-      persist();
-      renderAll();
-    }));
-
-    $$("[data-rcpt-edit]", host).forEach(btn =>
-      btn.addEventListener("click", () => openReceiptModal(btn.getAttribute("data-rcpt-edit")))
-    );
-  }
-
-  // ---------------------------
-  // Trucks
-  // ---------------------------
-  function renderTrucks() {
-    const host = $("#view-trucks");
-    if (!host) return;
-
-    const trucks = (state.trucks || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
-
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Trucks</div>
+          <div class="panel-title">${escapeHtml(singularLabel)}s</div>
           <div class="panel-sub">Editable roster (local for now).</div>
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
           <label class="field" style="min-width:260px;">
-            <span>Truck Name</span>
-            <input id="trucksName" type="text" placeholder="Truck 1 / Sprinter / 26ft..." />
+            <span>${escapeHtml(singularLabel)} Name</span>
+            <input id="${viewName}Name" type="text" placeholder="Name" />
           </label>
           <label class="field" style="min-width:320px;">
             <span>Notes</span>
-            <input id="trucksNotes" type="text" placeholder="Plate, capacity, etc." />
+            <input id="${viewName}Notes" type="text" placeholder="Phone, plate, availability, etc." />
           </label>
-          <button class="btn primary" type="button" id="trucksAdd">Add</button>
+          <button class="btn primary" type="button" id="${viewName}Add">Add</button>
         </div>
 
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
           ${
-            trucks.length
-              ? trucks.map(t => `
+            rows.length
+              ? rows.map(r => `
                 <div class="job-row">
                   <div class="job-main">
-                    <div class="job-title">${escapeHtml(t.name || "Truck")}</div>
-                    <div class="job-sub">${escapeHtml(t.notes || "")}</div>
+                    <div class="job-title">${escapeHtml(r.name || singularLabel)}</div>
+                    <div class="job-sub">${escapeHtml(r.notes || "")}</div>
                   </div>
                   <div class="job-actions">
-                    <button class="btn" type="button" data-edit="${escapeHtml(t.id)}">Edit</button>
-                    <button class="btn danger" type="button" data-del="${escapeHtml(t.id)}">Delete</button>
+                    <button class="btn" type="button" data-edit="${escapeHtml(r.id)}">Edit</button>
+                    <button class="btn danger" type="button" data-del="${escapeHtml(r.id)}">Delete</button>
                   </div>
                 </div>
               `).join("")
-              : `<div class="muted empty">No trucks yet.</div>`
+              : `<div class="muted empty">No ${escapeHtml(singularLabel.toLowerCase())}s yet.</div>`
           }
         </div>
       </div>
     `;
 
-    $("#trucksAdd")?.addEventListener("click", () => {
-      const name = ($("#trucksName")?.value || "").trim();
-      const notes = ($("#trucksNotes")?.value || "").trim();
-      if (!name) return alert("Truck name is required.");
-      state.trucks.push(normalizeNamedRow({ name, notes, createdAt:Date.now(), updatedAt:Date.now() }, "trk"));
+    $(`#${viewName}Add`)?.addEventListener("click", () => {
+      const name = ($(`#${viewName}Name`)?.value || "").trim();
+      const notes = ($(`#${viewName}Notes`)?.value || "").trim();
+      if (!name) return alert(`${singularLabel} name is required.`);
+      state[arrKey].push(normalizeNamedRow({ name, notes, createdAt:Date.now(), updatedAt:Date.now() }, arrKey));
       persist();
       renderAll();
     });
@@ -1097,15 +673,21 @@
     $$("[data-del]", host).forEach(btn => btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-del");
       if (!id) return;
-      if (!confirm("Delete this truck?")) return;
+      if (!confirm(`Delete this ${singularLabel.toLowerCase()}?`)) return;
 
-      state.trucks = state.trucks.filter(x => x.id !== id);
+      state[arrKey] = state[arrKey].filter(x => x.id !== id);
 
-      for (const dateISO of Object.keys(state.dispatch || {})) {
-        const bucket = state.dispatch[dateISO];
-        if (!bucket) continue;
-        for (const jobId of Object.keys(bucket)) {
-          if (bucket[jobId]?.truckId === id) bucket[jobId].truckId = "";
+      // remove from dispatch assignments
+      const isDriver = arrKey === "drivers";
+      const isTruck = arrKey === "trucks";
+      if (isDriver || isTruck) {
+        for (const dateISO of Object.keys(state.dispatch || {})) {
+          const bucket = state.dispatch[dateISO];
+          if (!bucket) continue;
+          for (const jobId of Object.keys(bucket)) {
+            if (isDriver && bucket[jobId]?.driverId === id) bucket[jobId].driverId = "";
+            if (isTruck && bucket[jobId]?.truckId === id) bucket[jobId].truckId = "";
+          }
         }
       }
 
@@ -1115,9 +697,9 @@
 
     $$("[data-edit]", host).forEach(btn => btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-edit");
-      const row = state.trucks.find(x => x.id === id);
+      const row = state[arrKey].find(x => x.id === id);
       if (!row) return;
-      const name = prompt("Truck name:", row.name || "");
+      const name = prompt(`${singularLabel} name:`, row.name || "");
       if (name === null) return;
       const notes = prompt("Notes:", row.notes || "");
       if (notes === null) return;
@@ -1130,13 +712,92 @@
   }
 
   // ---------------------------
-  // Dispatch
+  // Dispatch helpers (intelligence)
   // ---------------------------
   function ensureDispatchBucket(dateISO) {
     if (!state.dispatch[dateISO]) state.dispatch[dateISO] = {};
     return state.dispatch[dateISO];
   }
 
+  function countDispatchUnassigned(dateISO) {
+    const bucket = ensureDispatchBucket(dateISO);
+    const jobs = jobsByDate(dateISO).filter(j => j.status !== STATUS.cancelled);
+    let unassigned = 0;
+    for (const j of jobs) {
+      const a = bucket[j.id] || {};
+      if (!a.driverId || !a.truckId) unassigned++;
+    }
+    return unassigned;
+  }
+
+  function computeDispatchWarnings(dateISO) {
+    const bucket = ensureDispatchBucket(dateISO);
+    const jobs = jobsByDate(dateISO);
+    const driverCount = new Map(); // driverId -> count
+    const truckCount = new Map();  // truckId -> count
+
+    for (const j of jobs) {
+      if (j.status === STATUS.cancelled) continue;
+      const a = bucket[j.id] || {};
+      if (a.driverId) driverCount.set(a.driverId, (driverCount.get(a.driverId) || 0) + 1);
+      if (a.truckId)  truckCount.set(a.truckId,  (truckCount.get(a.truckId)  || 0) + 1);
+    }
+
+    const perJob = {}; // jobId -> { missingDriver, missingTruck, dupDriver, dupTruck, cancelled }
+    for (const j of jobs) {
+      const a = bucket[j.id] || {};
+      perJob[j.id] = {
+        cancelled: j.status === STATUS.cancelled,
+        missingDriver: j.status !== STATUS.cancelled && !a.driverId,
+        missingTruck:  j.status !== STATUS.cancelled && !a.truckId,
+        dupDriver: j.status !== STATUS.cancelled && !!a.driverId && (driverCount.get(a.driverId) || 0) > 1,
+        dupTruck:  j.status !== STATUS.cancelled && !!a.truckId  && (truckCount.get(a.truckId)  || 0) > 1,
+      };
+    }
+
+    return { perJob, driverCount, truckCount };
+  }
+
+  function autoAssignDispatch(dateISO) {
+    const bucket = ensureDispatchBucket(dateISO);
+    const jobs = jobsByDate(dateISO)
+      .slice()
+      .sort((a,b) => (a.createdAt||0) - (b.createdAt||0))
+      .filter(j => j.status !== STATUS.cancelled);
+
+    const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+    const trucks  = (state.trucks  || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+
+    if (!jobs.length) return { assigned: 0, reason: "no-jobs" };
+
+    let dIdx = 0;
+    let tIdx = 0;
+    let assigned = 0;
+
+    for (const job of jobs) {
+      const current = bucket[job.id] || {};
+      // Keep notes; only fill/replace driver+truck
+      const nextDriverId = drivers.length ? drivers[dIdx % drivers.length].id : "";
+      const nextTruckId  = trucks.length  ? trucks[tIdx % trucks.length].id  : "";
+
+      bucket[job.id] = {
+        driverId: nextDriverId,
+        truckId: nextTruckId,
+        notes: (current.notes || "").trim(),
+        updatedAt: Date.now(),
+      };
+
+      dIdx++;
+      tIdx++;
+      assigned++;
+    }
+
+    return { assigned, reason: "ok" };
+  }
+
+  // ---------------------------
+  // Dispatch (table + reference panel)
+  // ---------------------------
   function renderDispatch() {
     const host = $("#view-dispatch");
     if (!host) return;
@@ -1147,6 +808,7 @@
     const trucks  = (state.trucks  || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
 
     const bucket = ensureDispatchBucket(dateISO);
+    const warn = computeDispatchWarnings(dateISO);
 
     const driverOptions = [`<option value="">— Driver —</option>`]
       .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`))
@@ -1155,6 +817,8 @@
     const truckOptions = [`<option value="">— Truck —</option>`]
       .concat(trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || "Truck")}</option>`))
       .join("");
+
+    const unassigned = countDispatchUnassigned(dateISO);
 
     host.innerHTML = `
       <div class="panel">
@@ -1167,54 +831,77 @@
           If Jobs are empty, go to <strong>Day Workspace</strong> and add jobs for this date first.
         </div>
 
+        <div class="dispatch-summary" id="dispatchSummary"></div>
+
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
           <button class="btn primary" type="button" id="dispatchSaveAll">Save Assignments</button>
+          <button class="btn" type="button" id="dispatchAutoAssign">Auto-Assign</button>
           <button class="btn danger" type="button" id="dispatchClear">Clear This Day</button>
-          <button class="btn" type="button" id="dispatchExport">Export Dispatch CSV</button>
           <div class="muted" id="dispatchHint"></div>
         </div>
 
-        <div id="dispatchTableWrap"></div>
-        <div id="dispatchEmpty" class="muted empty" style="display:none;">No jobs for ${escapeHtml(dateISO)} yet.</div>
+        <div class="dispatch-layout">
+          <div>
+            <div id="dispatchTableWrap"></div>
+            <div id="dispatchEmpty" class="muted empty" style="display:none;">No jobs for ${escapeHtml(dateISO)} yet.</div>
+          </div>
+
+          <aside class="ref-panel" id="dispatchRefPanel"></aside>
+        </div>
       </div>
     `;
 
     const wrap = $("#dispatchTableWrap", host);
     const empty = $("#dispatchEmpty", host);
     const hint = $("#dispatchHint", host);
+    const summary = $("#dispatchSummary", host);
+
+    if (hint) hint.textContent = `Drivers: ${drivers.length} · Trucks: ${trucks.length} · Unassigned: ${unassigned}`;
+
+    renderDispatchSummary(summary, dateISO, warn);
+    renderDispatchReferencePanel($("#dispatchRefPanel", host));
 
     if (!jobs.length) {
       if (wrap) wrap.innerHTML = "";
       if (empty) empty.style.display = "block";
-      if (hint) hint.textContent = "";
       return;
     }
-
     if (empty) empty.style.display = "none";
-    if (hint) hint.textContent = `Drivers: ${drivers.length} · Trucks: ${trucks.length}`;
 
     const rows = jobs.map(job => {
       const assigned = bucket[job.id] || {};
       const notes = assigned.notes || "";
+      const w = warn.perJob[job.id] || {};
+      const trClass =
+        w.cancelled ? "tr-cancelled" :
+        (w.missingDriver || w.missingTruck) ? "tr-bad" :
+        (w.dupDriver || w.dupTruck) ? "tr-warn" : "";
+
+      const flags = [];
+      if (w.cancelled) flags.push(`<span class="badge badge-warn">Cancelled</span>`);
+      if (w.missingDriver) flags.push(`<span class="badge badge-bad">Driver missing</span>`);
+      if (w.missingTruck)  flags.push(`<span class="badge badge-bad">Truck missing</span>`);
+      if (w.dupDriver) flags.push(`<span class="badge badge-warn">Driver reused</span>`);
+      if (w.dupTruck)  flags.push(`<span class="badge badge-warn">Truck reused</span>`);
 
       return `
-        <tr data-job-id="${escapeHtml(job.id)}">
-          <td style="min-width:240px;">
-            <div style="font-weight:600;">${escapeHtml(job.customer || "Customer")}</div>
+        <tr class="${trClass}" data-job-id="${escapeHtml(job.id)}">
+          <td style="min-width:260px;">
+            <div style="font-weight:600;">${escapeHtml(job.customer || "Customer")} ${flags.join(" ")}</div>
             <div class="muted" style="font-size:12px;">${escapeHtml(job.pickup || "")} → ${escapeHtml(job.dropoff || "")}</div>
           </td>
           <td style="min-width:110px;">${money(job.amount || 0)}</td>
           <td style="min-width:180px;">
-            <select class="dispatchDriver">${driverOptions}</select>
+            <select class="dispatchDriver" ${job.status === STATUS.cancelled ? "disabled" : ""}>${driverOptions}</select>
           </td>
           <td style="min-width:180px;">
-            <select class="dispatchTruck">${truckOptions}</select>
+            <select class="dispatchTruck" ${job.status === STATUS.cancelled ? "disabled" : ""}>${truckOptions}</select>
           </td>
           <td style="min-width:220px;">
-            <input class="dispatchNotes" type="text" placeholder="Notes (gate code, time, etc.)" value="${escapeHtml(notes)}" />
+            <input class="dispatchNotes" type="text" placeholder="Notes (gate code, time, etc.)" value="${escapeHtml(notes)}" ${job.status === STATUS.cancelled ? "disabled" : ""} />
           </td>
           <td style="min-width:120px;">
-            <button class="btn dispatchRowSave" type="button">Save</button>
+            <button class="btn dispatchRowSave" type="button" ${job.status === STATUS.cancelled ? "disabled" : ""}>Save</button>
           </td>
         </tr>
       `;
@@ -1236,14 +923,19 @@
       </table>
     `;
 
+    // Set selections
     wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
       const jobId = tr.getAttribute("data-job-id");
       const assigned = bucket[jobId] || {};
-      tr.querySelector(".dispatchDriver").value = assigned.driverId || "";
-      tr.querySelector(".dispatchTruck").value = assigned.truckId || "";
-      tr.querySelector(".dispatchNotes").value = assigned.notes || "";
+      const driverSel = tr.querySelector(".dispatchDriver");
+      const truckSel = tr.querySelector(".dispatchTruck");
+      const notesInp = tr.querySelector(".dispatchNotes");
+      if (driverSel) driverSel.value = assigned.driverId || "";
+      if (truckSel) truckSel.value = assigned.truckId || "";
+      if (notesInp) notesInp.value = assigned.notes || "";
     });
 
+    // Row save (event delegation)
     wrap.onclick = (e) => {
       const btn = e.target.closest(".dispatchRowSave");
       if (!btn) return;
@@ -1261,8 +953,12 @@
 
       btn.textContent = "Saved ✓";
       setTimeout(() => (btn.textContent = "Save"), 900);
+
+      // re-render to refresh warnings/summary
+      renderDispatch();
     };
 
+    // Save all
     $("#dispatchSaveAll", host)?.addEventListener("click", () => {
       wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
         const jobId = tr.getAttribute("data-job-id");
@@ -1277,16 +973,138 @@
         b.textContent = "Saved ✓";
         setTimeout(() => (b.textContent = "Save Assignments"), 900);
       }
+      renderDispatch();
     });
 
+    // Auto-Assign
+    $("#dispatchAutoAssign", host)?.addEventListener("click", () => {
+      if (!confirm(`Auto-assign Drivers/Trucks for ${dateISO}? (Cancelled jobs ignored)`)) return;
+      const res = autoAssignDispatch(dateISO);
+      persist();
+      alert(`Auto-Assign complete: ${res.assigned} job(s).`);
+      renderDispatch();
+    });
+
+    // Clear day
     $("#dispatchClear", host)?.addEventListener("click", () => {
       if (!confirm(`Clear all assignments for ${dateISO}?`)) return;
       state.dispatch[dateISO] = {};
       persist();
       renderDispatch();
     });
+  }
 
-    $("#dispatchExport", host)?.addEventListener("click", exportDispatchCSV);
+  function renderDispatchSummary(host, dateISO, warn) {
+    if (!host) return;
+
+    const jobs = jobsByDate(dateISO).filter(j => j.status !== STATUS.cancelled);
+    const bucket = ensureDispatchBucket(dateISO);
+
+    let unassigned = 0;
+    for (const j of jobs) {
+      const a = bucket[j.id] || {};
+      if (!a.driverId || !a.truckId) unassigned++;
+    }
+
+    const driverLines = [];
+    for (const [id, count] of warn.driverCount.entries()) {
+      const name = state.drivers.find(d => d.id === id)?.name || "Driver";
+      driverLines.push(`${name}: ${count}`);
+    }
+    const truckLines = [];
+    for (const [id, count] of warn.truckCount.entries()) {
+      const name = state.trucks.find(t => t.id === id)?.name || "Truck";
+      truckLines.push(`${name}: ${count}`);
+    }
+
+    host.innerHTML = `
+      <span class="badge ${unassigned ? "badge-bad" : "badge-ok"}">Unassigned: ${unassigned}</span>
+      <span class="badge badge-warn">Driver utilization: ${escapeHtml(driverLines.length ? driverLines.join(" · ") : "—")}</span>
+      <span class="badge badge-warn">Truck utilization: ${escapeHtml(truckLines.length ? truckLines.join(" · ") : "—")}</span>
+    `;
+  }
+
+  function renderDispatchReferencePanel(host) {
+    if (!host) return;
+
+    const ref = state.dispatchRef;
+
+    const imgSrc = ref.dataUrl || ref.url || "";
+    const hasImg = !!imgSrc;
+
+    host.innerHTML = `
+      <div class="ref-header">
+        <div class="ref-title">Dispatch Reference</div>
+        <button class="btn" type="button" id="refToggle">${ref.collapsed ? "Expand" : "Collapse"}</button>
+      </div>
+
+      <div class="muted" style="margin-bottom:10px;">
+        Optional: pin a “back-end reference” image (like your job completion screen) without touching anything else.
+      </div>
+
+      <div class="ref-body" style="${ref.collapsed ? "display:none;" : ""}">
+        <div class="ref-controls">
+          <label class="field">
+            <span>Image URL (recommended)</span>
+            <input id="refUrl" type="text" placeholder="https://..." value="${escapeHtml(ref.url)}" />
+          </label>
+
+          <label class="field">
+            <span>Or upload an image (stored in LocalStorage)</span>
+            <input id="refFile" type="file" accept="image/*" />
+            <div class="muted" style="font-size:12px;">
+              Note: big images can exceed browser storage limits. URL is safer.
+            </div>
+          </label>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+            <button class="btn" type="button" id="refSave">Save</button>
+            <button class="btn danger" type="button" id="refClear">Clear</button>
+          </div>
+        </div>
+
+        <div class="ref-preview">
+          ${hasImg ? `<img alt="Dispatch reference" src="${escapeHtml(imgSrc)}" />` : `<div class="muted">No reference image set.</div>`}
+        </div>
+      </div>
+    `;
+
+    $("#refToggle", host)?.addEventListener("click", () => {
+      state.dispatchRef.collapsed = !state.dispatchRef.collapsed;
+      persist();
+      renderDispatch(); // simple refresh
+    });
+
+    $("#refSave", host)?.addEventListener("click", async () => {
+      const url = ($("#refUrl", host)?.value || "").trim();
+      state.dispatchRef.url = url;
+
+      // If URL is set, prefer URL (and wipe dataUrl unless you want both)
+      if (url) state.dispatchRef.dataUrl = "";
+
+      persist();
+      renderDispatch();
+    });
+
+    $("#refClear", host)?.addEventListener("click", () => {
+      if (!confirm("Clear dispatch reference image?")) return;
+      state.dispatchRef.url = "";
+      state.dispatchRef.dataUrl = "";
+      persist();
+      renderDispatch();
+    });
+
+    $("#refFile", host)?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const dataUrl = await readFileAsDataURL(file);
+      state.dispatchRef.dataUrl = dataUrl;
+      state.dispatchRef.url = "";
+
+      persist();
+      renderDispatch();
+    });
   }
 
   // ---------------------------
@@ -1313,14 +1131,14 @@
         </div>
 
         <div class="muted" style="margin-top:10px;">
-          Tip: For exports/imports, use the <strong>Sheets</strong> tab.
+          Next: payroll rollups, driver expenses, and payout rules.
         </div>
       </div>
     `;
   }
 
   // ---------------------------
-  // Inventory (minimal; your CSS supports it)
+  // Inventory
   // ---------------------------
   function renderInventory() {
     const host = $("#view-inventory");
@@ -1438,293 +1256,380 @@
   }
 
   // ---------------------------
-  // Scanner (simple placeholder)
+  // Scanner (camera + OCR optional)
   // ---------------------------
-  
-        function renderScanner() {
-  const host = $("#view-scanner");
-  if (!host) return;
+  function classifyText(text) {
+    const t = (text || "").toLowerCase();
+    const receiptHints = ["total", "subtotal", "tax", "visa", "mastercard", "receipt", "thank you", "balance", "change"];
+    const furnitureHints = ["sofa", "couch", "dresser", "table", "bed", "mattress", "chair", "nightstand", "tv", "mirror", "boxes", "box"];
 
-  host.innerHTML = `
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">AI Scanner</div>
-        <div class="panel-sub">Camera + OCR (client-side). Works best in good lighting.</div>
-      </div>
+    const receiptScore = receiptHints.reduce((acc, k) => acc + (t.includes(k) ? 1 : 0), 0);
+    const furnScore = furnitureHints.reduce((acc, k) => acc + (t.includes(k) ? 1 : 0), 0);
 
-      <div class="muted" style="margin-bottom:10px;">
-        If camera doesn’t start on iPad: make sure you’re on <strong>https</strong> (GitHub Pages is), and tap “Start Camera”.
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-        <button class="btn primary" type="button" id="scanStartCam">Start Camera</button>
-        <button class="btn" type="button" id="scanStopCam" disabled>Stop</button>
-        <button class="btn" type="button" id="scanCapture" disabled>Capture</button>
-        <button class="btn primary" type="button" id="scanOCR" disabled>Run OCR</button>
-        <div class="muted" id="scanStatus"></div>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
-        <div class="panel" style="margin:0;">
-          <div class="panel-header">
-            <div class="panel-title">Camera</div>
-            <div class="panel-sub">Live preview</div>
-          </div>
-          <video id="scanVideo" style="width:100%; border-radius:14px; background:rgba(0,0,0,0.35);" playsinline muted></video>
-        </div>
-
-        <div class="panel" style="margin:0;">
-          <div class="panel-header">
-            <div class="panel-title">Capture</div>
-            <div class="panel-sub">Used for OCR</div>
-          </div>
-          <canvas id="scanCanvas" style="width:100%; border-radius:14px; background:rgba(0,0,0,0.35);"></canvas>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:12px;">
-        <div class="panel-header">
-          <div class="panel-title">Extracted Text</div>
-          <div class="panel-sub">You can paste/edit before saving</div>
-        </div>
-
-        <label class="field">
-          <span>OCR Output</span>
-          <textarea id="scanTextOut" rows="6" placeholder="OCR text will appear here..."></textarea>
-        </label>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <button class="btn primary" type="button" id="scanToReceipt">Send to Receipt Notes</button>
-          <button class="btn" type="button" id="scanSaveLog">Save Scan Log</button>
-          <button class="btn danger" type="button" id="scanClear">Clear</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const video = $("#scanVideo", host);
-  const canvas = $("#scanCanvas", host);
-  const ctx = canvas?.getContext("2d");
-  const statusEl = $("#scanStatus", host);
-  const textOut = $("#scanTextOut", host);
-
-  const btnStart = $("#scanStartCam", host);
-  const btnStop = $("#scanStopCam", host);
-  const btnCap = $("#scanCapture", host);
-  const btnOCR = $("#scanOCR", host);
-
-  let stream = null;
-  let lastImageDataUrl = "";
-
-  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
-
-  async function startCamera() {
-    try {
-      setStatus("Requesting camera permission…");
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false
-      });
-
-      video.srcObject = stream;
-      await video.play();
-
-      btnStop.disabled = false;
-      btnCap.disabled = false;
-      setStatus("Camera ready ✅");
-    } catch (e) {
-      console.error(e);
-      setStatus("Camera failed ❌ (check permissions)");
-      alert("Camera failed. On iPad: Settings → Safari → Camera → Allow, then reload.");
-    }
+    if (receiptScore >= 2 && receiptScore >= furnScore) return "receipt";
+    if (furnScore >= 1 && furnScore > receiptScore) return "furniture";
+    return "unknown";
   }
 
   function stopCamera() {
-    try {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      stream = null;
-      if (video) video.srcObject = null;
-
-      btnStop.disabled = true;
-      btnCap.disabled = true;
-      btnOCR.disabled = true;
-      setStatus("Camera stopped.");
-    } catch (e) {
-      console.error(e);
+    if (state.camStream) {
+      for (const track of state.camStream.getTracks()) track.stop();
+      state.camStream = null;
     }
   }
 
-  function captureFrame() {
-    if (!video || !canvas || !ctx) return;
-    const w = video.videoWidth || 1280;
-    const h = video.videoHeight || 720;
-
-    canvas.width = w;
-    canvas.height = h;
-    ctx.drawImage(video, 0, 0, w, h);
-
-    lastImageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    btnOCR.disabled = false;
-    setStatus("Captured ✅ Ready for OCR.");
+  async function startCamera(videoEl) {
+    stopCamera();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+    state.camStream = stream;
+    videoEl.srcObject = stream;
+    await videoEl.play();
   }
 
-  async function runOCR() {
-    if (!lastImageDataUrl) return alert("Capture an image first.");
+  function captureFrame(videoEl, canvasEl) {
+    const w = videoEl.videoWidth || 640;
+    const h = videoEl.videoHeight || 480;
+    canvasEl.width = w;
+    canvasEl.height = h;
+    const ctx = canvasEl.getContext("2d");
+    ctx.drawImage(videoEl, 0, 0, w, h);
+    const dataUrl = canvasEl.toDataURL("image/jpeg", 0.9);
+    return dataUrl;
+  }
+
+  async function runOCR(dataUrl) {
+    // If Tesseract isn't loaded, return a helpful message
     if (!window.Tesseract) {
-      alert("Tesseract.js not loaded. Add the CDN script tag in index.html.");
-      return;
+      throw new Error("Tesseract.js not loaded. (CDN missing or blocked)");
     }
-
-    setStatus("OCR running… (this can take a bit on iPad)");
-    btnOCR.disabled = true;
-
-    try {
-      const { data } = await window.Tesseract.recognize(
-        lastImageDataUrl,
-        "eng",
-        {
-          logger: (m) => {
-            if (m.status && typeof m.progress === "number") {
-              setStatus(`${m.status}… ${Math.round(m.progress * 100)}%`);
-            }
-          }
-        }
-      );
-
-      const out = (data?.text || "").trim();
-      textOut.value = out;
-      setStatus(out ? "OCR complete ✅" : "OCR complete (no text found)");
-    } catch (e) {
-      console.error(e);
-      setStatus("OCR failed ❌");
-      alert("OCR failed. Try better lighting or a closer shot.");
-    } finally {
-      btnOCR.disabled = false;
-    }
+    const { data } = await window.Tesseract.recognize(dataUrl, "eng");
+    return (data && data.text) ? data.text.trim() : "";
   }
 
-  // Actions
-  btnStart?.addEventListener("click", startCamera);
-  btnStop?.addEventListener("click", stopCamera);
-  btnCap?.addEventListener("click", captureFrame);
-  btnOCR?.addEventListener("click", runOCR);
+  function renderScanner() {
+    const host = $("#view-scanner");
+    if (!host) return;
 
-  $("#scanClear", host)?.addEventListener("click", () => {
-    if (textOut) textOut.value = "";
-    lastImageDataUrl = "";
-    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    btnOCR.disabled = true;
-    setStatus("Cleared.");
-  });
+    const rows = state.scans.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    const tLoaded = !!window.Tesseract;
 
-  // Save scan entry into your state.scans (if your JS has that array)
-  $("#scanSaveLog", host)?.addEventListener("click", () => {
-    const txt = (textOut?.value || "").trim();
-    if (!txt) return alert("No OCR text to save.");
+    host.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">AI Scanner</div>
+          <div class="panel-sub">Camera + OCR (client-side). Works best in good lighting.</div>
+        </div>
 
-    const type = classifyText(txt);
-    state.scans.unshift(normalizeScan({
-      type,
-      source: "camera_ocr",
-      text: txt,
-      result: { image: lastImageDataUrl ? "attached" : "" },
-      createdAt: Date.now(),
+        <div class="muted" style="margin-bottom:10px;">
+          Tesseract: <strong>${tLoaded ? "Loaded ✅" : "Not detected (OCR will fail) ⚠️"}</strong>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+          <button class="btn" type="button" id="camStart">Start Camera</button>
+          <button class="btn" type="button" id="camStop">Stop</button>
+          <button class="btn primary" type="button" id="camCapture">Capture</button>
+          <button class="btn" type="button" id="ocrRun">Run OCR</button>
+          <span class="muted" id="scanStatus">—</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="panel" style="margin:0;">
+            <div class="panel-title" style="margin-bottom:10px;">Camera</div>
+            <video id="scanVideo" playsinline muted style="width:100%; border-radius:14px; background:rgba(0,0,0,0.2);"></video>
+          </div>
+
+          <div class="panel" style="margin:0;">
+            <div class="panel-title" style="margin-bottom:10px;">Capture</div>
+            <img id="scanPreview" alt="Capture preview" style="width:100%; border-radius:14px; display:block; background:rgba(0,0,0,0.2);" />
+            <canvas id="scanCanvas" style="display:none;"></canvas>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panel-header">
+            <div class="panel-title">Extracted Text</div>
+            <div class="panel-sub">You can paste/edit before saving</div>
+          </div>
+
+          <label class="field">
+            <span>OCR Output</span>
+            <textarea id="scanText" rows="6" placeholder="OCR text will appear here..."></textarea>
+          </label>
+
+          <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;">
+            <button class="btn" type="button" id="scanToReceiptNotes">Send to Receipt Notes</button>
+            <button class="btn primary" type="button" id="scanSaveLog">Save Scan Log</button>
+            <button class="btn danger" type="button" id="scanClear">Clear</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+          ${
+            rows.length
+              ? rows.map(r => `
+                <div class="receipt-row">
+                  <div class="receipt-main">
+                    <div class="receipt-title">${escapeHtml(new Date(r.createdAt).toLocaleString())} · <strong>${escapeHtml(r.type)}</strong></div>
+                    <div class="receipt-sub">${escapeHtml((r.text || "").slice(0, 160))}${(r.text||"").length > 160 ? "…" : ""}</div>
+                  </div>
+                  <div class="receipt-actions">
+                    <button class="btn" type="button" data-scan-use="${escapeHtml(r.id)}">Open</button>
+                    <button class="btn danger" type="button" data-scan-del="${escapeHtml(r.id)}">Delete</button>
+                  </div>
+                </div>
+              `).join("")
+              : `<div class="muted empty">No scans yet.</div>`
+          }
+        </div>
+      </div>
+    `;
+
+    const videoEl = $("#scanVideo", host);
+    const canvasEl = $("#scanCanvas", host);
+    const previewEl = $("#scanPreview", host);
+    const statusEl = $("#scanStatus", host);
+    const textEl = $("#scanText", host);
+
+    const setStatus = (s) => { if (statusEl) statusEl.textContent = s; };
+
+    $("#camStart", host)?.addEventListener("click", async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          alert("Camera not supported in this browser.");
+          return;
+        }
+        setStatus("Starting camera…");
+        await startCamera(videoEl);
+        setStatus("Camera ✅");
+      } catch (e) {
+        console.error(e);
+        alert("Camera failed to start. Make sure you're on HTTPS (GitHub Pages) and allow permissions.");
+        setStatus("Camera error");
+      }
+    });
+
+    $("#camStop", host)?.addEventListener("click", () => {
+      stopCamera();
+      setStatus("Camera stopped");
+    });
+
+    $("#camCapture", host)?.addEventListener("click", () => {
+      if (!videoEl || !canvasEl) return;
+      if (!state.camStream) return alert("Start camera first.");
+      const dataUrl = captureFrame(videoEl, canvasEl);
+      state.camLastImage = dataUrl;
+      if (previewEl) previewEl.src = dataUrl;
+      setStatus("Captured ✅ Ready for OCR.");
+    });
+
+    $("#ocrRun", host)?.addEventListener("click", async () => {
+      try {
+        if (!state.camLastImage) return alert("Capture an image first.");
+        setStatus("OCR running…");
+        const out = await runOCR(state.camLastImage);
+        if (textEl) textEl.value = out || "";
+        setStatus("OCR complete ✅");
+      } catch (e) {
+        console.error(e);
+        alert(String(e?.message || e));
+        setStatus("OCR failed");
+      }
+    });
+
+    $("#scanToReceiptNotes", host)?.addEventListener("click", () => {
+      const text = (textEl?.value || "").trim();
+      if (!text) return alert("No text to send.");
+      // store temp in localStorage so receipt modal can pull it
+      localStorage.setItem("mm_temp_scan_text", text);
+      alert("Saved to temp. Open Add Receipt and paste from notes if needed.");
+    });
+
+    $("#scanSaveLog", host)?.addEventListener("click", () => {
+      const text = (textEl?.value || "").trim();
+      const type = classifyText(text);
+      if (!text) return alert("Nothing to save.");
+      state.scans.unshift(normalizeScan({
+        type,
+        source: "camera",
+        text,
+        image: state.camLastImage || "",
+        createdAt: Date.now(),
+      }));
+      persist();
+      renderAll();
+    });
+
+    $("#scanClear", host)?.addEventListener("click", () => {
+      if (previewEl) previewEl.src = "";
+      if (textEl) textEl.value = "";
+      state.camLastImage = "";
+      setStatus("Cleared");
+    });
+
+    $$("[data-scan-del]", host).forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-scan-del");
+      if (!id) return;
+      if (!confirm("Delete this scan?")) return;
+      state.scans = state.scans.filter(x => x.id !== id);
+      persist();
+      renderAll();
     }));
-    persist();
-    setStatus("Saved to scan log ✅");
-  });
 
-  // Send OCR text into the Receipt modal notes (and optionally open it)
-  $("#scanToReceipt", host)?.addEventListener("click", () => {
-    const txt = (textOut?.value || "").trim();
-    if (!txt) return alert("No OCR text to send.");
-
-    // Open receipt modal and insert text into Notes
-    openReceiptModal(null);
-    const notes = $("#receiptNotes");
-    if (notes) notes.value = txt;
-
-    // Optional: attach photo into the modal hint (we store it when saving)
-    setReceiptPhotoHint(lastImageDataUrl ? "photo" : "");
-    setStatus("Sent to Receipt Notes ✅");
-  });
-
-  // If user leaves the view, camera should stop (prevents iPad safari being a drama queen)
-  // This will get called because renderAll() refreshes views, so also safe:
-  // stopCamera();
-}
-  
+    $$("[data-scan-use]", host).forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-scan-use");
+      const r = state.scans.find(x => x.id === id);
+      if (!r) return;
+      if (previewEl) previewEl.src = r.image || "";
+      if (textEl) textEl.value = r.text || "";
+      state.camLastImage = r.image || "";
+      setStatus("Loaded scan log");
+    }));
+  }
 
   // ---------------------------
-  // Sheets view (your nav expects this)
+  // Sheets (Apps Script endpoint push)
   // ---------------------------
   function renderSheets() {
     const host = $("#view-sheets");
     if (!host) return;
 
-    const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
-    const driverOptions = [`<option value="">(select driver)</option>`]
-      .concat(drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`))
-      .join("");
+    const cfg = state.sheets;
 
     host.innerHTML = `
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Sheets</div>
-          <div class="panel-sub">CSV export/import for Google Sheets.</div>
+          <div class="panel-sub">Configure your Google Apps Script endpoint and push JSON.</div>
         </div>
 
-        <div class="muted" style="font-weight:800; margin-bottom:8px;">Export</div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn primary" type="button" id="exportJobsCSV">Export Jobs CSV</button>
-          <button class="btn primary" type="button" id="exportReceiptsCSV">Export Receipts CSV</button>
-          <button class="btn" type="button" id="exportDispatchCSV">Export Dispatch CSV</button>
+        <div class="muted" style="margin-bottom:10px;">
+          This is client-side. The endpoint must handle CORS and accept POST JSON.
         </div>
 
-        <div class="muted" style="font-weight:800; margin-top:16px;">Driver Ledger Export</div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-top:8px;">
-          <label class="field" style="min-width:320px;">
-            <span>Pick Driver</span>
-            <select id="sheetsDriver">${driverOptions}</select>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <label class="field" style="min-width:520px; flex:1;">
+            <span>Apps Script Web App URL</span>
+            <input id="sheetsEndpoint" type="text" placeholder="https://script.google.com/macros/s/....../exec" value="${escapeHtml(cfg.endpoint)}" />
           </label>
-          <button class="btn primary" type="button" id="exportDriverLedger">Export Driver Ledger CSV</button>
+
+          <label class="field" style="min-width:260px;">
+            <span>Token (optional)</span>
+            <input id="sheetsToken" type="text" placeholder="Bearer token or shared secret" value="${escapeHtml(cfg.token)}" />
+          </label>
+
+          <button class="btn primary" type="button" id="sheetsSave">Save</button>
         </div>
 
-        <div class="muted" style="font-weight:800; margin-top:16px;">Import</div>
-        <div class="muted">Upload a CSV you previously exported (Jobs or Receipts).</div>
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" type="button" id="pushJobs">Push Jobs</button>
+          <button class="btn" type="button" id="pushReceipts">Push Receipts</button>
+          <button class="btn" type="button" id="pushDispatch">Push Dispatch</button>
+          <button class="btn primary" type="button" id="pushAll">Push All</button>
+          <span class="muted" id="pushStatus">—</span>
+        </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-top:10px;">
-          <label class="field" style="min-width:320px;">
-            <span>Import Jobs CSV</span>
-            <input id="importJobsFile" type="file" accept=".csv,text/csv" />
-          </label>
-          <label class="field" style="min-width:320px;">
-            <span>Import Receipts CSV</span>
-            <input id="importReceiptsFile" type="file" accept=".csv,text/csv" />
-          </label>
+        <div class="panel" style="margin-top:12px;">
+          <div class="panel-title">Payload preview</div>
+          <div class="muted" style="margin-top:6px;">This is what your endpoint receives.</div>
+          <pre id="payloadPreview" style="white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"></pre>
         </div>
       </div>
     `;
 
-    $("#exportJobsCSV", host)?.addEventListener("click", exportJobsCSV);
-    $("#exportReceiptsCSV", host)?.addEventListener("click", exportReceiptsCSV);
-    $("#exportDispatchCSV", host)?.addEventListener("click", exportDispatchCSV);
+    const statusEl = $("#pushStatus", host);
+    const previewEl = $("#payloadPreview", host);
 
-    $("#exportDriverLedger", host)?.addEventListener("click", () => {
-      const id = $("#sheetsDriver", host)?.value || "";
-      exportDriverLedgerCSV(id);
+    const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+
+    $("#sheetsSave", host)?.addEventListener("click", () => {
+      state.sheets.endpoint = ($("#sheetsEndpoint", host)?.value || "").trim();
+      state.sheets.token = ($("#sheetsToken", host)?.value || "").trim();
+      persist();
+      alert("Sheets settings saved.");
+      renderSheets();
     });
 
-    $("#importJobsFile", host)?.addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      importJobsCSVFromFile(file).finally(() => { e.target.value = ""; });
-    });
+    const buildPayload = (type) => {
+      const dateISO = ymd(state.currentDate);
+      const payload = {
+        app: "Move-Master.OS",
+        version: "v5_3",
+        type,
+        dateISO,
+        timestamp: Date.now(),
+      };
 
-    $("#importReceiptsFile", host)?.addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      importReceiptsCSVFromFile(file).finally(() => { e.target.value = ""; });
+      if (type === "jobs") payload.jobs = state.jobs;
+      if (type === "receipts") payload.receipts = state.receipts;
+      if (type === "dispatch") payload.dispatch = state.dispatch;
+      if (type === "all") {
+        payload.jobs = state.jobs;
+        payload.receipts = state.receipts;
+        payload.dispatch = state.dispatch;
+        payload.drivers = state.drivers;
+        payload.trucks = state.trucks;
+        payload.inventory = state.inventory;
+      }
+
+      return payload;
+    };
+
+    async function postToEndpoint(payload) {
+      const endpoint = (state.sheets.endpoint || "").trim();
+      if (!endpoint) throw new Error("No endpoint set.");
+      const headers = { "Content-Type": "application/json" };
+      if (state.sheets.token) headers["Authorization"] = `Bearer ${state.sheets.token}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      return { ok: res.ok, status: res.status, text };
+    }
+
+    async function push(type) {
+      try {
+        setStatus("Building payload…");
+        const payload = buildPayload(type);
+        if (previewEl) previewEl.textContent = JSON.stringify(payload, null, 2);
+
+        setStatus("Pushing…");
+        const out = await postToEndpoint(payload);
+
+        state.sheets.lastPushAt = Date.now();
+        persist();
+
+        setStatus(out.ok ? `Pushed ✅ (HTTP ${out.status})` : `Failed ⚠️ (HTTP ${out.status})`);
+        if (!out.ok) alert(out.text || `Push failed (HTTP ${out.status})`);
+      } catch (e) {
+        console.error(e);
+        setStatus("Push error");
+        alert(String(e?.message || e));
+      }
+    }
+
+    $("#pushJobs", host)?.addEventListener("click", () => push("jobs"));
+    $("#pushReceipts", host)?.addEventListener("click", () => push("receipts"));
+    $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
+    $("#pushAll", host)?.addEventListener("click", () => push("all"));
+
+    // initial preview
+    if (previewEl) previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+  }
+
+  // ---------------------------
+  // File helper
+  // ---------------------------
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("File read failed."));
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
     });
   }
 
@@ -1836,20 +1741,15 @@
     renderAll();
   }
 
-  function hydrateReceiptDriverSelect(selectedId) {
+  function populateReceiptDriverDropdown() {
     const sel = $("#receiptDriverId");
     if (!sel) return;
-
-    const drivers = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
-    sel.innerHTML = `<option value="">(no driver)</option>` +
-      drivers.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`).join("");
-    sel.value = selectedId || "";
-  }
-
-  function setReceiptPhotoHint(dataUrl) {
-    const hint = $("#receiptPhotoHint");
-    if (!hint) return;
-    hint.textContent = dataUrl ? "Photo attached ✅" : "No photo";
+    const rows = (state.drivers || []).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+    const keep = sel.value || "";
+    sel.innerHTML = `<option value="">(no driver)</option>` + rows.map(d =>
+      `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`
+    ).join("");
+    sel.value = keep;
   }
 
   function openReceiptModal(receiptId = null) {
@@ -1865,17 +1765,25 @@
     if (title) title.textContent = r ? "Edit Receipt" : "Add Receipt";
     if (delBtn) delBtn.hidden = !r;
 
+    populateReceiptDriverDropdown();
+
     $("#receiptDate").value = r ? r.date : ymd(state.currentDate);
     $("#receiptVendor").value = r ? r.vendor : "";
     $("#receiptCategory").value = r ? r.category : "";
     $("#receiptAmount").value = String(r ? r.amount : 0);
+    $("#receiptDriverId").value = r ? (r.driverId || "") : "";
     $("#receiptLinkedJobId").value = r ? r.linkedJobId : "";
-    $("#receiptNotes").value = r ? r.notes : "";
 
-    hydrateReceiptDriverSelect(r ? r.driverId : "");
-    setReceiptPhotoHint(r ? r.photoDataUrl : "");
-    const photo = $("#receiptPhoto");
-    if (photo) photo.value = "";
+    // If you have temp scan text, preload it into notes when adding
+    const tempScan = localStorage.getItem("mm_temp_scan_text") || "";
+    $("#receiptNotes").value = r ? r.notes : (tempScan ? tempScan : "");
+
+    const hint = $("#receiptPhotoHint");
+    if (hint) hint.textContent = r?.photo ? "Photo attached ✅" : "No photo";
+
+    // clear file input
+    const fileEl = $("#receiptPhoto");
+    if (fileEl) fileEl.value = "";
 
     openModal("#receiptModal");
   }
@@ -1891,22 +1799,27 @@
     const vendor = ($("#receiptVendor").value || "").trim();
     const category = ($("#receiptCategory").value || "").trim();
     const amount = clampMoney($("#receiptAmount").value ?? 0);
+    const driverId = ($("#receiptDriverId").value || "").trim();
     const linkedJobId = ($("#receiptLinkedJobId").value || "").trim();
     const notes = ($("#receiptNotes").value || "").trim();
-    const driverId = ($("#receiptDriverId")?.value || "").trim();
 
     if (!date) return fail("Date is required.");
     if (!vendor) return fail("Vendor is required.");
     if (amount <= 0) return fail("Amount must be greater than 0.");
 
-    let photoDataUrl = "";
-    const photoInput = $("#receiptPhoto");
-    if (photoInput && photoInput.files && photoInput.files[0]) {
-      try { photoDataUrl = await fileToDataURL(photoInput.files[0]); }
-      catch { /* ignore */ }
-    }
-
     if (err) { err.hidden = true; err.textContent = ""; }
+
+    // optional photo
+    let photo = "";
+    const fileEl = $("#receiptPhoto");
+    const file = fileEl?.files?.[0] || null;
+    if (file) {
+      try {
+        photo = await readFileAsDataURL(file);
+      } catch {
+        // ignore photo failure
+      }
+    }
 
     if (state.editingReceiptId) {
       const r = state.receipts.find(x => x.id === state.editingReceiptId);
@@ -1915,21 +1828,23 @@
       r.vendor = vendor;
       r.category = category;
       r.amount = amount;
+      r.driverId = driverId;
       r.linkedJobId = linkedJobId;
       r.notes = notes;
-      r.driverId = driverId;
-      if (photoDataUrl) r.photoDataUrl = photoDataUrl;
+      if (photo) r.photo = photo;
       r.updatedAt = Date.now();
     } else {
       state.receipts.push(normalizeReceipt({
         id: makeId("rcpt"),
-        date, vendor, category, amount, linkedJobId, notes,
-        driverId,
-        photoDataUrl,
+        date, vendor, category, amount, driverId, linkedJobId, notes,
+        photo,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }));
     }
+
+    // clear temp scan text once used
+    localStorage.removeItem("mm_temp_scan_text");
 
     persist();
     closeModal("#receiptModal");
@@ -1966,14 +1881,14 @@
         state.view === "inventory" ? "Inventory" :
         state.view === "scanner" ? "AI Scanner" :
         state.view === "sheets" ? "Sheets" :
-        "Move-Master.OS";
+        state.view[0].toUpperCase() + state.view.slice(1);
     }
 
     if (state.view === "dashboard") renderDashboard();
     if (state.view === "calendar") renderCalendar();
     if (state.view === "day") renderDay();
-    if (state.view === "drivers") renderDrivers();
-    if (state.view === "trucks") renderTrucks();
+    if (state.view === "drivers") renderRoster("drivers", "drivers", "Driver");
+    if (state.view === "trucks") renderRoster("trucks", "trucks", "Truck");
     if (state.view === "dispatch") renderDispatch();
     if (state.view === "finance") renderFinance();
     if (state.view === "inventory") renderInventory();
@@ -2052,7 +1967,7 @@
 
     $("#receiptModalClose")?.addEventListener("click", () => closeModal("#receiptModal"));
     $("#receiptCancel")?.addEventListener("click", () => closeModal("#receiptModal"));
-    $("#receiptSave")?.addEventListener("click", () => saveReceiptFromModal());
+    $("#receiptSave")?.addEventListener("click", () => safe(() => saveReceiptFromModal()));
     $("#receiptDelete")?.addEventListener("click", () => deleteReceiptFromModal());
   }
 
@@ -2060,6 +1975,7 @@
   // Boot
   // ---------------------------
   function init() {
+    // normalize stored data
     state.jobs = (state.jobs || []).map(normalizeJob);
     state.receipts = (state.receipts || []).map(normalizeReceipt);
     state.drivers = (state.drivers || []).map(x => normalizeNamedRow(x, "drv"));
@@ -2067,11 +1983,17 @@
     state.inventory = (state.inventory || []).map(normalizeInventoryItem);
     state.scans = (state.scans || []).map(normalizeScan);
     state.dispatch = normalizeDispatchState(state.dispatch);
+    state.sheets = normalizeSheets(state.sheets);
+    state.dispatchRef = normalizeDispatchRef(state.dispatchRef);
 
     persist();
     bindNavOnce();
 
-    setView("dashboard");
+    if ($("#view-dashboard")) setView("dashboard");
+    else if ($("#view-day")) setView("day");
+    else if ($("#view-calendar")) setView("calendar");
+    else renderAll();
+
     setPill("JS: ready ✅", true);
   }
 
