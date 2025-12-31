@@ -696,6 +696,39 @@
     .concat(trucks.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || "Truck")}</option>`))
     .join("");
 
+  // Helpers for the right-side panel
+  const nameById = (arr, id) => (arr.find(x => x.id === id)?.name || "");
+  const assignmentLine = (job) => {
+    const a = bucket[job.id] || {};
+    const d = a.driverId ? nameById(drivers, a.driverId) : "";
+    const t = a.truckId ? nameById(trucks, a.truckId) : "";
+    const notes = (a.notes || "").trim();
+    return { d, t, notes };
+  };
+
+  const assignedCount = jobs.reduce((acc, job) => {
+    const a = bucket[job.id] || {};
+    return acc + ((a.driverId || a.truckId) ? 1 : 0);
+  }, 0);
+
+  const unassignedCount = Math.max(0, jobs.length - assignedCount);
+
+  const summaryText = () => {
+    const lines = [];
+    lines.push(`Dispatch Summary — ${dateISO}`);
+    lines.push(`Jobs: ${jobs.length} | Assigned: ${assignedCount} | Unassigned: ${unassignedCount}`);
+    lines.push(`Drivers: ${drivers.length} | Trucks: ${trucks.length}`);
+    lines.push("");
+    for (const job of jobs) {
+      const a = assignmentLine(job);
+      const left = (job.customer || "Customer").trim();
+      const mid = `${a.d || "—"} / ${a.t || "—"}`;
+      const note = a.notes ? ` | ${a.notes}` : "";
+      lines.push(`${left} -> ${mid}${note}`);
+    }
+    return lines.join("\n");
+  };
+
   host.innerHTML = `
     <div class="panel">
       <div class="panel-header">
@@ -707,36 +740,34 @@
         If Jobs are empty, go to <strong>Day Workspace</strong> and add jobs for this date first.
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-        <button class="btn primary" type="button" id="dispatchSaveAll">Save Assignments</button>
-        <button class="btn danger" type="button" id="dispatchClear">Clear This Day</button>
-        <div class="muted" id="dispatchHint"></div>
-      </div>
-
-      <!-- Split layout: table + reference -->
       <div class="dispatch-grid">
+        <!-- LEFT: Existing dispatch table -->
         <div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+            <button class="btn primary" type="button" id="dispatchSaveAll">Save Assignments</button>
+            <button class="btn danger" type="button" id="dispatchClear">Clear This Day</button>
+            <div class="muted" id="dispatchHint"></div>
+          </div>
+
           <div id="dispatchTableWrap"></div>
           <div id="dispatchEmpty" class="muted empty" style="display:none;">No jobs for ${escapeHtml(dateISO)} yet.</div>
         </div>
 
+        <!-- RIGHT: Reference / Backend panel -->
         <aside class="dispatch-ref">
-          <div class="dispatch-ref-title">
-            <div>Job Completion Reference</div>
-            <div class="muted" style="font-size:12px;">Back-end semblance</div>
-          </div>
-          <div class="dispatch-ref-sub">
-            This is a visual guide while dispatching. Tap image to open full size.
+          <h4>Dispatch Reference Panel</h4>
+          <div class="muted">
+            Jobs: <strong>${jobs.length}</strong> · Assigned: <strong>${assignedCount}</strong> · Unassigned: <strong>${unassignedCount}</strong>
           </div>
 
-          <a href="./assets/dispatch_reference.png" target="_blank" rel="noopener">
-            <img src="./assets/dispatch_reference.png" alt="Dispatch reference: Job Completion screen" />
-          </a>
+          <img class="dispatch-ref-img" src="./assets/dispatch_reference.png" alt="Dispatch reference" />
 
           <div class="dispatch-ref-actions">
-            <a class="btn" href="./assets/dispatch_reference.png" target="_blank" rel="noopener">Open Full</a>
-            <a class="btn" href="./assets/dispatch_reference.png" download>Download</a>
+            <button class="btn" type="button" id="dispatchCopySummary">Copy Day Summary</button>
+            <button class="btn" type="button" id="dispatchPrint">Print</button>
           </div>
+
+          <div class="dispatch-ref-list" id="dispatchRefList"></div>
         </aside>
       </div>
     </div>
@@ -745,21 +776,23 @@
   const wrap = $("#dispatchTableWrap", host);
   const empty = $("#dispatchEmpty", host);
   const hint = $("#dispatchHint", host);
+  const refList = $("#dispatchRefList", host);
 
   if (!jobs.length) {
     if (wrap) wrap.innerHTML = "";
     if (empty) empty.style.display = "block";
     if (hint) hint.textContent = "";
+    if (refList) refList.innerHTML = `<div class="muted">No jobs yet for this day.</div>`;
     return;
   }
 
   if (empty) empty.style.display = "none";
   if (hint) hint.textContent = `Drivers: ${drivers.length} · Trucks: ${trucks.length}`;
 
+  // Build table rows
   const rows = jobs.map(job => {
     const assigned = bucket[job.id] || {};
     const notes = assigned.notes || "";
-
     return `
       <tr data-job-id="${escapeHtml(job.id)}">
         <td style="min-width:240px;">
@@ -798,6 +831,102 @@
       <tbody>${rows}</tbody>
     </table>
   `;
+
+  // Set selections + build right panel list
+  const rebuildRefList = () => {
+    if (!refList) return;
+    refList.innerHTML = jobs.map(job => {
+      const a = bucket[job.id] || {};
+      const dName = a.driverId ? escapeHtml(nameById(drivers, a.driverId)) : "—";
+      const tName = a.truckId ? escapeHtml(nameById(trucks, a.truckId)) : "—";
+      const note = escapeHtml((a.notes || "").trim());
+      return `
+        <div class="dispatch-ref-item">
+          <div class="t">${escapeHtml(job.customer || "Customer")}</div>
+          <div class="muted" style="font-size:12px;">Driver: <strong>${dName}</strong> · Truck: <strong>${tName}</strong></div>
+          ${note ? `<div class="muted" style="font-size:12px; margin-top:4px;">Notes: ${note}</div>` : ``}
+        </div>
+      `;
+    }).join("");
+  };
+
+  wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+    const jobId = tr.getAttribute("data-job-id");
+    const assigned = bucket[jobId] || {};
+    const driverSel = tr.querySelector(".dispatchDriver");
+    const truckSel = tr.querySelector(".dispatchTruck");
+    const notesInp = tr.querySelector(".dispatchNotes");
+    if (driverSel) driverSel.value = assigned.driverId || "";
+    if (truckSel) truckSel.value = assigned.truckId || "";
+    if (notesInp) notesInp.value = assigned.notes || "";
+  });
+
+  rebuildRefList();
+
+  // Row save (event delegation)
+  wrap.onclick = (e) => {
+    const btn = e.target.closest(".dispatchRowSave");
+    if (!btn) return;
+
+    const tr = e.target.closest("tr[data-job-id]");
+    if (!tr) return;
+
+    const jobId = tr.getAttribute("data-job-id");
+    const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+    const truckId  = tr.querySelector(".dispatchTruck")?.value || "";
+    const notes    = (tr.querySelector(".dispatchNotes")?.value || "").trim();
+
+    bucket[jobId] = { driverId, truckId, notes, updatedAt: Date.now() };
+    persist();
+    rebuildRefList();
+
+    btn.textContent = "Saved ✓";
+    setTimeout(() => (btn.textContent = "Save"), 900);
+  };
+
+  // Save all
+  $("#dispatchSaveAll", host)?.addEventListener("click", () => {
+    wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
+      const jobId = tr.getAttribute("data-job-id");
+      const driverId = tr.querySelector(".dispatchDriver")?.value || "";
+      const truckId  = tr.querySelector(".dispatchTruck")?.value || "";
+      const notes    = (tr.querySelector(".dispatchNotes")?.value || "").trim();
+      bucket[jobId] = { driverId, truckId, notes, updatedAt: Date.now() };
+    });
+    persist();
+    rebuildRefList();
+
+    const b = $("#dispatchSaveAll", host);
+    if (b) {
+      b.textContent = "Saved ✓";
+      setTimeout(() => (b.textContent = "Save Assignments"), 900);
+    }
+  });
+
+  // Clear day
+  $("#dispatchClear", host)?.addEventListener("click", () => {
+    if (!confirm(`Clear all assignments for ${dateISO}?`)) return;
+    state.dispatch[dateISO] = {};
+    persist();
+    renderDispatch();
+  });
+
+  // Copy summary
+  $("#dispatchCopySummary", host)?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(summaryText());
+      alert("Dispatch summary copied.");
+    } catch {
+      // fallback
+      prompt("Copy this summary:", summaryText());
+    }
+  });
+
+  // Print (simple)
+  $("#dispatchPrint", host)?.addEventListener("click", () => {
+    window.print();
+  });
+}
 
   // Set selections
   wrap.querySelectorAll("tr[data-job-id]").forEach(tr => {
