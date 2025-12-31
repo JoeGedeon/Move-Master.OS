@@ -1492,145 +1492,166 @@
   // ---------------------------
   // Sheets (Apps Script endpoint push)
   // ---------------------------
-  function renderSheets() {
-    const host = $("#view-sheets");
-    if (!host) return;
 
-    const cfg = state.sheets;
+   // ---------------------------
+// Sheets (Apps Script endpoint push)
+// ---------------------------
+function renderSheets() {
+  const host = $("#view-sheets");
+  if (!host) return;
 
-    host.innerHTML = `
-    // Toggle payload preview (hide by default)
-const toggleBtn = document.getElementById("togglePayload");
-const payloadBox = document.getElementById("payloadPreview");
+  const cfg = state.sheets;
 
-if (toggleBtn && payloadBox) {
-  toggleBtn.addEventListener("click", () => {
-    const open = payloadBox.style.display !== "none";
-    payloadBox.style.display = open ? "none" : "block";
-    toggleBtn.textContent = open ? "Show payload preview" : "Hide payload preview";
-  });
-}
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Sheets</div>
-          <div class="panel-sub">Configure your Google Apps Script endpoint and push JSON.</div>
-        </div>
-
-        <div class="muted" style="margin-bottom:10px;">
-          This is client-side. The endpoint must handle CORS and accept POST JSON.
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:520px; flex:1;">
-            <span>Apps Script Web App URL</span>
-            <input id="sheetsEndpoint" type="text" placeholder="https://script.google.com/macros/s/....../exec" value="${escapeHtml(cfg.endpoint)}" />
-          </label>
-
-          <label class="field" style="min-width:260px;">
-            <span>Token (optional)</span>
-            <input id="sheetsToken" type="text" placeholder="Bearer token or shared secret" value="${escapeHtml(cfg.token)}" />
-          </label>
-
-          <button class="btn primary" type="button" id="sheetsSave">Save</button>
-        </div>
-
-        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn" type="button" id="pushJobs">Push Jobs</button>
-          <button class="btn" type="button" id="pushReceipts">Push Receipts</button>
-          <button class="btn" type="button" id="pushDispatch">Push Dispatch</button>
-          <button class="btn primary" type="button" id="pushAll">Push All</button>
-          <span class="muted" id="pushStatus">—</span>
-        </div>
-
-        <div class="panel" style="margin-top:12px;">
-          <div class="panel-title">Payload preview</div>
-          <div class="muted" style="margin-top:6px;">This is what your endpoint receives.</div>
-          <pre id="payloadPreview" style="white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"></pre>
-        </div>
+  host.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Sheets</div>
+        <div class="panel-sub">Configure your Google Apps Script endpoint and push JSON.</div>
       </div>
-    `;
 
-    const statusEl = $("#pushStatus", host);
-    const previewEl = $("#payloadPreview", host);
+      <div class="muted" style="margin-bottom:10px;">
+        This is client-side. The endpoint must handle CORS and accept POST JSON.
+      </div>
 
-    const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+        <label class="field" style="min-width:520px; flex:1;">
+          <span>Apps Script Web App URL</span>
+          <input id="sheetsEndpoint" type="text"
+                 placeholder="https://script.google.com/macros/s/....../exec"
+                 value="${escapeHtml(cfg.endpoint)}" />
+        </label>
 
-    $("#sheetsSave", host)?.addEventListener("click", () => {
-      state.sheets.endpoint = ($("#sheetsEndpoint", host)?.value || "").trim();
-      state.sheets.token = ($("#sheetsToken", host)?.value || "").trim();
-      persist();
-      alert("Sheets settings saved.");
-      renderSheets();
+        <label class="field" style="min-width:260px;">
+          <span>Token (optional)</span>
+          <input id="sheetsToken" type="text"
+                 placeholder="Bearer token or shared secret"
+                 value="${escapeHtml(cfg.token)}" />
+        </label>
+
+        <button class="btn primary" type="button" id="sheetsSave">Save</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" type="button" id="pushJobs">Push Jobs</button>
+        <button class="btn" type="button" id="pushReceipts">Push Receipts</button>
+        <button class="btn" type="button" id="pushDispatch">Push Dispatch</button>
+        <button class="btn primary" type="button" id="pushAll">Push All</button>
+        <span class="muted" id="pushStatus">—</span>
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div class="panel-title">Payload preview</div>
+            <div class="muted" style="margin-top:6px;">This is what your endpoint receives.</div>
+          </div>
+          <button class="btn" id="togglePayload" type="button">Show payload preview</button>
+        </div>
+
+        <pre id="payloadPreview"
+             style="display:none; white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"></pre>
+      </div>
+    </div>
+  `;
+
+  // --- After HTML exists, wire events ---
+  const statusEl = $("#pushStatus", host);
+  const previewEl = $("#payloadPreview", host);
+  const toggleBtn = $("#togglePayload", host);
+
+  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+
+  // Toggle payload preview (hidden by default)
+  if (toggleBtn && previewEl) {
+    toggleBtn.addEventListener("click", () => {
+      const isOpen = previewEl.style.display !== "none";
+      previewEl.style.display = isOpen ? "none" : "block";
+      toggleBtn.textContent = isOpen ? "Show payload preview" : "Hide payload preview";
     });
+  }
 
-    const buildPayload = (type) => {
-      const dateISO = ymd(state.currentDate);
-      const payload = {
-        app: "Move-Master.OS",
-        version: "v5_3",
-        type,
-        dateISO,
-        timestamp: Date.now(),
-      };
+  $("#sheetsSave", host)?.addEventListener("click", () => {
+    state.sheets.endpoint = ($("#sheetsEndpoint", host)?.value || "").trim();
+    state.sheets.token = ($("#sheetsToken", host)?.value || "").trim();
+    persist();
+    alert("Sheets settings saved.");
+    renderSheets();
+  });
 
-      if (type === "jobs") payload.jobs = state.jobs;
-      if (type === "receipts") payload.receipts = state.receipts;
-      if (type === "dispatch") payload.dispatch = state.dispatch;
-      if (type === "all") {
-        payload.jobs = state.jobs;
-        payload.receipts = state.receipts;
-        payload.dispatch = state.dispatch;
-        payload.drivers = state.drivers;
-        payload.trucks = state.trucks;
-        payload.inventory = state.inventory;
-      }
-
-      return payload;
+  const buildPayload = (type) => {
+    const dateISO = ymd(state.currentDate);
+    const payload = {
+      app: "Move-Master.OS",
+      version: "v5_3",
+      type,
+      dateISO,
+      timestamp: Date.now(),
     };
 
-    async function postToEndpoint(payload) {
-      const endpoint = (state.sheets.endpoint || "").trim();
-      if (!endpoint) throw new Error("No endpoint set.");
-      const headers = { "Content-Type": "application/json" };
-      if (state.sheets.token) headers["Authorization"] = `Bearer ${state.sheets.token}`;
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      return { ok: res.ok, status: res.status, text };
+    if (type === "jobs") payload.jobs = state.jobs;
+    if (type === "receipts") payload.receipts = state.receipts;
+    if (type === "dispatch") payload.dispatch = state.dispatch;
+
+    if (type === "all") {
+      payload.jobs = state.jobs;
+      payload.receipts = state.receipts;
+      payload.dispatch = state.dispatch;
+      payload.drivers = state.drivers;
+      payload.trucks = state.trucks;
+      payload.inventory = state.inventory;
     }
 
-    async function push(type) {
-      try {
-        setStatus("Building payload…");
-        const payload = buildPayload(type);
-        if (previewEl) previewEl.textContent = JSON.stringify(payload, null, 2);
+    return payload;
+  };
 
-        setStatus("Pushing…");
-        const out = await postToEndpoint(payload);
+  async function postToEndpoint(payload) {
+    const endpoint = (state.sheets.endpoint || "").trim();
+    if (!endpoint) throw new Error("No endpoint set.");
 
-        state.sheets.lastPushAt = Date.now();
-        persist();
+    const headers = { "Content-Type": "application/json" };
+    if (state.sheets.token) headers["Authorization"] = `Bearer ${state.sheets.token}`;
 
-        setStatus(out.ok ? `Pushed ✅ (HTTP ${out.status})` : `Failed ⚠️ (HTTP ${out.status})`);
-        if (!out.ok) alert(out.text || `Push failed (HTTP ${out.status})`);
-      } catch (e) {
-        console.error(e);
-        setStatus("Push error");
-        alert(String(e?.message || e));
-      }
-    }
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
 
-    $("#pushJobs", host)?.addEventListener("click", () => push("jobs"));
-    $("#pushReceipts", host)?.addEventListener("click", () => push("receipts"));
-    $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
-    $("#pushAll", host)?.addEventListener("click", () => push("all"));
-
-    // initial preview
-    if (previewEl) previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+    const text = await res.text();
+    return { ok: res.ok, status: res.status, text };
   }
+
+  async function push(type) {
+    try {
+      setStatus("Building payload…");
+      const payload = buildPayload(type);
+
+      // Update preview (even if hidden)
+      if (previewEl) previewEl.textContent = JSON.stringify(payload, null, 2);
+
+      setStatus("Pushing…");
+      const out = await postToEndpoint(payload);
+
+      state.sheets.lastPushAt = Date.now();
+      persist();
+
+      setStatus(out.ok ? `Pushed ✅ (HTTP ${out.status})` : `Failed ⚠️ (HTTP ${out.status})`);
+      if (!out.ok) alert(out.text || `Push failed (HTTP ${out.status})`);
+    } catch (e) {
+      console.error(e);
+      setStatus("Push error");
+      alert(String(e?.message || e));
+    }
+  }
+
+  $("#pushJobs", host)?.addEventListener("click", () => push("jobs"));
+  $("#pushReceipts", host)?.addEventListener("click", () => push("receipts"));
+  $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
+  $("#pushAll", host)?.addEventListener("click", () => push("all"));
+
+  // Initial preview content (hidden until user toggles)
+  if (previewEl) previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+}
 
   // ---------------------------
   // File helper
