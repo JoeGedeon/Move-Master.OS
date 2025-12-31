@@ -1499,6 +1499,17 @@
     const cfg = state.sheets;
 
     host.innerHTML = `
+    // Toggle payload preview (hide by default)
+const toggleBtn = document.getElementById("togglePayload");
+const payloadBox = document.getElementById("payloadPreview");
+
+if (toggleBtn && payloadBox) {
+  toggleBtn.addEventListener("click", () => {
+    const open = payloadBox.style.display !== "none";
+    payloadBox.style.display = open ? "none" : "block";
+    toggleBtn.textContent = open ? "Show payload preview" : "Hide payload preview";
+  });
+}
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Sheets</div>
