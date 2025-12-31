@@ -1493,7 +1493,8 @@
   // Sheets (Apps Script endpoint push)
    //--------------–-----------------
 // ---------------------------
-function renderSheets() {
+
+   function renderSheets() {
   const host = $("#view-sheets");
   if (!host) return;
 
@@ -1503,7 +1504,9 @@ function renderSheets() {
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">Sheets</div>
-        <div class="panel-sub">Configure your Google Apps Script endpoint and push JSON.</div>
+        <div class="panel-sub">
+          Configure your Google Apps Script endpoint and push JSON.
+        </div>
       </div>
 
       <div class="muted" style="margin-bottom:10px;">
@@ -1513,19 +1516,27 @@ function renderSheets() {
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
         <label class="field" style="min-width:520px; flex:1;">
           <span>Apps Script Web App URL</span>
-          <input id="sheetsEndpoint" type="text"
-                 placeholder="https://script.google.com/macros/s/....../exec"
-                 value="${escapeHtml(cfg.endpoint)}" />
+          <input
+            id="sheetsEndpoint"
+            type="text"
+            placeholder="https://script.google.com/macros/s/....../exec"
+            value="${escapeHtml(cfg.endpoint)}"
+          />
         </label>
 
         <label class="field" style="min-width:260px;">
           <span>Token (optional)</span>
-          <input id="sheetsToken" type="text"
-                 placeholder="Bearer token or shared secret"
-                 value="${escapeHtml(cfg.token)}" />
+          <input
+            id="sheetsToken"
+            type="text"
+            placeholder="Bearer token or shared secret"
+            value="${escapeHtml(cfg.token)}"
+          />
         </label>
 
-        <button class="btn primary" type="button" id="sheetsSave">Save</button>
+        <button class="btn primary" type="button" id="sheetsSave">
+          Save
+        </button>
       </div>
 
       <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1537,33 +1548,41 @@ function renderSheets() {
       </div>
 
       <div class="panel" style="margin-top:12px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div>
-            <div class="panel-title">Payload preview</div>
-            <div class="muted" style="margin-top:6px;">This is what your endpoint receives.</div>
-          </div>
-          <button class="btn" id="togglePayload" type="button">Show payload preview</button>
+        <div class="panel-header">
+          <div class="panel-title">Payload preview</div>
+          <button class="btn" type="button" id="togglePayload">
+            Show payload preview
+          </button>
         </div>
 
-        <pre id="payloadPreview"
-             style="display:none; white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"></pre>
+        <div class="muted" style="margin-top:6px;">
+          This is what your endpoint receives.
+        </div>
+
+        <pre
+          id="payloadPreview"
+          style="display:none; white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"
+        ></pre>
       </div>
     </div>
   `;
 
-  // --- After HTML exists, wire events ---
   const statusEl = $("#pushStatus", host);
   const previewEl = $("#payloadPreview", host);
   const toggleBtn = $("#togglePayload", host);
 
-  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+  const setStatus = (t) => {
+    if (statusEl) statusEl.textContent = t;
+  };
 
-  // Toggle payload preview (hidden by default)
+  // --- payload preview toggle (THIS IS THE FIX) ---
   if (toggleBtn && previewEl) {
     toggleBtn.addEventListener("click", () => {
-      const isOpen = previewEl.style.display !== "none";
-      previewEl.style.display = isOpen ? "none" : "block";
-      toggleBtn.textContent = isOpen ? "Show payload preview" : "Hide payload preview";
+      const open = previewEl.style.display !== "none";
+      previewEl.style.display = open ? "none" : "block";
+      toggleBtn.textContent = open
+        ? "Show payload preview"
+        : "Hide payload preview";
     });
   }
 
@@ -1588,7 +1607,6 @@ function renderSheets() {
     if (type === "jobs") payload.jobs = state.jobs;
     if (type === "receipts") payload.receipts = state.receipts;
     if (type === "dispatch") payload.dispatch = state.dispatch;
-
     if (type === "all") {
       payload.jobs = state.jobs;
       payload.receipts = state.receipts;
@@ -1606,7 +1624,9 @@ function renderSheets() {
     if (!endpoint) throw new Error("No endpoint set.");
 
     const headers = { "Content-Type": "application/json" };
-    if (state.sheets.token) headers["Authorization"] = `Bearer ${state.sheets.token}`;
+    if (state.sheets.token) {
+      headers["Authorization"] = `Bearer ${state.sheets.token}`;
+    }
 
     const res = await fetch(endpoint, {
       method: "POST",
@@ -1622,8 +1642,6 @@ function renderSheets() {
     try {
       setStatus("Building payload…");
       const payload = buildPayload(type);
-
-      // Update preview (even if hidden)
       if (previewEl) previewEl.textContent = JSON.stringify(payload, null, 2);
 
       setStatus("Pushing…");
@@ -1646,10 +1664,10 @@ function renderSheets() {
   $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
   $("#pushAll", host)?.addEventListener("click", () => push("all"));
 
-  // Initial preview content (hidden until user toggles)
-  if (previewEl) previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+  if (previewEl) {
+    previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+  }
 }
-
   // ---------------------------
   // File helper
   // ---------------------------
