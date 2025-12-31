@@ -483,3 +483,63 @@ body {
   margin-top: 10px;
   flex-wrap: wrap;
 }
+
+/* ---------- Dispatch: Reference Panel (non-destructive addon) ---------- */
+.dispatch-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .dispatch-grid { grid-template-columns: 1fr; }
+}
+
+.dispatch-ref {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.dispatch-ref h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+}
+
+.dispatch-ref-img {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  display: block;
+  margin: 10px 0;
+}
+
+.dispatch-ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dispatch-ref-item {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.20);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.dispatch-ref-item .t {
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.dispatch-ref-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
