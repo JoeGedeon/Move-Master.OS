@@ -1619,7 +1619,7 @@
     return payload;
   };
 
-  async function postToEndpoint(payload) {
+async function postToEndpoint(payload) {
   const endpoint = (state.sheets.endpoint || "").trim();
   if (!endpoint) throw new Error("No endpoint set.");
 
