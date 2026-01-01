@@ -1,18 +1,24 @@
 /*******************************************************
  * Move-Master Sheets Endpoint (Web App)
  *
- * IMPORTANT:
- * 1) Set SPREADSHEET_ID to the *correct* "Move-Master.OS Data" file
- *    (the one with Jobs/Drivers/Trucks/Dispatch/Receipts/Assignments/Logs).
- * 2) Deploy as Web App:
- *    - Execute as: Me
- *    - Who has access: Anyone
- * 3) Paste the /exec URL into your Move-Master.OS "Sheets" tab.
+ * What this does:
+ * - Accepts POST JSON from your web app
+ * - Routes to the correct tab (Jobs/Drivers/Trucks/Dispatch/Receipts/Assignments/Logs)
+ * - Auto-creates missing tabs + headers when you run setup()
+ * - Logs every request into Logs
+ *
+ * Deploy as Web App:
+ * - Execute as: Me
+ * - Who has access: Anyone (or Anyone with Google account)
  *******************************************************/
 
-const SPREADSHEET_ID = "PASTE_YOUR_MOVE_MASTER_OS_DATA_SHEET_ID_HERE"; // <-- REQUIRED
-const TOKEN = ""; // optional shared secret. Leave "" to disable.
+// IMPORTANT: Put ONLY the spreadsheet ID (between /d/ and /edit)
+const SPREADSHEET_ID = "1o4X_iyORtog0FtiDZZbjx82T4blvB7ySoDmTlwJrgfs"; // <-- REQUIRED
 
+// Optional shared secret. Leave "" to disable.
+const TOKEN = "";
+
+// Table name routing (keys your app can send)
 const SHEET_MAP = {
   jobs: "Jobs",
   drivers: "Drivers",
@@ -23,216 +29,222 @@ const SHEET_MAP = {
   logs: "Logs",
 };
 
-// Define headers for each tab (Row 1)
+// Headers by sheet (Row 1)
 const HEADERS = {
-  Jobs: ["timestamp", "job_id", "customer", "phone", "email", "date", "start_time", "end_time", "origin", "destination", "notes", "payload_json"],
-  Drivers: ["timestamp", "driver_id", "name", "phone", "email", "status", "notes", "payload_json"],
-  Trucks: ["timestamp", "truck_id", "label", "plate", "status", "notes", "payload_json"],
-  Dispatch: ["timestamp", "dispatch_id", "job_id", "truck_id", "lead_driver_id", "status", "notes", "payload_json"],
-  Receipts: ["timestamp", "receipt_id", "job_id", "vendor", "amount", "date", "category", "notes", "payload_json"],
-  Assignments: ["timestamp", "job_id", "truck_id", "driver_id", "role", "start_time", "end_time", "hours", "pay_rate", "pay_type", "notes", "payload_json"],
-  Logs: ["timestamp", "event", "table", "rows", "status", "message", "payload_json"],
+  Jobs: ["timestamp", "job_id", "date", "customer", "phone", "email", "pickup", "dropoff", "status", "notes"],
+  Drivers: ["timestamp", "driver_id", "name", "phone", "email", "role", "active", "notes"],
+  Trucks: ["timestamp", "truck_id", "name", "plate", "capacity", "active", "notes"],
+  Dispatch: ["timestamp", "dispatch_id", "job_id", "truck_id", "driver_id", "start_time", "end_time", "status", "notes"],
+  Receipts: ["timestamp", "receipt_id", "job_id", "vendor", "amount", "category", "date", "notes"],
+  Assignments: ["timestamp", "job_id", "truck_id", "driver_id", "role", "start_time", "end_time", "hours", "pay_rate", "pay_type", "notes"],
+  Logs: ["timestamp", "source", "table", "ok", "message", "payload_preview"],
 };
 
-/**
- * Run ONCE manually to create sheets + headers.
- * Apps Script -> select "setup" in dropdown -> Run -> authorize.
- */
+// =============== PUBLIC FUNCTIONS ===============
+
 function setup() {
   const ss = getSs_();
-  Object.values(SHEET_MAP).forEach((name) => ensureSheetWithHeaders_(ss, name));
-  logEvent_("setup", "system", 0, "ok", "Sheets + headers ensured.");
+  Object.values(SHEET_MAP).forEach((sheetName) => {
+    ensureSheetWithHeaders_(ss, sheetName);
+  });
+  logEvent_("setup", "system", "setup", true, "Sheets + headers ensured.", "");
+  return jsonResponse_({ ok: true, message: "Setup complete. Tabs + headers ensured." }, 200);
 }
 
-/**
- * Health check in browser:
- * Open your /exec URL in Safari and you should see JSON.
- */
 function doGet(e) {
+  // Health check
   return jsonResponse_({
     ok: true,
     service: "Move-Master Sheets Endpoint",
     time: new Date().toISOString(),
-    hint: "Send POST JSON to write rows",
+    spreadsheetId: SPREADSHEET_ID ? "(set)" : "(missing)",
+    hint: "POST JSON to this URL. Run setup() once to create tabs/headers.",
   }, 200);
 }
 
-/**
- * Main endpoint: accepts POST JSON from your app.
- * Supports:
- * - { table: "jobs", rows: [ {...}, {...} ] }
- * - { table: "assignments", rows: [ {...} ] }
- * - { jobs:[...], drivers:[...], ... }  (bulk push)
- */
 function doPost(e) {
   try {
-    // --- Auth (optional) ---
+    // ---- Auth (optional) ----
     if (TOKEN) {
-      const auth = getHeader_(e, "authorization") || (e && e.parameter && e.parameter.token) || "";
-      const token = auth.replace(/^Bearer\s+/i, "").trim();
+      const token = getToken_(e);
       if (token !== TOKEN) {
-        logEvent_("auth_fail", "system", 0, "fail", "Invalid token");
+        logEvent_("doPost", "client", "unknown", false, "Unauthorized (bad token)", "");
         return jsonResponse_({ ok: false, error: "Unauthorized" }, 401);
       }
     }
 
-    // --- Parse body ---
-    const bodyText = (e && e.postData && e.postData.contents) ? e.postData.contents : "";
-    if (!bodyText) {
-      logEvent_("bad_request", "system", 0, "fail", "Empty body");
-      return jsonResponse_({ ok: false, error: "Empty body" }, 400);
+    // ---- Parse payload ----
+    const payload = parseJsonBody_(e);
+    if (!payload) {
+      logEvent_("doPost", "client", "unknown", false, "No JSON body", "");
+      return jsonResponse_({ ok: false, error: "Missing JSON body" }, 400);
     }
 
-    let payload;
-    try {
-      payload = JSON.parse(bodyText);
-    } catch (err) {
-      logEvent_("bad_json", "system", 0, "fail", String(err));
-      return jsonResponse_({ ok: false, error: "Invalid JSON", detail: String(err) }, 400);
-    }
+    // Expected formats supported:
+    // A) { table: "jobs", rows: [ {...}, {...} ] }
+    // B) { table: "jobs", ...fields }
+    // C) { jobs: [ {...}, {...} ] }  (push-all style)
+    // D) { tables: { jobs: [...], drivers: [...] } }
 
     const ss = getSs_();
-    // Ensure all known sheets exist
-    Object.values(SHEET_MAP).forEach((name) => ensureSheetWithHeaders_(ss, name));
 
-    // Normalize incoming data into a list of write ops: [{tableKey, rows}]
-    const ops = normalizePayload_(payload);
+    // Push-all style
+    if (payload.tables && typeof payload.tables === "object") {
+      const results = {};
+      Object.keys(payload.tables).forEach((k) => {
+        results[k] = writeToTable_(ss, k, payload.tables[k]);
+      });
+      logEvent_("doPost", "client", "tables", true, "Wrote multiple tables.", preview_(payload));
+      return jsonResponse_({ ok: true, results }, 200);
+    }
 
-    let totalRows = 0;
-    const results = [];
+    // Another push-all style
+    const knownKeys = Object.keys(SHEET_MAP).filter(k => k !== "logs");
+    const foundKeys = knownKeys.filter(k => payload[k] !== undefined);
+    if (foundKeys.length) {
+      const results = {};
+      foundKeys.forEach((k) => {
+        results[k] = writeToTable_(ss, k, payload[k]);
+      });
+      logEvent_("doPost", "client", "multi", true, "Wrote tables by key.", preview_(payload));
+      return jsonResponse_({ ok: true, results }, 200);
+    }
 
-    ops.forEach(op => {
-      const sheetName = SHEET_MAP[op.tableKey];
-      if (!sheetName) return;
+    // Single table style
+    const tableKey = String(payload.table || payload.type || payload.target || "").toLowerCase().trim();
+    if (!tableKey) {
+      logEvent_("doPost", "client", "unknown", false, "No table specified", preview_(payload));
+      return jsonResponse_({ ok: false, error: "No table specified (use table/type/target)" }, 400);
+    }
 
-      const sheet = ss.getSheetByName(sheetName);
-      const header = HEADERS[sheetName] || [];
-      const written = appendRows_(sheet, header, op.rows);
+    const rows = payload.rows !== undefined ? payload.rows : payload;
+    const result = writeToTable_(ss, tableKey, rows);
 
-      totalRows += written;
-      results.push({ table: op.tableKey, sheet: sheetName, rows: written });
-    });
-
-    logEvent_("write_ok", "system", totalRows, "ok", JSON.stringify(results), payload);
-
-    return jsonResponse_({
-      ok: true,
-      wrote: totalRows,
-      results,
-    }, 200);
+    logEvent_("doPost", "client", tableKey, true, `Wrote ${result.written} row(s) to ${result.sheet}.`, preview_(payload));
+    return jsonResponse_({ ok: true, ...result }, 200);
 
   } catch (err) {
-    logEvent_("server_error", "system", 0, "fail", String(err));
-    return jsonResponse_({ ok: false, error: "Server error", detail: String(err) }, 500);
+    logEvent_("doPost", "client", "unknown", false, String(err && err.message ? err.message : err), "");
+    return jsonResponse_({ ok: false, error: String(err) }, 500);
   }
 }
 
-/* ------------------------ Helpers ------------------------ */
+// =============== INTERNAL HELPERS ===============
 
 function getSs_() {
-  if (!SPREADSHEET_ID || SPREADSHEET_ID.includes("PASTE_")) {
+  if (!SPREADSHEET_ID || !String(SPREADSHEET_ID).trim()) {
     throw new Error("SPREADSHEET_ID is not set. Paste the correct Move-Master.OS Data spreadsheet ID.");
   }
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  try {
+    return SpreadsheetApp.openById(String(SPREADSHEET_ID).trim());
+  } catch (e) {
+    // This is the exact pain you were seeing.
+    // Usually permissions/account/deployment mismatch.
+    throw new Error(
+      "Cannot open spreadsheet by ID. Fix checklist: " +
+      "(1) Run setup() in editor and approve permissions, " +
+      "(2) Make sure you're logged into the SAME Google account that owns the sheet, " +
+      "(3) Ensure SPREADSHEET_ID is ONLY the ID, no URL, no spaces, " +
+      "(4) Deploy a NEW version and update your app with the NEW /exec URL."
+    );
+  }
 }
 
-function ensureSheetWithHeaders_(ss, name) {
-  let sh = ss.getSheetByName(name);
-  if (!sh) sh = ss.insertSheet(name);
+function ensureSheetWithHeaders_(ss, sheetName) {
+  let sh = ss.getSheetByName(sheetName);
+  if (!sh) sh = ss.insertSheet(sheetName);
 
-  const header = HEADERS[name] || [];
-  if (header.length === 0) return;
+  const headers = HEADERS[sheetName] || ["timestamp"];
+  const current = sh.getRange(1, 1, 1, sh.getLastColumn() || 1).getValues()[0] || [];
+  const empty = current.join("").trim().length === 0;
 
-  const existing = sh.getRange(1, 1, 1, Math.max(1, header.length)).getValues()[0];
-  const isBlank = existing.every(v => v === "" || v === null);
-
-  if (isBlank) {
-    sh.getRange(1, 1, 1, header.length).setValues([header]);
+  if (empty) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.setFrozenRows(1);
   }
+  return sh;
 }
 
-function normalizePayload_(payload) {
-  // Case A: { table: "jobs", rows: [...] }
-  if (payload && payload.table && Array.isArray(payload.rows)) {
-    return [{ tableKey: String(payload.table).toLowerCase(), rows: payload.rows }];
+function writeToTable_(ss, tableKey, rows) {
+  const key = String(tableKey || "").toLowerCase().trim();
+  const sheetName = SHEET_MAP[key];
+  if (!sheetName) throw new Error(`Unknown table "${tableKey}". Allowed: ${Object.keys(SHEET_MAP).join(", ")}`);
+
+  const sh = ensureSheetWithHeaders_(ss, sheetName);
+  const headers = HEADERS[sheetName] || ["timestamp"];
+
+  const normalized = normalizeRows_(rows);
+  const values = normalized.map((obj) => mapRow_(headers, obj));
+
+  if (values.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, values.length, headers.length).setValues(values);
   }
 
-  // Case B: bulk: { jobs:[...], drivers:[...], ... }
-  const ops = [];
-  Object.keys(SHEET_MAP).forEach(key => {
-    if (Array.isArray(payload[key])) ops.push({ tableKey: key, rows: payload[key] });
-  });
-
-  // Case C: single row object with implicit table? (not recommended)
-  return ops;
+  return { sheet: sheetName, written: values.length };
 }
 
-function appendRows_(sheet, header, rows) {
-  if (!rows || rows.length === 0) return 0;
-
-  const nowIso = new Date().toISOString();
-
-  // Build 2D array aligned to header order
-  const values = rows.map(obj => {
-    const row = header.map(h => {
-      if (h === "timestamp") return obj.timestamp || nowIso;
-      if (h === "payload_json") return JSON.stringify(obj);
-      // default: take the field from obj
-      const v = obj[h];
-      return (v === undefined || v === null) ? "" : v;
-    });
-    return row;
-  });
-
-  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, values[0].length).setValues(values);
-  return values.length;
+function normalizeRows_(rows) {
+  if (rows === null || rows === undefined) return [];
+  if (Array.isArray(rows)) return rows.map(r => (typeof r === "object" && r ? r : { value: r }));
+  if (typeof rows === "object") return [rows];
+  return [{ value: rows }];
 }
 
-function logEvent_(event, tableKey, rows, status, message, payloadObj) {
+function mapRow_(headers, obj) {
+  const o = obj || {};
+  return headers.map((h) => {
+    if (h === "timestamp") return o.timestamp || new Date().toISOString();
+    return (o[h] !== undefined && o[h] !== null) ? String(o[h]) : "";
+  });
+}
+
+function parseJsonBody_(e) {
+  if (!e || !e.postData || !e.postData.contents) return null;
+  const txt = e.postData.contents;
   try {
-    const ss = getSs_();
-    ensureSheetWithHeaders_(ss, SHEET_MAP.logs);
-    const sh = ss.getSheetByName(SHEET_MAP.logs);
-    const header = HEADERS.Logs;
+    return JSON.parse(txt);
+  } catch (err) {
+    return null;
+  }
+}
 
-    const obj = {
-      timestamp: new Date().toISOString(),
-      event,
-      table: tableKey,
-      rows: rows || 0,
-      status: status || "",
-      message: message || "",
-      payload_json: payloadObj ? JSON.stringify(payloadObj) : "",
-    };
+function getToken_(e) {
+  // token can come from:
+  // - ?token= in querystring
+  // - Authorization: Bearer <token>
+  if (e && e.parameter && e.parameter.token) return String(e.parameter.token);
 
-    const row = header.map(h => obj[h] ?? "");
-    sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+  try {
+    const headers = (e && e.postData && e.postData.type) ? {} : {};
+    // Apps Script does not reliably expose request headers here.
+  } catch (_) {}
+
+  return "";
+}
+
+function logEvent_(source, who, table, ok, message, payloadPreview) {
+  try {
+    const ss = SpreadsheetApp.openById(String(SPREADSHEET_ID).trim());
+    const sh = ensureSheetWithHeaders_(ss, "Logs");
+    sh.appendRow([new Date().toISOString(), who, table, ok ? "true" : "false", message, payloadPreview || ""]);
   } catch (_) {
-    // If logging fails, we don't block the main request.
+    // If logging fails, we don't block the endpoint.
+  }
+}
+
+function preview_(obj) {
+  try {
+    const s = JSON.stringify(obj);
+    return s.length > 500 ? s.slice(0, 500) + "..." : s;
+  } catch (_) {
+    return "";
   }
 }
 
 function jsonResponse_(obj, statusCode) {
+  // Apps Script is picky about CORS headers. We keep it simple.
   const out = ContentService.createTextOutput(JSON.stringify(obj));
   out.setMimeType(ContentService.MimeType.JSON);
-  // Apps Script is weird about CORS headers. We keep it simple.
   return out;
-}
-
-/**
- * Best-effort header fetch (Apps Script doesn't always expose headers cleanly)
- */
-function getHeader_(e, name) {
-  try {
-    const n = String(name || "").toLowerCase();
-    if (e && e.parameter && e.parameter[n]) return e.parameter[n];
-
-    // e.headers isn't consistently available for Web App POSTs.
-    // Some deployments include e.postData.type / contents only.
-    // So we also support token via querystring (?token=...)
-    return "";
-  } catch (_) {
-    return "";
-  }
 }
