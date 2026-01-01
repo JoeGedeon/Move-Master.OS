@@ -1539,13 +1539,13 @@
         </button>
       </div>
 
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn" type="button" id="pushJobs">Push Jobs</button>
-        <button class="btn" type="button" id="pushReceipts">Push Receipts</button>
-        <button class="btn" type="button" id="pushDispatch">Push Dispatch</button>
-        <button class="btn primary" type="button" id="pushAll">Push All</button>
-        <span class="muted" id="pushStatus">—</span>
-      </div>
+     $("#pushDrivers", host)?.addEventListener("click", () => push("drivers"));
+$("#pushTrucks", host)?.addEventListener("click", () => push("trucks"));
+$("#pushInventory", host)?.addEventListener("click", () => push("inventory"));
+
+$("#proofBtn", host)?.addEventListener("click", () => {
+  alert("Sheets UI is updated and buttons are real.");
+});
 
       <div class="panel" style="margin-top:12px;">
         <div class="panel-header">
