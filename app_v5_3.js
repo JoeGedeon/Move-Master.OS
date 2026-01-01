@@ -1495,85 +1495,220 @@
 // ---------------------------
 
    function renderSheets() {
-  const host = document.getElementById("view-sheets");
+  const host = $("#view-sheets");
   if (!host) return;
 
-  const endpoint = state?.sheets?.endpoint || "";
-  const token = state?.sheets?.token || "";
+  const cfg = state.sheets;
 
   host.innerHTML = `
     <div class="panel">
       <div class="panel-header">
-        <div>
-          <div class="panel-title">Sheets</div>
-          <div class="panel-sub">
-            Configure your Google Apps Script endpoint and push JSON.
-          </div>
+        <div class="panel-title">Sheets</div>
+        <div class="panel-sub">
+          Configure your Google Apps Script endpoint and push JSON.
         </div>
       </div>
 
-      <div class="field">
-        <span>Apps Script Web App URL</span>
-        <input id="sheetsEndpoint" type="text" value="${endpoint}" placeholder="https://script.google.com/macros/s/…/exec" />
+      <div class="muted" style="margin-bottom:10px;">
+        This is client-side. The endpoint must handle CORS and accept POST JSON.
       </div>
 
-      <div class="field">
-        <span>Token (optional)</span>
-        <input id="sheetsToken" type="text" value="${token}" placeholder="Bearer token or shared secret" />
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+        <label class="field" style="min-width:520px; flex:1;">
+          <span>Apps Script Web App URL</span>
+          <input
+            id="sheetsEndpoint"
+            type="text"
+            placeholder="https://script.google.com/macros/s/....../exec"
+            value="${escapeHtml(cfg.endpoint)}"
+          />
+        </label>
+
+        <label class="field" style="min-width:260px;">
+          <span>Token (optional)</span>
+          <input
+            id="sheetsToken"
+            type="text"
+            placeholder="Bearer token or shared secret"
+            value="${escapeHtml(cfg.token)}"
+          />
+        </label>
+
+        <button class="btn primary" type="button" id="sheetsSave">
+          Save
+        </button>
       </div>
 
-      <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button class="btn" id="sheetsSave" type="button">Save</button>
-
-        <button class="btn" id="pushJobs" type="button">Push Jobs</button>
-        <button class="btn" id="pushReceipts" type="button">Push Receipts</button>
-        <button class="btn" id="pushDispatch" type="button">Push Dispatch</button>
-
-        <button class="btn primary" id="pushAll" type="button">Push All</button>
-
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" type="button" id="pushJobs">Push Jobs</button>
+        <button class="btn" type="button" id="pushReceipts">Push Receipts</button>
+        <button class="btn" type="button" id="pushDispatch">Push Dispatch</button>
+        <button class="btn primary" type="button" id="pushAll">Push All</button>
         <span class="muted" id="pushStatus">—</span>
       </div>
-    </div>
 
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">Payload preview</div>
-      </div>
-      <div class="muted">
-        This is what your endpoint receives.
+      <div class="panel" style="margin-top:12px;">
+        <div class="panel-header">
+          <div class="panel-title">Payload preview</div>
+          <button class="btn" type="button" id="togglePayload">
+            Show payload preview
+          </button>
+        </div>
+
+        <div class="muted" style="margin-top:6px;">
+          This is what your endpoint receives.
+        </div>
+
+        <pre
+          id="payloadPreview"
+          style="display:none; white-space:pre-wrap; word-break:break-word; font-size:12px; opacity:0.9; margin-top:10px;"
+        ></pre>
       </div>
     </div>
   `;
 
-  // -------- SETTINGS --------
-  document.getElementById("sheetsSave")?.addEventListener("click", () => {
-    state.sheets.endpoint =
-      document.getElementById("sheetsEndpoint")?.value.trim() || "";
-    state.sheets.token =
-      document.getElementById("sheetsToken")?.value.trim() || "";
+  const statusEl = $("#pushStatus", host);
+  const previewEl = $("#payloadPreview", host);
+  const toggleBtn = $("#togglePayload", host);
+
+  const setStatus = (t) => {
+    if (statusEl) statusEl.textContent = t;
+  };
+
+  // --- payload preview toggle (THIS IS THE FIX) ---
+  if (toggleBtn && previewEl) {
+    toggleBtn.addEventListener("click", () => {
+      const open = previewEl.style.display !== "none";
+      previewEl.style.display = open ? "none" : "block";
+      toggleBtn.textContent = open
+        ? "Show payload preview"
+        : "Hide payload preview";
+    });
+  }
+
+  $("#sheetsSave", host)?.addEventListener("click", () => {
+    state.sheets.endpoint = ($("#sheetsEndpoint", host)?.value || "").trim();
+    state.sheets.token = ($("#sheetsToken", host)?.value || "").trim();
     persist();
-    setPushStatus("Sheets settings saved.", true);
+    alert("Sheets settings saved.");
+    renderSheets();
   });
 
-  // -------- PUSH BUTTONS --------
-  document.getElementById("pushJobs")?.addEventListener("click", () =>
-    push("jobs")
-  );
+  const buildPayload = (type) => {
+    const dateISO = ymd(state.currentDate);
+    const payload = {
+      app: "Move-Master.OS",
+      version: "v5_3",
+      type,
+      dateISO,
+      timestamp: Date.now(),
+    };
 
-  document.getElementById("pushReceipts")?.addEventListener("click", () =>
-    push("receipts")
-  );
+    if (type === "jobs") payload.jobs = state.jobs;
+    if (type === "receipts") payload.receipts = state.receipts;
+    if (type === "dispatch") payload.dispatch = state.dispatch;
+    if (type === "all") {
+      payload.jobs = state.jobs;
+      payload.receipts = state.receipts;
+      payload.dispatch = state.dispatch;
+      payload.drivers = state.drivers;
+      payload.trucks = state.trucks;
+      payload.inventory = state.inventory;
+    }
 
-  document.getElementById("pushDispatch")?.addEventListener("click", () =>
-    push("dispatch")
-  );
+    return payload;
+  };
 
-  document.getElementById("pushAll")?.addEventListener("click", () =>
-    push("all")
-  );
+async function postToEndpoint(payload) {
+  const endpoint = (state.sheets.endpoint || "").trim();
+  if (!endpoint) throw new Error("No endpoint set.");
+
+  // IMPORTANT:
+  // - Use text/plain to avoid CORS preflight in Safari/iOS
+  // - Do NOT send Authorization header unless you’ve explicitly coded for it
+  const headers = { "Content-Type": "text/plain;charset=utf-8" };
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    redirect: "follow",
+  });
+
+  const text = await res.text();
+  return { ok: res.ok, status: res.status, text };
 }
 
-     // ---------------------------
+  async function push(type) {
+    try {
+      setStatus("Building payload…");
+      const payload = buildPayload(type);
+      if (previewEl) previewEl.textContent = JSON.stringify(payload, null, 2);
+
+      setStatus("Pushing…");
+      const out = await postToEndpoint(payload);
+
+      state.sheets.lastPushAt = Date.now();
+      persist();
+
+      setStatus(out.ok ? `Pushed ✅ (HTTP ${out.status})` : `Failed ⚠️ (HTTP ${out.status})`);
+      if (!out.ok) alert(out.text || `Push failed (HTTP ${out.status})`);
+    } catch (e) {
+      console.error(e);
+      setStatus("Push error");
+      alert(String(e?.message || e));
+    }
+  }
+
+      async function pushAssignments() {
+  const endpoint = getSheetsEndpointUrl(); // your existing function that reads the saved /exec URL
+  const token = getSheetsToken?.() || "";  // optional, if you use it
+
+  // Example row. Replace this with real UI inputs later.
+  const row = {
+    timestamp: new Date().toISOString(),
+    job_id: "JOB-001",
+    truck_id: "TRUCK-01",
+    driver_id: "JG",
+    role: "Lead",
+    start_time: "08:00",
+    end_time: "16:00",
+    hours: 8,
+    pay_rate: 25,
+    pay_type: "Hourly",
+    notes: ""
+  };
+
+  const payload = { type: "assignments", rows: [row] };
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Push failed (${res.status})`);
+  }
+
+  return data;
+}
+
+      
+  $("#pushJobs", host)?.addEventListener("click", () => push("jobs"));
+  $("#pushReceipts", host)?.addEventListener("click", () => push("receipts"));
+  $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
+  $("#pushAll", host)?.addEventListener("click", () => push("all"));
+
+  if (previewEl) {
+    previewEl.textContent = JSON.stringify(buildPayload("all"), null, 2);
+  }
+}
+  // ---------------------------
   // File helper
   // ---------------------------
   function readFileAsDataURL(file) {
