@@ -2088,6 +2088,6 @@ async function postToEndpoint(payload) {
     document.addEventListener("DOMContentLoaded", () => safe(init));
   } else {
     safe(init);
-     setPill("JS: ready ✅", true);
+     setPill("JS: ready ✅ v5.3.99",true);
   }
 })();
