@@ -1,3 +1,12 @@
+const SHEET_MAP = {
+  jobs: "Jobs",
+  drivers: "Drivers",
+  trucks: "Trucks",
+  dispatch: "Dispatch",
+  receipts: "Receipts",
+  assignments: "Assignments",
+  logs: "Logs",
+};
 /** Move-Master.OS — Apps Script Web App (CORS-safe)
  *  Deploy as Web App:
  *  - Execute as: Me
