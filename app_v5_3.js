@@ -1660,6 +1660,45 @@ async function postToEndpoint(payload) {
     }
   }
 
+      async function pushAssignments() {
+  const endpoint = getSheetsEndpointUrl(); // your existing function that reads the saved /exec URL
+  const token = getSheetsToken?.() || "";  // optional, if you use it
+
+  // Example row. Replace this with real UI inputs later.
+  const row = {
+    timestamp: new Date().toISOString(),
+    job_id: "JOB-001",
+    truck_id: "TRUCK-01",
+    driver_id: "JG",
+    role: "Lead",
+    start_time: "08:00",
+    end_time: "16:00",
+    hours: 8,
+    pay_rate: 25,
+    pay_type: "Hourly",
+    notes: ""
+  };
+
+  const payload = { type: "assignments", rows: [row] };
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || `Push failed (${res.status})`);
+  }
+
+  return data;
+}
+
+      
   $("#pushJobs", host)?.addEventListener("click", () => push("jobs"));
   $("#pushReceipts", host)?.addEventListener("click", () => push("receipts"));
   $("#pushDispatch", host)?.addEventListener("click", () => push("dispatch"));
