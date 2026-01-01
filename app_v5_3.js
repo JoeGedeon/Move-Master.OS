@@ -1620,23 +1620,24 @@
   };
 
   async function postToEndpoint(payload) {
-    const endpoint = (state.sheets.endpoint || "").trim();
-    if (!endpoint) throw new Error("No endpoint set.");
+  const endpoint = (state.sheets.endpoint || "").trim();
+  if (!endpoint) throw new Error("No endpoint set.");
 
-    const headers = { "Content-Type": "application/json" };
-    if (state.sheets.token) {
-      headers["Authorization"] = `Bearer ${state.sheets.token}`;
-    }
+  // IMPORTANT:
+  // - Use text/plain to avoid CORS preflight in Safari/iOS
+  // - Do NOT send Authorization header unless you’ve explicitly coded for it
+  const headers = { "Content-Type": "text/plain;charset=utf-8" };
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    redirect: "follow",
+  });
 
-    const text = await res.text();
-    return { ok: res.ok, status: res.status, text };
-  }
+  const text = await res.text();
+  return { ok: res.ok, status: res.status, text };
+}
 
   async function push(type) {
     try {
