@@ -469,3 +469,7 @@ body {
 .tr-cancelled { opacity: 0.55; }
 
 .table th, .table td { padding: 8px 10px; }
+#togglePayload {
+  position: relative;
+  z-index: 9999;
+}
