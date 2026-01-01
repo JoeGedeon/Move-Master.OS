@@ -1,33 +1,21 @@
-/**
- * Move-Master.OS Sheets Endpoint (Google Apps Script Web App)
- *
- * Deploy as Web App:
- *  - Execute as: Me
- *  - Who has access: Anyone (or Anyone with link)
- *
- * Notes:
- *  - ContentService responses cannot set headers (no setHeader). Avoid custom headers client-side to reduce CORS preflight.
- *  - If you send an Authorization header from the browser, Safari will preflight and Apps Script will be "quirky".
- *    Best practice: only send Authorization if you actually set a TOKEN.
- */
+/*******************************
+ * Move-Master.OS Sheets Endpoint (Web App)
+ * - Paste this entire file into Code.gs (replace everything)
+ * - Deploy as Web App:
+ *    Execute as: Me
+ *    Who has access: Anyone
+ * - Paste the /exec URL into Move-Master.OS → Sheets tab
+ *******************************/
 
-// -------------------- CONFIG --------------------
-const CONFIG = {
-  // Optional shared secret. Leave blank to disable auth.
-  // If set, client should send:
-  //   Authorization: Bearer <TOKEN>
-  // or include token in body as { token: "<TOKEN>" } (fallback)
-  TOKEN: "",
+// 1) SET THIS: Spreadsheet ID of the ONE real "Move-Master.OS Data" file
+// Open the Google Sheet → URL looks like:
+// https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+const SPREADSHEET_ID = "PASTE_YOUR_SPREADSHEET_ID_HERE";
 
-  // If you want to hard-lock a specific spreadsheet, paste its ID here.
-  // If blank, the script will create/find and remember a spreadsheet in Script Properties.
-  SPREADSHEET_ID: "",
+// 2) Optional: simple bearer token (leave blank to disable auth)
+const API_TOKEN = ""; // e.g. "supersecret123"
 
-  // If the sheet is auto-created, this is the file name.
-  SPREADSHEET_NAME: "Move-Master.OS Data",
-};
-
-// Map incoming table keys -> actual tab names (case-sensitive tab names)
+// Canonical sheet/tab names
 const SHEET_MAP = {
   jobs: "Jobs",
   drivers: "Drivers",
@@ -38,345 +26,249 @@ const SHEET_MAP = {
   logs: "Logs",
 };
 
-// Minimal default headers (only used if the tab is created AND empty)
-// If you already have headers, we respect yours.
-const DEFAULT_HEADERS = {
-  Jobs: ["timestamp", "payload_json"],
-  Drivers: ["timestamp", "payload_json"],
-  Trucks: ["timestamp", "payload_json"],
-  Dispatch: ["timestamp", "payload_json"],
-  Receipts: ["timestamp", "payload_json"],
-  Assignments: [
-    "timestamp",
-    "job_id",
-    "truck_id",
-    "driver_id",
-    "role",
-    "start_time",
-    "end_time",
-    "hours",
-    "pay_rate",
-    "pay_type",
-    "notes",
+// Preferred headers (so columns stay stable)
+const HEADERS = {
+  Jobs: [
+    "timestamp","job_id","date","customer_name","phone","email",
+    "pickup_address","dropoff_address","move_size","cubic_feet",
+    "truck_id","crew_notes","status","total","deposit","balance","notes"
   ],
-  Logs: ["timestamp", "level", "event", "message", "meta_json"],
+  Drivers: [
+    "timestamp","driver_id","name","phone","email","role","pay_rate","pay_type","active","notes"
+  ],
+  Trucks: [
+    "timestamp","truck_id","name","plate","capacity","active","notes"
+  ],
+  Dispatch: [
+    "timestamp","dispatch_id","job_id","truck_id","driver_id","start_time","end_time","status","notes"
+  ],
+  Receipts: [
+    "timestamp","receipt_id","job_id","vendor","category","amount","tax","total","date","image_url","notes"
+  ],
+  Assignments: [
+    "timestamp","job_id","truck_id","driver_id","role","start_time","end_time","hours","pay_rate","pay_type","notes"
+  ],
+  Logs: [
+    "timestamp","table","ok","message","row_count","raw_preview"
+  ],
 };
 
-// -------------------- WEB APP ENTRYPOINTS --------------------
-function doGet(e) {
-  // Simple health check (and friendly human read)
-  return json_({
-    ok: true,
-    service: "Move-Master.OS Sheets Endpoint",
-    time: new Date().toISOString(),
-    hint:
-      "POST JSON to this /exec URL. Example: { table:'jobs', rows:[{...}] } or { jobs:[...], drivers:[...] }",
-  });
-}
-
-function doPost(e) {
-  const started = new Date();
-  let payload;
-  try {
-    payload = parseJsonBody_(e);
-  } catch (err) {
-    log_("ERROR", "parse", String(err), { raw: safeRawBody_(e) });
-    return json_({ ok: false, error: "Invalid JSON body", detail: String(err) }, 400);
-  }
-
-  // Auth (optional)
-  if (!isAuthorized_(e, payload)) {
-    log_("WARN", "auth", "Unauthorized request rejected", {});
-    return json_({ ok: false, error: "Unauthorized" }, 401);
-  }
-
-  // Determine what the client is asking us to write
-  // Supported shapes:
-  // 1) { table: "jobs", rows: [ {..}, {..} ] }
-  // 2) { sheet: "Jobs", rows: [ {..} ] }
-  // 3) { jobs: [ {..} ], drivers: [ {..} ], ... } (multi-table push)
-  // 4) { data: { jobs:[...], receipts:[...] } } (nested)
-  const writePlan = buildWritePlan_(payload);
-
-  if (writePlan.length === 0) {
-    log_("WARN", "writePlan", "No writable data found in payload", { keys: Object.keys(payload || {}) });
-    return json_({
-      ok: false,
-      error:
-        "No writable data found. Send {table:'jobs', rows:[...]} or {jobs:[...], drivers:[...]} etc.",
-    }, 422);
-  }
-
-  // Open spreadsheet + execute writes
-  const ss = ensureSpreadsheet_();
-  const results = [];
-
-  try {
-    writePlan.forEach((item) => {
-      const sheetName = item.sheetName;
-      const rows = normalizeRows_(item.rows);
-
-      const sh = ensureSheet_(ss, sheetName);
-      const wrote = appendRowsByHeaders_(sh, rows);
-
-      results.push({ sheet: sheetName, rows_received: rows.length, rows_written: wrote });
-    });
-  } catch (err) {
-    log_("ERROR", "write", String(err), { results_so_far: results, payload_keys: Object.keys(payload || {}) });
-    return json_({ ok: false, error: "Write failed", detail: String(err), results }, 500);
-  }
-
-  const ms = new Date() - started;
-  log_("INFO", "write", "Write completed", { results, ms });
-
-  return json_({
-    ok: true,
-    ms,
-    results,
-    spreadsheetId: ss.getId(),
-    spreadsheetName: ss.getName(),
-  });
-}
-
-// -------------------- WRITE PLAN --------------------
-function buildWritePlan_(payload) {
-  const plan = [];
-
-  if (!payload || typeof payload !== "object") return plan;
-
-  // Shape 1/2
-  if (payload.rows && (payload.table || payload.sheet)) {
-    const sheetName = resolveSheetName_(payload.table || payload.sheet);
-    if (sheetName) plan.push({ sheetName, rows: payload.rows });
-    return plan;
-  }
-
-  // Shape 4: nested { data: { jobs:[...], ... } }
-  const root = payload.data && typeof payload.data === "object" ? payload.data : payload;
-
-  // Shape 3: { jobs:[...], drivers:[...], ... }
-  Object.keys(root).forEach((key) => {
-    const val = root[key];
-    if (!val) return;
-
-    // Accept arrays OR single objects
-    if (Array.isArray(val) || typeof val === "object") {
-      const sheetName = resolveSheetName_(key);
-      if (!sheetName) return;
-
-      plan.push({ sheetName, rows: val });
-    }
-  });
-
-  return plan;
-}
-
-function resolveSheetName_(tableOrSheet) {
-  if (!tableOrSheet) return null;
-
-  // If they passed "Jobs" directly
-  if (SHEET_MAP[String(tableOrSheet).toLowerCase()] == null && DEFAULT_HEADERS[tableOrSheet]) {
-    return tableOrSheet;
-  }
-
-  const key = String(tableOrSheet).toLowerCase().trim();
-  return SHEET_MAP[key] || null;
-}
-
-// -------------------- SHEETS HELPERS --------------------
-function ensureSpreadsheet_() {
-  // If hard-locked
-  if (CONFIG.SPREADSHEET_ID) {
-    return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  }
-
-  // Use Script Properties to remember created spreadsheet
-  const props = PropertiesService.getScriptProperties();
-  const existingId = props.getProperty("MOVE_MASTER_SPREADSHEET_ID");
-  if (existingId) {
-    try {
-      return SpreadsheetApp.openById(existingId);
-    } catch (e) {
-      // If it was deleted or inaccessible, fall through and recreate
-      props.deleteProperty("MOVE_MASTER_SPREADSHEET_ID");
-    }
-  }
-
-  // Create a new one
-  const ss = SpreadsheetApp.create(CONFIG.SPREADSHEET_NAME);
-  props.setProperty("MOVE_MASTER_SPREADSHEET_ID", ss.getId());
-
-  // Ensure base tabs exist
-  Object.values(SHEET_MAP).forEach((sheetName) => ensureSheet_(ss, sheetName));
-
-  return ss;
-}
-
-function ensureSheet_(ss, sheetName) {
-  let sh = ss.getSheetByName(sheetName);
-  if (!sh) sh = ss.insertSheet(sheetName);
-
-  // If empty, set default headers (if we have them)
-  if (sh.getLastRow() === 0) {
-    const headers = DEFAULT_HEADERS[sheetName];
-    if (headers && headers.length) {
-      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-    }
-  }
-
-  return sh;
+/**
+ * Run this ONCE from the editor (optional but recommended)
+ * It creates all tabs and headers immediately.
+ */
+function setup() {
+  const ss = getSS_();
+  Object.values(SHEET_MAP).forEach(name => ensureSheet_(ss, name));
+  log_(ss, "system", true, "Setup completed: tabs + headers ensured", 0, "");
 }
 
 /**
- * Appends rows by matching object keys to the sheet's header row.
- * - Respects your existing headers
- * - If a key doesn't exist as a header, it will ADD a new column header at the end
- * - If row is not an object, stores it in payload_json
+ * Health check (open the /exec URL in a browser)
  */
-function appendRowsByHeaders_(sheet, rows) {
-  if (!rows || !rows.length) return 0;
-
-  const headerRow = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
-  const headers = headerRow.filter((h) => h !== "" && h != null).map(String);
-
-  // If no headers exist at all, inject a minimal set
-  if (headers.length === 0) {
-    const fallback = DEFAULT_HEADERS[sheet.getName()] || ["timestamp", "payload_json"];
-    sheet.getRange(1, 1, 1, fallback.length).setValues([fallback]);
-    return appendRowsByHeaders_(sheet, rows);
-  }
-
-  // Build header index
-  const headerIndex = {};
-  headers.forEach((h, idx) => (headerIndex[h] = idx));
-
-  // Collect any new headers needed
-  const newHeaders = [];
-  rows.forEach((r) => {
-    if (r && typeof r === "object" && !Array.isArray(r)) {
-      Object.keys(r).forEach((k) => {
-        if (headerIndex[k] == null && newHeaders.indexOf(k) === -1) newHeaders.push(k);
-      });
-    }
-  });
-
-  // Append new headers if needed
-  if (newHeaders.length) {
-    const startCol = headers.length + 1;
-    sheet.getRange(1, startCol, 1, newHeaders.length).setValues([newHeaders]);
-    newHeaders.forEach((h, i) => (headerIndex[h] = headers.length + i));
-    headers.push(...newHeaders);
-  }
-
-  // Prepare write matrix
-  const out = rows.map((r) => {
-    const row = new Array(headers.length).fill("");
-
-    // Always attempt to set timestamp if that header exists
-    if (headerIndex["timestamp"] != null) {
-      row[headerIndex["timestamp"]] = new Date().toISOString();
-    }
-
-    if (r && typeof r === "object" && !Array.isArray(r)) {
-      Object.keys(r).forEach((k) => {
-        const idx = headerIndex[k];
-        if (idx == null) return;
-        row[idx] = r[k];
-      });
-    } else {
-      // Non-object row: store it safely
-      if (headerIndex["payload_json"] == null) {
-        // Add payload_json header if missing
-        const col = headers.length + 1;
-        sheet.getRange(1, col).setValue("payload_json");
-        headerIndex["payload_json"] = headers.length;
-        headers.push("payload_json");
-        row.push("");
-      }
-      row[headerIndex["payload_json"]] = JSON.stringify(r);
-    }
-
-    return row;
-  });
-
-  const startRow = sheet.getLastRow() + 1;
-  sheet.getRange(startRow, 1, out.length, out[0].length).setValues(out);
-  return out.length;
+function doGet(e) {
+  return textResponse_(
+    JSON.stringify({
+      ok: true,
+      service: "Move-Master.OS Sheets Endpoint",
+      spreadsheetLinked: !!SPREADSHEET_ID && SPREADSHEET_ID !== "PASTE_YOUR_SPREADSHEET_ID_HERE",
+      expectedTabs: Object.values(SHEET_MAP),
+      time: new Date().toISOString(),
+    }, null, 2)
+  );
 }
 
-// -------------------- REQUEST / AUTH / JSON --------------------
-function parseJsonBody_(e) {
-  const raw = safeRawBody_(e);
-  if (!raw) return {};
-  return JSON.parse(raw);
-}
+/**
+ * Main POST handler
+ * Accepts JSON payloads in either form:
+ * A) { table: "jobs", rows: [{...},{...}] }
+ * B) { jobs: [...], drivers: [...], assignments: [...], ... }  (Push All style)
+ */
+function doPost(e) {
+  const ss = getSS_();
 
-function safeRawBody_(e) {
   try {
-    return e && e.postData && e.postData.contents ? e.postData.contents : "";
-  } catch (_) {
-    return "";
+    // Basic auth (optional)
+    if (API_TOKEN) {
+      const auth = (e && e.parameter && e.parameter.token) ? e.parameter.token : "";
+      const headerAuth = getHeader_(e, "authorization");
+      const bearer = headerAuth && headerAuth.toLowerCase().startsWith("bearer ")
+        ? headerAuth.slice(7).trim()
+        : "";
+      const provided = bearer || auth;
+      if (provided !== API_TOKEN) {
+        log_(ss, "auth", false, "Unauthorized (bad token)", 0, "");
+        return jsonResponse_({ ok: false, error: "unauthorized" }, 401);
+      }
+    }
+
+    const raw = (e && e.postData && e.postData.contents) ? e.postData.contents : "";
+    if (!raw) {
+      log_(ss, "request", false, "Empty body", 0, "");
+      return jsonResponse_({ ok: false, error: "empty_body" }, 400);
+    }
+
+    const payload = JSON.parse(raw);
+
+    // Normalize into tasks: [{tableKey, rows}]
+    const tasks = normalizePayload_(payload);
+
+    let totalWritten = 0;
+    const results = [];
+
+    tasks.forEach(task => {
+      const sheetName = SHEET_MAP[task.tableKey];
+      if (!sheetName) {
+        results.push({ table: task.tableKey, ok: false, message: "Unknown table" });
+        return;
+      }
+
+      const sh = ensureSheet_(ss, sheetName);
+      const rows = Array.isArray(task.rows) ? task.rows : [];
+      if (!rows.length) {
+        results.push({ table: sheetName, ok: true, message: "No rows to write", written: 0 });
+        return;
+      }
+
+      // Ensure headers (stable preferred headers, plus any new keys found)
+      const header = ensureHeaders_(sh, sheetName, rows);
+
+      // Append rows
+      const values = rows.map(obj => header.map(h => coerce_(obj[h])));
+      const startRow = sh.getLastRow() + 1;
+      sh.getRange(startRow, 1, values.length, header.length).setValues(values);
+
+      totalWritten += values.length;
+      results.push({ table: sheetName, ok: true, written: values.length });
+      log_(ss, sheetName, true, "Wrote rows", values.length, raw.slice(0, 500));
+    });
+
+    return jsonResponse_({ ok: true, written: totalWritten, results }, 200);
+
+  } catch (err) {
+    const msg = (err && err.stack) ? err.stack : String(err);
+    log_(ss, "error", false, msg, 0, "");
+    return jsonResponse_({ ok: false, error: "server_error", message: String(err) }, 500);
   }
 }
 
-function isAuthorized_(e, payload) {
-  if (!CONFIG.TOKEN) return true;
+/* -------------------------
+   Helpers
+-------------------------- */
 
-  // Header: Authorization: Bearer TOKEN
-  const auth = getHeader_(e, "Authorization") || getHeader_(e, "authorization");
-  if (auth && auth.startsWith("Bearer ")) {
-    const token = auth.replace("Bearer ", "").trim();
-    return token === CONFIG.TOKEN;
+function getSS_() {
+  if (!SPREADSHEET_ID || SPREADSHEET_ID === "PASTE_YOUR_SPREADSHEET_ID_HERE") {
+    throw new Error("SPREADSHEET_ID is not set. Paste your Google Sheet ID into Code.gs.");
   }
-
-  // Fallback: token in body
-  if (payload && payload.token && String(payload.token) === CONFIG.TOKEN) return true;
-
-  return false;
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-// Apps Script doesn't reliably expose headers in all contexts,
-// but we try. If unavailable, rely on token-in-body.
+function ensureSheet_(ss, name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+
+  // Ensure at least the preferred headers exist (row 1)
+  const preferred = HEADERS[name] || ["timestamp"];
+  const current = sh.getLastRow() >= 1 ? sh.getRange(1, 1, 1, sh.getLastColumn() || 1).getValues()[0] : [];
+  const hasAnything = current.some(v => String(v || "").trim() !== "");
+
+  if (!hasAnything) {
+    sh.getRange(1, 1, 1, preferred.length).setValues([preferred]);
+  }
+  return sh;
+}
+
+function ensureHeaders_(sh, sheetName, rows) {
+  const preferred = HEADERS[sheetName] || ["timestamp"];
+
+  // Read existing header row
+  const lastCol = Math.max(sh.getLastColumn(), preferred.length);
+  const headerRow = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(x => String(x || "").trim());
+  let header = headerRow.filter(h => h);
+
+  // If empty, start from preferred
+  if (!header.length) header = preferred.slice();
+
+  // Add any new keys found in incoming data (without breaking existing columns)
+  const foundKeys = new Set();
+  rows.forEach(r => {
+    if (r && typeof r === "object") Object.keys(r).forEach(k => foundKeys.add(k));
+  });
+
+  // Ensure timestamp exists
+  foundKeys.add("timestamp");
+
+  // Preferred first, then extras
+  const merged = [];
+  preferred.forEach(h => { if (!merged.includes(h)) merged.push(h); });
+  Array.from(foundKeys).forEach(k => { if (!merged.includes(k)) merged.push(k); });
+
+  // If header changed, write it back
+  const changed = merged.join("|") !== header.join("|");
+  if (changed) {
+    sh.getRange(1, 1, 1, merged.length).setValues([merged]);
+  }
+
+  return merged;
+}
+
+function normalizePayload_(payload) {
+  // A) { table: "jobs", rows: [...] }
+  if (payload && payload.table && payload.rows) {
+    return [{ tableKey: String(payload.table).toLowerCase(), rows: payload.rows }];
+  }
+
+  // B) { jobs: [...], drivers: [...], ... }
+  const tasks = [];
+  Object.keys(SHEET_MAP).forEach(key => {
+    if (payload[key]) tasks.push({ tableKey: key, rows: payload[key] });
+  });
+
+  // If nothing matched, try to guess:
+  // If payload looks like array => treat as jobs
+  if (!tasks.length && Array.isArray(payload)) {
+    tasks.push({ tableKey: "jobs", rows: payload });
+  }
+
+  return tasks;
+}
+
+function log_(ss, table, ok, message, rowCount, rawPreview) {
+  const sh = ensureSheet_(ss, SHEET_MAP.logs);
+  const ts = new Date().toISOString();
+  sh.appendRow([ts, table, ok ? "true" : "false", message, rowCount, rawPreview]);
+}
+
+function coerce_(v) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") return JSON.stringify(v);
+  return v;
+}
+
+// Apps Script web responses (CORS-safe enough for browser fetch)
+function jsonResponse_(obj, statusCode) {
+  const out = ContentService.createTextOutput(JSON.stringify(obj));
+  out.setMimeType(ContentService.MimeType.JSON);
+  // Note: Apps Script doesn't let you reliably set CORS headers in all contexts.
+  // If your frontend uses fetch, use mode: "no-cors" or proxy through your own backend if needed.
+  return out;
+}
+
+function textResponse_(text) {
+  const out = ContentService.createTextOutput(text);
+  out.setMimeType(ContentService.MimeType.TEXT);
+  return out;
+}
+
+// Best-effort header fetch (Apps Script doesn't expose all headers cleanly in every context)
 function getHeader_(e, name) {
   try {
-    if (!e) return null;
-    if (e.headers && e.headers[name]) return e.headers[name];
-    if (e.parameter && e.parameter[name]) return e.parameter[name];
-    return null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function normalizeRows_(maybeRows) {
-  if (!maybeRows) return [];
-  if (Array.isArray(maybeRows)) return maybeRows;
-  // If a single object was sent, treat as 1 row
-  return [maybeRows];
-}
-
-function json_(obj, statusCode) {
-  // ContentService can't set status codes directly. We include it in payload for debugging.
-  const payload = Object.assign({}, obj, statusCode ? { statusCode } : {});
-  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
-}
-
-// -------------------- LOGGING --------------------
-function log_(level, event, message, meta) {
-  try {
-    const ss = ensureSpreadsheet_();
-    const sh = ensureSheet_(ss, "Logs");
-
-    const row = {
-      timestamp: new Date().toISOString(),
-      level,
-      event,
-      message,
-      meta_json: meta ? JSON.stringify(meta) : "",
-    };
-
-    appendRowsByHeaders_(sh, [row]);
-  } catch (e) {
-    // If logging fails, we don't want to block the main request.
-  }
+    // Some deployments include headers in e.postData, some don't. Best-effort only.
+    const n = String(name || "").toLowerCase();
+    if (e && e.parameter) {
+      // Allow passing auth via querystring too (token=)
+      if (n === "authorization" && e.parameter.authorization) return e.parameter.authorization;
+    }
+  } catch (_) {}
+  return "";
 }
