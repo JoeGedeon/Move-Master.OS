@@ -615,101 +615,259 @@
   // ---------------------------
   // Drivers & Trucks rosters
   // ---------------------------
-  function renderRoster(viewName, arrKey, singularLabel) {
-    const host = $(`#view-${viewName}`);
-    if (!host) return;
+   function renderRoster(viewName, arrKey, singularLabel) {
+  const host = $(`#view-${viewName}`);
+  if (!host) return;
 
-    const rows = state[arrKey] || [];
+  const rows = state[arrKey] || [];
+  const isDrivers = viewName === "drivers";
 
-    host.innerHTML = `
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">${escapeHtml(singularLabel)}s</div>
-          <div class="panel-sub">Editable roster (local for now).</div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
-          <label class="field" style="min-width:260px;">
-            <span>${escapeHtml(singularLabel)} Name</span>
-            <input id="${viewName}Name" type="text" placeholder="Name" />
-          </label>
-          <label class="field" style="min-width:320px;">
-            <span>Notes</span>
-            <input id="${viewName}Notes" type="text" placeholder="Phone, plate, availability, etc." />
-          </label>
-          <button class="btn primary" type="button" id="${viewName}Add">Add</button>
-        </div>
-
-        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-          ${
-            rows.length
-              ? rows.map(r => `
-                <div class="job-row">
-                  <div class="job-main">
-                    <div class="job-title">${escapeHtml(r.name || singularLabel)}</div>
-                    <div class="job-sub">${escapeHtml(r.notes || "")}</div>
-                  </div>
-                  <div class="job-actions">
-                    <button class="btn" type="button" data-edit="${escapeHtml(r.id)}">Edit</button>
-                    <button class="btn danger" type="button" data-del="${escapeHtml(r.id)}">Delete</button>
-                  </div>
-                </div>
-              `).join("")
-              : `<div class="muted empty">No ${escapeHtml(singularLabel.toLowerCase())}s yet.</div>`
-          }
-        </div>
+  host.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">${escapeHtml(singularLabel)}s</div>
+        <div class="panel-sub">Editable roster (local for now).</div>
       </div>
-    `;
 
-    $(`#${viewName}Add`)?.addEventListener("click", () => {
-      const name = ($(`#${viewName}Name`)?.value || "").trim();
-      const notes = ($(`#${viewName}Notes`)?.value || "").trim();
-      if (!name) return alert(`${singularLabel} name is required.`);
-      state[arrKey].push(normalizeNamedRow({ name, notes, createdAt:Date.now(), updatedAt:Date.now() }, arrKey));
+      ${
+        isDrivers
+          ? `
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+              <label class="field" style="min-width:220px;">
+                <span>Name</span>
+                <input id="driversName" type="text" placeholder="Driver name" />
+              </label>
+
+              <label class="field" style="min-width:200px;">
+                <span>Phone</span>
+                <input id="driversPhone" type="text" placeholder="(555) 555-5555" />
+              </label>
+
+              <label class="field" style="min-width:320px; flex:1;">
+                <span>Address</span>
+                <input id="driversAddress" type="text" placeholder="Home address" />
+              </label>
+
+              <label class="field" style="min-width:180px;">
+                <span>Role</span>
+                <select id="driversRole">
+                  <option value="helper">Helper</option>
+                  <option value="driver" selected>Driver</option>
+                  <option value="lead">Lead</option>
+                  <option value="dispatcher">Dispatcher</option>
+                </select>
+              </label>
+
+              <label class="field" style="min-width:180px;">
+                <span>Pay Type</span>
+                <select id="driversPayType">
+                  <option value="hourly" selected>Hourly</option>
+                  <option value="dayrate">Day Rate</option>
+                  <option value="commission">Commission</option>
+                </select>
+              </label>
+
+              <label class="field" style="min-width:140px;">
+                <span>Pay Rate</span>
+                <input id="driversPayRate" type="number" step="0.01" value="0" />
+              </label>
+
+              <label class="field" style="min-width:160px;">
+                <span>Commission %</span>
+                <input id="driversCommissionPct" type="number" step="0.1" value="0" />
+              </label>
+
+              <label class="field" style="min-width:320px; flex:1;">
+                <span>Notes</span>
+                <input id="driversNotes" type="text" placeholder="Availability, license, etc." />
+              </label>
+
+              <button class="btn primary" type="button" id="driversAdd">Add</button>
+            </div>
+          `
+          : `
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+              <label class="field" style="min-width:260px;">
+                <span>${escapeHtml(singularLabel)} Name</span>
+                <input id="${viewName}Name" type="text" placeholder="Name" />
+              </label>
+              <label class="field" style="min-width:320px;">
+                <span>Notes</span>
+                <input id="${viewName}Notes" type="text" placeholder="Phone, plate, availability, etc." />
+              </label>
+              <button class="btn primary" type="button" id="${viewName}Add">Add</button>
+            </div>
+          `
+      }
+
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+        ${
+          rows.length
+            ? rows.map(r => {
+                if (isDrivers) {
+                  const role = (r.role || "driver");
+                  const payType = (r.payType || "hourly");
+                  const payLine =
+                    payType === "commission"
+                      ? `${escapeHtml(payType)} · ${Number(r.commissionPct || 0)}%`
+                      : `${escapeHtml(payType)} · ${money(Number(r.payRate || 0))}`;
+
+                  return `
+                    <div class="job-row">
+                      <div class="job-main">
+                        <div class="job-title">
+                          ${escapeHtml(r.name || "Driver")}
+                          <span class="muted">(${escapeHtml(role)})</span>
+                        </div>
+                        <div class="job-sub">
+                          ${escapeHtml(r.phone || "")}${r.phone ? " · " : ""}${escapeHtml(r.address || "")}
+                        </div>
+                        <div class="muted" style="font-size:12px;">
+                          Pay: ${payLine}
+                        </div>
+                        <div class="job-sub">${escapeHtml(r.notes || "")}</div>
+                      </div>
+                      <div class="job-actions">
+                        <button class="btn" type="button" data-edit="${escapeHtml(r.id)}">Edit</button>
+                        <button class="btn danger" type="button" data-del="${escapeHtml(r.id)}">Delete</button>
+                      </div>
+                    </div>
+                  `;
+                }
+
+                return `
+                  <div class="job-row">
+                    <div class="job-main">
+                      <div class="job-title">${escapeHtml(r.name || singularLabel)}</div>
+                      <div class="job-sub">${escapeHtml(r.notes || "")}</div>
+                    </div>
+                    <div class="job-actions">
+                      <button class="btn" type="button" data-edit="${escapeHtml(r.id)}">Edit</button>
+                      <button class="btn danger" type="button" data-del="${escapeHtml(r.id)}">Delete</button>
+                    </div>
+                  </div>
+                `;
+              }).join("")
+            : `<div class="muted empty">No ${escapeHtml(singularLabel.toLowerCase())}s yet.</div>`
+        }
+      </div>
+    </div>
+  `;
+
+  // ADD button
+  if (isDrivers) {
+    $("#driversAdd", host)?.addEventListener("click", () => {
+      const name = ($("#driversName", host)?.value || "").trim();
+      if (!name) return alert("Driver name is required.");
+
+      const driver = normalizeDriver({
+        name,
+        phone: ($("#driversPhone", host)?.value || "").trim(),
+        address: ($("#driversAddress", host)?.value || "").trim(),
+        role: ($("#driversRole", host)?.value || "driver").trim(),
+        payType: ($("#driversPayType", host)?.value || "hourly").trim(),
+        payRate: Number($("#driversPayRate", host)?.value ?? 0),
+        commissionPct: Number($("#driversCommissionPct", host)?.value ?? 0),
+        notes: ($("#driversNotes", host)?.value || "").trim(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      state.drivers.push(driver);
       persist();
       renderAll();
     });
+  } else {
+    $(`#${viewName}Add`, host)?.addEventListener("click", () => {
+      const name = ($(`#${viewName}Name`, host)?.value || "").trim();
+      const notes = ($(`#${viewName}Notes`, host)?.value || "").trim();
+      if (!name) return alert(`${singularLabel} name is required.`);
+      state[arrKey].push(normalizeNamedRow({ name, notes, createdAt: Date.now(), updatedAt: Date.now() }, arrKey));
+      persist();
+      renderAll();
+    });
+  }
 
-    $$("[data-del]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-del");
-      if (!id) return;
-      if (!confirm(`Delete this ${singularLabel.toLowerCase()}?`)) return;
+  // Delete
+  $$("[data-del]", host).forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.getAttribute("data-del");
+    if (!id) return;
+    if (!confirm(`Delete this ${singularLabel.toLowerCase()}?`)) return;
 
-      state[arrKey] = state[arrKey].filter(x => x.id !== id);
+    state[arrKey] = state[arrKey].filter(x => x.id !== id);
 
-      // remove from dispatch assignments
-      const isDriver = arrKey === "drivers";
-      const isTruck = arrKey === "trucks";
-      if (isDriver || isTruck) {
-        for (const dateISO of Object.keys(state.dispatch || {})) {
-          const bucket = state.dispatch[dateISO];
-          if (!bucket) continue;
-          for (const jobId of Object.keys(bucket)) {
-            if (isDriver && bucket[jobId]?.driverId === id) bucket[jobId].driverId = "";
-            if (isTruck && bucket[jobId]?.truckId === id) bucket[jobId].truckId = "";
-          }
+    // remove from dispatch assignments
+    const isDriver = arrKey === "drivers";
+    const isTruck = arrKey === "trucks";
+    if (isDriver || isTruck) {
+      for (const dateISO of Object.keys(state.dispatch || {})) {
+        const bucket = state.dispatch[dateISO];
+        if (!bucket) continue;
+        for (const jobId of Object.keys(bucket)) {
+          if (isDriver && bucket[jobId]?.driverId === id) bucket[jobId].driverId = "";
+          if (isTruck && bucket[jobId]?.truckId === id) bucket[jobId].truckId = "";
         }
       }
+    }
 
-      persist();
-      renderAll();
-    }));
+    persist();
+    renderAll();
+  }));
 
-    $$("[data-edit]", host).forEach(btn => btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-edit");
-      const row = state[arrKey].find(x => x.id === id);
-      if (!row) return;
-      const name = prompt(`${singularLabel} name:`, row.name || "");
+  // Edit
+  $$("[data-edit]", host).forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.getAttribute("data-edit");
+    const row = state[arrKey].find(x => x.id === id);
+    if (!row) return;
+
+    if (isDrivers) {
+      const name = prompt("Name:", row.name || "");
       if (name === null) return;
+      const phone = prompt("Phone:", row.phone || "");
+      if (phone === null) return;
+      const address = prompt("Address:", row.address || "");
+      if (address === null) return;
+      const role = prompt("Role (helper/driver/lead/dispatcher):", row.role || "driver");
+      if (role === null) return;
+      const payType = prompt("Pay Type (hourly/dayrate/commission):", row.payType || "hourly");
+      if (payType === null) return;
+      const payRate = prompt("Pay Rate (number):", String(row.payRate ?? 0));
+      if (payRate === null) return;
+      const commissionPct = prompt("Commission % (number):", String(row.commissionPct ?? 0));
+      if (commissionPct === null) return;
       const notes = prompt("Notes:", row.notes || "");
       if (notes === null) return;
-      row.name = name.trim();
-      row.notes = notes.trim();
-      row.updatedAt = Date.now();
+
+      const updated = normalizeDriver({
+        ...row,
+        name,
+        phone,
+        address,
+        role,
+        payType,
+        payRate: Number(payRate),
+        commissionPct: Number(commissionPct),
+        notes,
+        updatedAt: Date.now(),
+      });
+
+      Object.assign(row, updated);
       persist();
       renderAll();
-    }));
-  }
+      return;
+    }
+
+    const name = prompt(`${singularLabel} name:`, row.name || "");
+    if (name === null) return;
+    const notes = prompt("Notes:", row.notes || "");
+    if (notes === null) return;
+    row.name = name.trim();
+    row.notes = notes.trim();
+    row.updatedAt = Date.now();
+    persist();
+    renderAll();
+  }));
+}
 
   // ---------------------------
   // Dispatch helpers (intelligence)
