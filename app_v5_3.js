@@ -150,6 +150,47 @@
     o.updatedAt = o.updatedAt || o.createdAt;
     return o;
   }
+     function normalizeNamedRow(x, prefix) {
+    const o = { ...(x || {}) };
+    if (!o.id) o.id = makeId(prefix);
+    o.name = (o.name || "").trim();
+    o.notes = (o.notes || "").trim();
+    o.createdAt = o.createdAt || Date.now();
+    o.updatedAt = o.updatedAt || o.createdAt;
+    return o;
+  }
+
+  // ✅ NEW: full Driver schema
+  function normalizeDriver(x) {
+    const o = { ...(x || {}) };
+    if (!o.id) o.id = makeId("drv");
+
+    o.name = (o.name || "").trim();
+    o.phone = (o.phone || "").trim();
+    o.address = (o.address || "").trim();
+
+    // role + helper
+    o.role = (o.role || "driver").trim().toLowerCase();   // driver | helper | lead | etc
+    o.isHelper = !!o.isHelper;
+
+    // pay
+    o.payType = (o.payType || "hourly").trim().toLowerCase(); // hourly | daily | flat | commission
+    o.payRate = Number(o.payRate ?? 0);
+    if (!Number.isFinite(o.payRate) || o.payRate < 0) o.payRate = 0;
+
+    o.commissionPct = Number(o.commissionPct ?? 0);
+    if (!Number.isFinite(o.commissionPct) || o.commissionPct < 0) o.commissionPct = 0;
+
+    o.notes = (o.notes || "").trim();
+
+    // ✅ this is where “NormalizedNamedRole” belongs
+    o.normalizedNamedRole = `${o.role}${o.isHelper ? "_helper" : ""}`;
+
+    o.createdAt = o.createdAt || Date.now();
+    o.updatedAt = o.updatedAt || o.createdAt;
+
+    return o;
+  }
 
   function normalizeInventoryItem(x) {
     const o = { ...(x || {}) };
