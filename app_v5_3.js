@@ -254,7 +254,7 @@
     jobs: loadArray(LS.jobs).map(normalizeJob),
     receipts: loadArray(LS.receipts).map(normalizeReceipt),
 
-    drivers: loadArray(LS.drivers).map((x) => normalizeNamedRow(x, "drv")),
+    drivers: loadArray(LS.drivers).map(normalizeDriver),
     trucks: loadArray(LS.trucks).map((x) => normalizeNamedRow(x, "trk")),
 
     dispatch: normalizeDispatchState(loadObj(LS.dispatch, {})),
