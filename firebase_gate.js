@@ -2,7 +2,7 @@
   "use strict";
 
   // Feature flag
-  const FIREBASE_ENABLED = false; // <-- stays false until everything works
+  const FIREBASE_ENABLED = true; // <-- stays false until everything works
 
   function log(msg) {
     console.log("[FirebaseGate]", msg);
