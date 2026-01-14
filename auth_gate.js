@@ -42,3 +42,4 @@
   // Start watching
   waitForFirebase();
 })();
+
