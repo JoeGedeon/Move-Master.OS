@@ -12,13 +12,22 @@
 <body>
   <div class="app-shell">
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <div id="authMount"></div>
-      <div class="brand">
-        <div class="brand-title">Move-Master.OS</div>
-        <div class="brand-sub">Fleet + Moving CRM</div>
-        
-      </div>
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-title">Move-Master.OS</div>
+    <div class="brand-sub">Fleet + Moving CRM</div>
+
+    <!-- ✅ AUTH BUTTON LIVES HERE -->
+    <div id="authMount"></div>
+  </div>
+
+  <nav class="side-nav">
+    <button class="nav-item active" data-view="dashboard">Dashboard</button>
+    <button class="nav-item" data-view="calendar">Calendar</button>
+    <button class="nav-item" data-view="day">Day Workspace</button>
+    ...
+  </nav>
+</aside>
 
       <nav class="side-nav">
            
