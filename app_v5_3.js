@@ -2256,7 +2256,7 @@ async function postToEndpoint(payload) {
     // normalize stored data
     state.jobs = (state.jobs || []).map(normalizeJob);
     state.receipts = (state.receipts || []).map(normalizeReceipt);
-    state.drivers = (state.drivers || []).map(x => normalizeNamedRow(x, "drv"));
+    state.drivers = (state.drivers || []).map(normalizeNamedRow);
     state.trucks = (state.trucks || []).map(x => normalizeNamedRow(x, "trk"));
     state.inventory = (state.inventory || []).map(normalizeInventoryItem);
     state.scans = (state.scans || []).map(normalizeScan);
