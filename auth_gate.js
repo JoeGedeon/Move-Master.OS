@@ -14,7 +14,7 @@
     console.log("[AuthGate]", msg);
   }
 
-  // We assume "not signed in" by default
+  // Default: not signed in
   window.MM_AUTH_READY = false;
 
   function waitForFirebase() {
@@ -28,26 +28,34 @@
   }
 
   function listenForAuth() {
-  firebase.auth().onAuthStateChanged((user) => {
-    if (user) {
-      log("User signed in:", user.email || user.uid);
-      window.MM_AUTH_READY = true;
-    } else {
-      log("No user signed in");
-      window.MM_AUTH_READY = false;
-    }
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        log("User signed in:", user.email || user.uid);
+        window.MM_AUTH_READY = true;
+      } else {
+        log("No user signed in");
+        window.MM_AUTH_READY = false;
+      }
 
-    // 🔁 UI reflection (NON-blocking, safe)
-    const btn = document.querySelector("#authMount button");
-    if (btn) btn.textContent = user ? "Signed In" : "Sign In";
-  });
-}
+      // 🔁 UI reflection (NON-blocking, safe)
+      const btn = document.querySelector("#authMount button");
+      if (btn) btn.textContent = user ? "Signed In" : "Sign In";
+    });
+  }
 
-  // Start watching
+  // Start watching for Firebase
   waitForFirebase();
 })();
 
 (function () {
+  /**
+   * Auth Button Mount
+   * =================
+   * - Creates Sign In button
+   * - Safe to run even if Firebase is not ready
+   * - NO app state changes
+   */
+
   const mount = document.getElementById("authMount");
   if (!mount) return;
 
@@ -55,8 +63,23 @@
   btn.className = "nav-item";
   btn.textContent = "Sign In";
 
-  btn.onclick = () => {
-    alert("Firebase Auth UI comes next");
+  btn.onclick = async () => {
+    if (!window.firebase || !firebase.auth) {
+      alert("Firebase not ready yet");
+      return;
+    }
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    try {
+      const result = await firebase.auth().signInWithPopup(provider);
+      const user = result.user;
+
+      console.log("[AuthGate] Signed in as:", user.email || user.uid);
+    } catch (err) {
+      console.error("[AuthGate] Sign-in failed:", err);
+      alert("Sign-in failed. Check console.");
+    }
   };
 
   mount.appendChild(btn);
