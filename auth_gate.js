@@ -28,16 +28,20 @@
   }
 
   function listenForAuth() {
-    firebase.auth().onAuthStateChanged((user) => {
-      if (user) {
-        log("User signed in:", user.email || user.uid);
-        window.MM_AUTH_READY = true;
-      } else {
-        log("No user signed in");
-        window.MM_AUTH_READY = false;
-      }
-    });
-  }
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      log("User signed in:", user.email || user.uid);
+      window.MM_AUTH_READY = true;
+    } else {
+      log("No user signed in");
+      window.MM_AUTH_READY = false;
+    }
+
+    // 🔁 UI reflection (NON-blocking, safe)
+    const btn = document.querySelector("#authMount button");
+    if (btn) btn.textContent = user ? "Signed In" : "Sign In";
+  });
+}
 
   // Start watching
   waitForFirebase();
