@@ -473,3 +473,29 @@ body {
   position: relative;
   z-index: 9999;
 }
+
+
+/* ================================
+   AUTH BUTTON VISIBILITY FIX
+   ================================ */
+
+#authMount {
+  margin-top: 8px;
+}
+
+#authMount .auth-btn {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 13px;
+  border: 1px solid rgba(120,160,255,0.28);
+  background: rgba(120,160,255,0.14);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+}
+
+#authMount .auth-btn:hover {
+  background: rgba(120,160,255,0.22);
+}
