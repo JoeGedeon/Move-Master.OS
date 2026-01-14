@@ -2294,39 +2294,3 @@ async function postToEndpoint(payload) {
   }
 })();
 
-// 1️⃣ IMPORTS (top of file, always)
-import { db } from "./firebase.js";
-import {
-  collection,
-  addDoc,
-  serverTimestamp
-} from "firebase/firestore";
-
-// 2️⃣ CONFIG / CONSTANTS
-const TEMP_ADMIN_UID = "ImaQ4OHSrvFTbhnA4ZOG";
-
-// 3️⃣ UI WIRING (this is the part you asked about)
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("createJobBtn");
-
-  if (!btn) {
-    console.warn("Create Job button not found");
-    return;
-  }
-
-  btn.addEventListener("click", async () => {
-    await addDoc(collection(db, "jobs"), {
-      createdAt: serverTimestamp(),
-      createdBy: TEMP_ADMIN_UID,
-      dispatcherId: TEMP_ADMIN_UID,
-      customerName: "Test Customer",
-      pickupAddress: "123 Main St",
-      dropoffAddress: "456 Oak Ave",
-      scheduledDate: new Date(),
-      status: "NEW",
-      driverIds: []
-    });
-
-    console.log("Job created");
-  });
-});
