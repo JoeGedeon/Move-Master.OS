@@ -39,7 +39,12 @@ body {
   overflow: hidden;
 }
 
-.brand { padding: 10px 10px 2px; }
+.brand {
+  padding: 10px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .brand-title { font-weight: 800; letter-spacing: 0.3px; }
 .brand-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
 
