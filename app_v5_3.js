@@ -11,9 +11,6 @@
 (() => {
   "use strict";
 
-   document.addEventListener("DOMContentLoaded", () => {
-  wireUI();
-});
 
   // ---------------------------
   // Helpers
