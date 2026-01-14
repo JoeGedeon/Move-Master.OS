@@ -1,6 +1,15 @@
 (function () {
   "use strict";
 
+  /**
+   * Auth Gate
+   * =========
+   * - Decides IF a user is signed in
+   * - Does NOT block the app
+   * - Does NOT touch app logic
+   * - Reflects auth state in the sidebar button only
+   */
+
   function log(msg) {
     console.log("[AuthGate]", msg);
   }
@@ -8,25 +17,37 @@
   // Default: not signed in
   window.MM_AUTH_READY = false;
 
-  // Ensure button exists (idempotent)
+  // Ensure Sign In button exists (idempotent, safe)
   function ensureAuthButton() {
     const mount = document.getElementById("authMount");
     if (!mount) return null;
 
     let btn = mount.querySelector("button");
+
     if (!btn) {
       btn = document.createElement("button");
       btn.className = "nav-item";
       btn.textContent = "Sign In";
-      btn.onclick = () => {
+
+      btn.onclick = async () => {
         if (!window.firebase || !firebase.auth) {
           alert("Firebase not ready yet");
           return;
         }
-        alert("Firebase Auth UI comes next");
+
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        try {
+          await firebase.auth().signInWithPopup(provider);
+        } catch (err) {
+          console.error("[AuthGate] Sign-in failed:", err);
+          alert("Sign-in failed");
+        }
       };
+
       mount.appendChild(btn);
     }
+
     return btn;
   }
 
@@ -55,5 +76,6 @@
     });
   }
 
+  // Start watching
   waitForFirebase();
 })();
