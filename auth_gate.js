@@ -43,3 +43,17 @@
   waitForFirebase();
 })();
 
+(function () {
+  const mount = document.getElementById("authMount");
+  if (!mount) return;
+
+  const btn = document.createElement("button");
+  btn.className = "nav-item";
+  btn.textContent = "Sign In";
+
+  btn.onclick = () => {
+    alert("Firebase Auth UI comes next");
+  };
+
+  mount.appendChild(btn);
+})();
