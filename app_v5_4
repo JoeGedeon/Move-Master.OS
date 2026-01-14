@@ -1,0 +1,238 @@
+/* =========================================================
+   Move-Master.OS — app_v5_4.js (STABLE CORE)
+   Clean rebuild. LocalStorage first. No Firebase.
+   ========================================================= */
+
+(() => {
+  "use strict";
+
+  const safe = (fn) => {
+    try { fn(); }
+    catch (e) {
+      console.error("[Move-Master.OS]", e);
+      alert("Critical JS error. Check console.");
+    }
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => safe(init));
+  } else {
+    safe(init);
+  }
+
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  const $ = (q, r = document) => r.querySelector(q);
+  const $$ = (q, r = document) => Array.from(r.querySelectorAll(q));
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const clampMoney = (n) =>
+    Math.round((Number(n) || 0) * 100) / 100;
+
+  const money = (n) => `$${clampMoney(n).toFixed(2)}`;
+
+  const makeId = (p="id") =>
+    crypto.randomUUID?.() || `${p}_${Date.now()}_${Math.random()}`;
+
+  const LS = {
+    jobs: "mm_jobs_v5_4",
+    receipts: "mm_receipts_v5_4",
+    drivers: "mm_drivers_v5_4",
+    trucks: "mm_trucks_v5_4",
+    dispatch: "mm_dispatch_v5_4",
+    inventory: "mm_inventory_v5_4",
+    scans: "mm_scans_v5_4",
+    sheets: "mm_sheets_v5_4",
+    bills: "mm_bills_v5_4"
+  };
+
+  const load = (k, f) => {
+    try { return JSON.parse(localStorage.getItem(k)) ?? f; }
+    catch { return f; }
+  };
+
+  const save = (k, v) => {
+    try { localStorage.setItem(k, JSON.stringify(v)); }
+    catch {}
+  };
+
+  const STATUS = { scheduled:1, completed:1, cancelled:1 };
+
+  const normalizeJob = (j={}) => ({
+    id: j.id || makeId("job"),
+    date: j.date || ymd(new Date()),
+    customer: (j.customer || "").trim(),
+    pickup: (j.pickup || "").trim(),
+    dropoff: (j.dropoff || "").trim(),
+    amount: clampMoney(j.amount),
+    status: STATUS[j.status] ? j.status : "scheduled",
+    notes: (j.notes || "").trim(),
+    createdAt: j.createdAt || Date.now(),
+    updatedAt: Date.now()
+  });
+
+  const normalizeNamed = (x={}, p) => ({
+    id: x.id || makeId(p),
+    name: (x.name || "").trim(),
+    notes: (x.notes || "").trim(),
+    createdAt: x.createdAt || Date.now(),
+    updatedAt: Date.now()
+  });
+
+  const state = {
+    view: "dashboard",
+    currentDate: startOfDay(new Date()),
+    jobs: load(LS.jobs, []).map(normalizeJob),
+    receipts: load(LS.receipts, []),
+    drivers: load(LS.drivers, []).map(x => normalizeNamed(x,"drv")),
+    trucks: load(LS.trucks, []).map(x => normalizeNamed(x,"trk")),
+    dispatch: load(LS.dispatch, {}),
+    inventory: load(LS.inventory, []),
+    scans: load(LS.scans, []),
+    sheets: load(LS.sheets, {}),
+    bills: load(LS.bills, [])
+  };
+
+  const persist = () => {
+    save(LS.jobs, state.jobs);
+    save(LS.receipts, state.receipts);
+    save(LS.drivers, state.drivers);
+    save(LS.trucks, state.trucks);
+    save(LS.dispatch, state.dispatch);
+    save(LS.inventory, state.inventory);
+    save(LS.scans, state.scans);
+    save(LS.sheets, state.sheets);
+    save(LS.bills, state.bills);
+  };
+
+  function setView(v) {
+    state.view = v;
+    $$('[id^="view-"]').forEach(el => el.classList.remove("active"));
+    $(`#view-${v}`)?.classList.add("active");
+    $$("[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === v));
+    renderAll();
+  }
+
+  function bindNav() {
+    $$("[data-view]").forEach(b =>
+      b.addEventListener("click", () => setView(b.dataset.view))
+    );
+
+    $("#btnAddJob")?.addEventListener("click", () => openJobModal());
+    $("#btnAddReceipt")?.addEventListener("click", () => openReceiptModal());
+  }
+
+  function renderAll() {
+    if (state.view === "dashboard") renderDashboard();
+    if (state.view === "calendar") renderCalendar();
+    if (state.view === "day") renderDay();
+    if (state.view === "drivers") renderDrivers();
+    if (state.view === "trucks") renderTrucks();
+    if (state.view === "dispatch") renderDispatch();
+    if (state.view === "inventory") renderInventory();
+    if (state.view === "scanner") renderScanner();
+    if (state.view === "sheets") renderSheets();
+  }
+
+  function init() {
+    bindNav();
+    setView("dashboard");
+    persist();
+    console.log("Move-Master.OS v5.4 ready");
+  }
+
+})();  function init() {
+    bindNav();
+    setView("dashboard");
+    persist();
+    console.log("Move-Master.OS v5.4 ready");
+  }
+
+})();
+
+/* ============================================================
+   JOB SCHEMA + VALIDATOR
+   Foundation contract for all job-related logic
+   ============================================================ */
+
+const JOB_STATUSES = Object.freeze({
+  NEW: "NEW",
+  SCHEDULED: "SCHEDULED",
+  ASSIGNED: "ASSIGNED",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED"
+});
+
+function createJob(raw = {}) {
+  const errors = [];
+
+  const job = {
+    id: raw.id || crypto.randomUUID(),
+
+    createdAt: raw.createdAt instanceof Date
+      ? raw.createdAt
+      : new Date(),
+
+    scheduledDate: raw.scheduledDate
+      ? new Date(raw.scheduledDate)
+      : null,
+
+    customerName: typeof raw.customerName === "string"
+      ? raw.customerName.trim()
+      : "",
+
+    pickupAddress: typeof raw.pickupAddress === "string"
+      ? raw.pickupAddress.trim()
+      : "",
+
+    dropoffAddress: typeof raw.dropoffAddress === "string"
+      ? raw.dropoffAddress.trim()
+      : "",
+
+    amount: Number.isFinite(Number(raw.amount))
+      ? Number(raw.amount)
+      : 0,
+
+    status: Object.values(JOB_STATUSES).includes(raw.status)
+      ? raw.status
+      : JOB_STATUSES.NEW,
+
+    driverIds: Array.isArray(raw.driverIds)
+      ? raw.driverIds.filter(Boolean)
+      : [],
+
+    truckId: typeof raw.truckId === "string"
+      ? raw.truckId
+      : null,
+
+    notes: typeof raw.notes === "string"
+      ? raw.notes.trim()
+      : ""
+  };
+
+  // ---- Validation rules ----
+  if (!job.customerName) errors.push("Customer name is required");
+  if (!job.pickupAddress) errors.push("Pickup address is required");
+  if (!job.dropoffAddress) errors.push("Dropoff address is required");
+
+  if (job.scheduledDate && isNaN(job.scheduledDate.getTime())) {
+    errors.push("Scheduled date is invalid");
+  }
+
+  if (!Number.isFinite(job.amount) || job.amount < 0) {
+    errors.push("Amount must be a valid number");
+  }
+
+  if (errors.length) {
+    const err = new Error("Invalid job data");
+    err.details = errors;
+    throw err;
+  }
+
+  return job;
+}
