@@ -142,15 +142,7 @@
     return o;
   }
 
-  function normalizeNamedRow(x, prefix) {
-    const o = { ...(x || {}) };
-    if (!o.id) o.id = makeId(prefix);
-    o.name = (o.name || "").trim();
-    o.notes = (o.notes || "").trim();
-    o.createdAt = o.createdAt || Date.now();
-    o.updatedAt = o.updatedAt || o.createdAt;
-    return o;
-  }
+
      function normalizeNamedRow(x, prefix) {
     const o = { ...(x || {}) };
     if (!o.id) o.id = makeId(prefix);
