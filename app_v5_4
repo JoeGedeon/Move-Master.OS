@@ -1,165 +1,148 @@
 /* =========================================================
-   Move-Master.OS — app_v5_4.js (STABLE CORE)
-   Clean rebuild. LocalStorage first. No Firebase.
+   Move-Master.OS — app_v5_4.js
+   SNIPPET 1: Core Bootstrap (Stable, Clean, Single Init)
    ========================================================= */
 
 (() => {
   "use strict";
 
-  const safe = (fn) => {
-    try { fn(); }
-    catch (e) {
-      console.error("[Move-Master.OS]", e);
-      alert("Critical JS error. Check console.");
+  /* ---------------------------
+     Safety Wrapper
+     --------------------------- */
+  function safe(fn) {
+    try {
+      fn();
+    } catch (err) {
+      console.error("[Move-Master.OS CRASH]", err);
+      alert("A critical error occurred. Open console.");
     }
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => safe(init));
-  } else {
-    safe(init);
   }
 
-  // ---------------------------
-  // Helpers
-  // ---------------------------
+  /* ---------------------------
+     Helpers
+     --------------------------- */
   const $ = (q, r = document) => r.querySelector(q);
   const $$ = (q, r = document) => Array.from(r.querySelectorAll(q));
 
   const pad2 = (n) => String(n).padStart(2, "0");
-  const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const ymd = (d) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-  const clampMoney = (n) =>
-    Math.round((Number(n) || 0) * 100) / 100;
-
-  const money = (n) => `$${clampMoney(n).toFixed(2)}`;
-
-  const makeId = (p="id") =>
-    crypto.randomUUID?.() || `${p}_${Date.now()}_${Math.random()}`;
-
+  /* ---------------------------
+     Local Storage Keys
+     --------------------------- */
   const LS = {
     jobs: "mm_jobs_v5_4",
     receipts: "mm_receipts_v5_4",
     drivers: "mm_drivers_v5_4",
     trucks: "mm_trucks_v5_4",
-    dispatch: "mm_dispatch_v5_4",
-    inventory: "mm_inventory_v5_4",
-    scans: "mm_scans_v5_4",
-    sheets: "mm_sheets_v5_4",
-    bills: "mm_bills_v5_4"
+    dispatch: "mm_dispatch_v5_4"
   };
 
-  const load = (k, f) => {
-    try { return JSON.parse(localStorage.getItem(k)) ?? f; }
-    catch { return f; }
-  };
+  function load(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
 
-  const save = (k, v) => {
-    try { localStorage.setItem(k, JSON.stringify(v)); }
-    catch {}
-  };
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }
 
-  const STATUS = { scheduled:1, completed:1, cancelled:1 };
-
-  const normalizeJob = (j={}) => ({
-    id: j.id || makeId("job"),
-    date: j.date || ymd(new Date()),
-    customer: (j.customer || "").trim(),
-    pickup: (j.pickup || "").trim(),
-    dropoff: (j.dropoff || "").trim(),
-    amount: clampMoney(j.amount),
-    status: STATUS[j.status] ? j.status : "scheduled",
-    notes: (j.notes || "").trim(),
-    createdAt: j.createdAt || Date.now(),
-    updatedAt: Date.now()
-  });
-
-  const normalizeNamed = (x={}, p) => ({
-    id: x.id || makeId(p),
-    name: (x.name || "").trim(),
-    notes: (x.notes || "").trim(),
-    createdAt: x.createdAt || Date.now(),
-    updatedAt: Date.now()
-  });
-
+  /* ---------------------------
+     Global State (Minimal)
+     --------------------------- */
   const state = {
     view: "dashboard",
     currentDate: startOfDay(new Date()),
-    jobs: load(LS.jobs, []).map(normalizeJob),
+    jobs: load(LS.jobs, []),
     receipts: load(LS.receipts, []),
-    drivers: load(LS.drivers, []).map(x => normalizeNamed(x,"drv")),
-    trucks: load(LS.trucks, []).map(x => normalizeNamed(x,"trk")),
-    dispatch: load(LS.dispatch, {}),
-    inventory: load(LS.inventory, []),
-    scans: load(LS.scans, []),
-    sheets: load(LS.sheets, {}),
-    bills: load(LS.bills, [])
+    drivers: load(LS.drivers, []),
+    trucks: load(LS.trucks, []),
+    dispatch: load(LS.dispatch, {})
   };
 
-  const persist = () => {
+  function persist() {
     save(LS.jobs, state.jobs);
     save(LS.receipts, state.receipts);
     save(LS.drivers, state.drivers);
     save(LS.trucks, state.trucks);
     save(LS.dispatch, state.dispatch);
-    save(LS.inventory, state.inventory);
-    save(LS.scans, state.scans);
-    save(LS.sheets, state.sheets);
-    save(LS.bills, state.bills);
-  };
+  }
 
-  function setView(v) {
-    state.view = v;
-    $$('[id^="view-"]').forEach(el => el.classList.remove("active"));
-    $(`#view-${v}`)?.classList.add("active");
-    $$("[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === v));
+  /* ---------------------------
+     View Routing
+     --------------------------- */
+  function setView(name) {
+    state.view = name;
+    $$('[id^="view-"]').forEach(v => v.classList.remove("active"));
+    $(`#view-${name}`)?.classList.add("active");
+
+    $$("[data-view]").forEach(btn =>
+      btn.classList.toggle("active", btn.dataset.view === name)
+    );
+
     renderAll();
   }
 
-  function bindNav() {
-    $$("[data-view]").forEach(b =>
-      b.addEventListener("click", () => setView(b.dataset.view))
-    );
-
-    $("#btnAddJob")?.addEventListener("click", () => openJobModal());
-    $("#btnAddReceipt")?.addEventListener("click", () => openReceiptModal());
-  }
-
+  /* ---------------------------
+     Render Switchboard
+     --------------------------- */
   function renderAll() {
-    if (state.view === "dashboard") renderDashboard();
-    if (state.view === "calendar") renderCalendar();
-    if (state.view === "day") renderDay();
-    if (state.view === "drivers") renderDrivers();
-    if (state.view === "trucks") renderTrucks();
-    if (state.view === "dispatch") renderDispatch();
-    if (state.view === "inventory") renderInventory();
-    if (state.view === "scanner") renderScanner();
-    if (state.view === "sheets") renderSheets();
+    if (state.view === "dashboard") renderDashboard?.();
+    if (state.view === "calendar") renderCalendar?.();
+    if (state.view === "day") renderDay?.();
+    if (state.view === "drivers") renderDrivers?.();
+    if (state.view === "trucks") renderTrucks?.();
+    if (state.view === "dispatch") renderDispatch?.();
   }
 
+  /* ---------------------------
+     Navigation Binding
+     --------------------------- */
+  function bindNav() {
+    $$("[data-view]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setView(btn.dataset.view);
+      });
+    });
+  }
+
+  /* ---------------------------
+     Init (SINGLE ENTRY POINT)
+     --------------------------- */
   function init() {
     bindNav();
     setView("dashboard");
     persist();
-    console.log("Move-Master.OS v5.4 ready");
+    console.log("Move-Master.OS v5.4 — Snippet 1 loaded");
   }
 
-})();  function init() {
-    bindNav();
-    setView("dashboard");
-    persist();
-    console.log("Move-Master.OS v5.4 ready");
+  /* ---------------------------
+     Boot
+     --------------------------- */
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => safe(init));
+  } else {
+    safe(init);
   }
-
 })();
 
-/* ============================================================
-   JOB SCHEMA + VALIDATOR
-   Foundation contract for all job-related logic
-   ============================================================ */
+/* =========================================================
+   SNIPPET 2 — Job Schema & Validator
+   Canonical data contract for all job logic
+   ========================================================= */
 
-const JOB_STATUSES = Object.freeze({
+/* ---------------------------
+   Job Status Constants
+   --------------------------- */
+const JOB_STATUS = Object.freeze({
   NEW: "NEW",
   SCHEDULED: "SCHEDULED",
   ASSIGNED: "ASSIGNED",
@@ -168,57 +151,80 @@ const JOB_STATUSES = Object.freeze({
   CANCELLED: "CANCELLED"
 });
 
+/* ---------------------------
+   Job Factory + Validator
+   --------------------------- */
 function createJob(raw = {}) {
   const errors = [];
 
   const job = {
-    id: raw.id || crypto.randomUUID(),
+    id: typeof raw.id === "string" ? raw.id : crypto.randomUUID(),
 
-    createdAt: raw.createdAt instanceof Date
-      ? raw.createdAt
-      : new Date(),
+    createdAt:
+      raw.createdAt instanceof Date
+        ? raw.createdAt
+        : new Date(),
 
-    scheduledDate: raw.scheduledDate
-      ? new Date(raw.scheduledDate)
-      : null,
+    scheduledDate:
+      raw.scheduledDate
+        ? new Date(raw.scheduledDate)
+        : null,
 
-    customerName: typeof raw.customerName === "string"
-      ? raw.customerName.trim()
-      : "",
+    customerName:
+      typeof raw.customerName === "string"
+        ? raw.customerName.trim()
+        : "",
 
-    pickupAddress: typeof raw.pickupAddress === "string"
-      ? raw.pickupAddress.trim()
-      : "",
+    pickupAddress:
+      typeof raw.pickupAddress === "string"
+        ? raw.pickupAddress.trim()
+        : "",
 
-    dropoffAddress: typeof raw.dropoffAddress === "string"
-      ? raw.dropoffAddress.trim()
-      : "",
+    dropoffAddress:
+      typeof raw.dropoffAddress === "string"
+        ? raw.dropoffAddress.trim()
+        : "",
 
-    amount: Number.isFinite(Number(raw.amount))
-      ? Number(raw.amount)
-      : 0,
+    amount:
+      Number.isFinite(Number(raw.amount))
+        ? Number(raw.amount)
+        : 0,
 
-    status: Object.values(JOB_STATUSES).includes(raw.status)
-      ? raw.status
-      : JOB_STATUSES.NEW,
+    status:
+      Object.values(JOB_STATUS).includes(raw.status)
+        ? raw.status
+        : JOB_STATUS.NEW,
 
-    driverIds: Array.isArray(raw.driverIds)
-      ? raw.driverIds.filter(Boolean)
-      : [],
+    driverIds:
+      Array.isArray(raw.driverIds)
+        ? raw.driverIds.filter(id => typeof id === "string")
+        : [],
 
-    truckId: typeof raw.truckId === "string"
-      ? raw.truckId
-      : null,
+    truckId:
+      typeof raw.truckId === "string"
+        ? raw.truckId
+        : null,
 
-    notes: typeof raw.notes === "string"
-      ? raw.notes.trim()
-      : ""
+    notes:
+      typeof raw.notes === "string"
+        ? raw.notes.trim()
+        : ""
   };
 
-  // ---- Validation rules ----
-  if (!job.customerName) errors.push("Customer name is required");
-  if (!job.pickupAddress) errors.push("Pickup address is required");
-  if (!job.dropoffAddress) errors.push("Dropoff address is required");
+  /* ---------------------------
+     Validation Rules
+     --------------------------- */
+  if (!job.customerName) {
+    errors.push("Customer name is required");
+  }
+
+  if (!job.pickupAddress) {
+    errors.push("Pickup address is required");
+  }
+
+  if (!job.dropoffAddress) {
+    errors.push("Dropoff address is required");
+  }
 
   if (job.scheduledDate && isNaN(job.scheduledDate.getTime())) {
     errors.push("Scheduled date is invalid");
@@ -236,3 +242,401 @@ function createJob(raw = {}) {
 
   return job;
 }
+
+/* =========================================================
+   SNIPPET 3 — Job Store (CRUD + Persistence)
+   Uses createJob() from Snippet 2
+   ========================================================= */
+
+/* ---------------------------
+   Read
+   --------------------------- */
+function getAllJobs() {
+  return [...state.jobs];
+}
+
+function getJobById(jobId) {
+  return state.jobs.find(j => j.id === jobId) || null;
+}
+
+/* ---------------------------
+   Create
+   --------------------------- */
+function addJob(rawJobData) {
+  const job = createJob(rawJobData);
+
+  state.jobs.push(job);
+  persist();
+
+  return job;
+}
+
+/* ---------------------------
+   Update
+   --------------------------- */
+function updateJob(jobId, updates = {}) {
+  const index = state.jobs.findIndex(j => j.id === jobId);
+  if (index === -1) {
+    throw new Error("Job not found");
+  }
+
+  const existing = state.jobs[index];
+
+  const updatedJob = createJob({
+    ...existing,
+    ...updates,
+    id: existing.id,
+    createdAt: existing.createdAt
+  });
+
+  state.jobs[index] = updatedJob;
+  persist();
+
+  return updatedJob;
+}
+
+/* ---------------------------
+   Delete
+   --------------------------- */
+function deleteJob(jobId) {
+  const before = state.jobs.length;
+  state.jobs = state.jobs.filter(j => j.id !== jobId);
+
+  if (state.jobs.length === before) {
+    throw new Error("Job not found");
+  }
+
+  // Clean up dispatch references safely
+  Object.keys(state.dispatch || {}).forEach(date => {
+    if (state.dispatch[date]?.[jobId]) {
+      delete state.dispatch[date][jobId];
+    }
+  });
+
+  persist();
+}
+
+/* =========================================================
+   SNIPPET 4 — Day + Calendar Index (Pure Aggregates)
+   No DOM. No persistence. No mutation.
+   ========================================================= */
+
+/* ---------------------------
+   Day-level selectors
+   --------------------------- */
+function getJobsForDate(dateInput) {
+  const date =
+    typeof dateInput === "string"
+      ? dateInput
+      : ymd(startOfDay(new Date(dateInput)));
+
+  return state.jobs.filter(j => {
+    if (!j.scheduledDate) return false;
+    return ymd(new Date(j.scheduledDate)) === date;
+  });
+}
+
+function getDaySummary(dateInput) {
+  const jobs = getJobsForDate(dateInput);
+
+  let revenue = 0;
+  let completed = 0;
+  let cancelled = 0;
+
+  jobs.forEach(j => {
+    if (j.status === JOB_STATUSES.COMPLETED) {
+      revenue += j.amount;
+      completed++;
+    }
+    if (j.status === JOB_STATUSES.CANCELLED) {
+      cancelled++;
+    }
+  });
+
+  return {
+    date: typeof dateInput === "string"
+      ? dateInput
+      : ymd(startOfDay(new Date(dateInput))),
+    jobCount: jobs.length,
+    completedCount: completed,
+    cancelledCount: cancelled,
+    revenue: clampMoney(revenue)
+  };
+}
+
+/* ---------------------------
+   Month-level selectors
+   --------------------------- */
+function getJobsForMonth(year, monthIndex) {
+  return state.jobs.filter(j => {
+    if (!j.scheduledDate) return false;
+    const d = new Date(j.scheduledDate);
+    return (
+      d.getFullYear() === year &&
+      d.getMonth() === monthIndex
+    );
+  });
+}
+
+function getMonthSummary(year, monthIndex) {
+  const jobs = getJobsForMonth(year, monthIndex);
+
+  let revenue = 0;
+  let completed = 0;
+  let cancelled = 0;
+
+  jobs.forEach(j => {
+    if (j.status === JOB_STATUSES.COMPLETED) {
+      revenue += j.amount;
+      completed++;
+    }
+    if (j.status === JOB_STATUSES.CANCELLED) {
+      cancelled++;
+    }
+  });
+
+  return {
+    year,
+    month: monthIndex,
+    jobCount: jobs.length,
+    completedCount: completed,
+    cancelledCount: cancelled,
+    revenue: clampMoney(revenue)
+  };
+}
+
+/* =========================================================
+   SNIPPET 5 — Dispatch Engine (Assignments + Integrity)
+   Pure logic. No UI. No persistence side effects.
+   ========================================================= */
+
+/*
+Dispatch shape:
+
+state.dispatch = {
+  "YYYY-MM-DD": {
+    jobId: {
+      driverIds: [],
+      truckId: null,
+      notes: "",
+      updatedAt: number
+    }
+  }
+}
+*/
+
+function ensureDispatchDate(dateInput) {
+  const date =
+    typeof dateInput === "string"
+      ? dateInput
+      : ymd(startOfDay(new Date(dateInput)));
+
+  if (!state.dispatch[date]) {
+    state.dispatch[date] = {};
+  }
+
+  return state.dispatch[date];
+}
+
+/* ---------------------------
+   Assignment API
+   --------------------------- */
+function assignDispatch({
+  date,
+  jobId,
+  driverIds = [],
+  truckId = null,
+  notes = ""
+}) {
+  const bucket = ensureDispatchDate(date);
+
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) throw new Error("Dispatch error: Job not found");
+
+  if (job.status === JOB_STATUSES.CANCELLED) {
+    throw new Error("Cannot dispatch a cancelled job");
+  }
+
+  // Validate drivers
+  const validDrivers = driverIds.filter(id =>
+    state.drivers.some(d => d.id === id)
+  );
+
+  // Validate truck
+  const validTruck =
+    truckId && state.trucks.some(t => t.id === truckId)
+      ? truckId
+      : null;
+
+  bucket[jobId] = {
+    driverIds: validDrivers,
+    truckId: validTruck,
+    notes: String(notes || "").trim(),
+    updatedAt: Date.now()
+  };
+
+  return bucket[jobId];
+}
+
+/* ---------------------------
+   Conflict detection
+   --------------------------- */
+function getDispatchConflicts(dateInput) {
+  const date =
+    typeof dateInput === "string"
+      ? dateInput
+      : ymd(startOfDay(new Date(dateInput)));
+
+  const bucket = state.dispatch[date] || {};
+  const driverUsage = {};
+  const truckUsage = {};
+
+  Object.values(bucket).forEach(a => {
+    a.driverIds.forEach(id => {
+      driverUsage[id] = (driverUsage[id] || 0) + 1;
+    });
+    if (a.truckId) {
+      truckUsage[a.truckId] = (truckUsage[a.truckId] || 0) + 1;
+    }
+  });
+
+  return {
+    driverConflicts: Object.entries(driverUsage)
+      .filter(([, count]) => count > 1)
+      .map(([id, count]) => ({ driverId: id, count })),
+
+    truckConflicts: Object.entries(truckUsage)
+      .filter(([, count]) => count > 1)
+      .map(([id, count]) => ({ truckId: id, count }))
+  };
+}
+
+/* ---------------------------
+   Dispatch status helper
+   --------------------------- */
+function getDispatchStatus(dateInput) {
+  const date =
+    typeof dateInput === "string"
+      ? dateInput
+      : ymd(startOfDay(new Date(dateInput)));
+
+  const jobs = getJobsForDate(date);
+  const bucket = state.dispatch[date] || {};
+
+  let unassigned = 0;
+
+  jobs.forEach(j => {
+    if (j.status === JOB_STATUSES.CANCELLED) return;
+    const a = bucket[j.id];
+    if (!a || !a.truckId || !a.driverIds.length) {
+      unassigned++;
+    }
+  });
+
+  const conflicts = getDispatchConflicts(date);
+
+  return {
+    date,
+    totalJobs: jobs.length,
+    unassigned,
+    driverConflicts: conflicts.driverConflicts.length,
+    truckConflicts: conflicts.truckConflicts.length
+  };
+}
+
+/* ============================================================
+   SNIPPET 6 — DISPATCH CORE + DASHBOARD SYNC
+   - LocalStorage only
+   - No Firebase
+   - Safe, additive logic
+   ============================================================ */
+
+// ---------------------------
+// Dispatch helpers
+// ---------------------------
+function ensureDispatchDay(dateStr) {
+  if (!state.dispatch[dateStr]) {
+    state.dispatch[dateStr] = {};
+  }
+  return state.dispatch[dateStr];
+}
+
+function assignDispatch({ date, jobId, driverId = "", truckId = "", notes = "" }) {
+  const day = ensureDispatchDay(date);
+
+  day[jobId] = {
+    driverId,
+    truckId,
+    notes,
+    updatedAt: Date.now()
+  };
+
+  persist();
+}
+
+// ---------------------------
+// Dispatch metrics (used by Dashboard)
+// ---------------------------
+function getDispatchStats(dateStr) {
+  const jobs = state.jobs.filter(j => j.date === dateStr && j.status !== "cancelled");
+  const day = ensureDispatchDay(dateStr);
+
+  let unassigned = 0;
+
+  jobs.forEach(j => {
+    const a = day[j.id] || {};
+    if (!a.driverId || !a.truckId) unassigned++;
+  });
+
+  return {
+    totalJobs: jobs.length,
+    unassigned
+  };
+}
+
+// ---------------------------
+// Dashboard augmentation
+// ---------------------------
+function renderDispatchSummaryIntoDashboard() {
+  const host = document.getElementById("todayStats");
+  if (!host) return;
+
+  const dateStr = ymd(state.currentDate);
+  const stats = getDispatchStats(dateStr);
+
+  const el = document.createElement("div");
+  el.style.marginTop = "8px";
+  el.innerHTML = `
+    <div>
+      Dispatch Unassigned:
+      <strong style="color:${stats.unassigned ? "#ff6b6b" : "#4caf50"}">
+        ${stats.unassigned}
+      </strong>
+    </div>
+  `;
+
+  host.appendChild(el);
+}
+
+// ---------------------------
+// Hook into existing dashboard render
+// ---------------------------
+const _renderDashboardOriginal = renderDashboard;
+renderDashboard = function () {
+  _renderDashboardOriginal();
+  renderDispatchSummaryIntoDashboard();
+};
+
+
+job.signatures = {
+  client: {
+    signedAt: timestamp | null,
+    image: base64 | null,
+    name: string
+  },
+  driver: {
+    signedAt: timestamp | null,
+    image: base64 | null,
+    name: string
+  }
+};
