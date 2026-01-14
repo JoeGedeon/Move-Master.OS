@@ -405,6 +405,133 @@ function getMonthSummary(year, monthIndex) {
   };
 }
 
+/* ============================================================
+   SNIPPET 5 — DISPATCH CORE (Jobs × Drivers × Trucks)
+   Pure logic. No UI assumptions. No side effects.
+   ============================================================ */
+
+/*
+Dispatch shape:
+
+dispatch = {
+  "YYYY-MM-DD": {
+    jobId: {
+      driverId: "drv_x",
+      truckId: "trk_y",
+      notes: "",
+      updatedAt: timestamp
+    }
+  }
+}
+*/
+
+function ensureDispatchDay(dateISO) {
+  if (!state.dispatch[dateISO]) {
+    state.dispatch[dateISO] = {};
+  }
+  return state.dispatch[dateISO];
+}
+
+function assignDispatch({ dateISO, jobId, driverId = "", truckId = "", notes = "" }) {
+  if (!dateISO || !jobId) {
+    throw new Error("assignDispatch requires dateISO and jobId");
+  }
+
+  const day = ensureDispatchDay(dateISO);
+
+  day[jobId] = {
+    driverId,
+    truckId,
+    notes: String(notes || "").trim(),
+    updatedAt: Date.now()
+  };
+
+  persist();
+}
+
+function clearDispatchDay(dateISO) {
+  if (!dateISO) return;
+  state.dispatch[dateISO] = {};
+  persist();
+}
+
+function getDispatchForJob(dateISO, jobId) {
+  const day = ensureDispatchDay(dateISO);
+  return day[jobId] || null;
+}
+
+function countUnassignedJobs(dateISO) {
+  const jobs = state.jobs.filter(j =>
+    j.date === dateISO && j.status !== "cancelled"
+  );
+
+  const day = ensureDispatchDay(dateISO);
+
+  let count = 0;
+  for (const job of jobs) {
+    const a = day[job.id];
+    if (!a || !a.driverId || !a.truckId) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function detectDispatchConflicts(dateISO) {
+  const day = ensureDispatchDay(dateISO);
+
+  const driverUsage = {};
+  const truckUsage = {};
+
+  Object.values(day).forEach(a => {
+    if (a.driverId) {
+      driverUsage[a.driverId] = (driverUsage[a.driverId] || 0) + 1;
+    }
+    if (a.truckId) {
+      truckUsage[a.truckId] = (truckUsage[a.truckId] || 0) + 1;
+    }
+  });
+
+  return {
+    drivers: Object.keys(driverUsage).filter(id => driverUsage[id] > 1),
+    trucks: Object.keys(truckUsage).filter(id => truckUsage[id] > 1)
+  };
+}
+
+function autoAssignDispatch(dateISO) {
+  const jobs = state.jobs
+    .filter(j => j.date === dateISO && j.status !== "cancelled")
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  const drivers = [...state.drivers];
+  const trucks = [...state.trucks];
+
+  if (!jobs.length || !drivers.length || !trucks.length) {
+    return { assigned: 0 };
+  }
+
+  const day = ensureDispatchDay(dateISO);
+
+  let d = 0;
+  let t = 0;
+  let assigned = 0;
+
+  for (const job of jobs) {
+    day[job.id] = {
+      driverId: drivers[d % drivers.length].id,
+      truckId: trucks[t % trucks.length].id,
+      notes: "",
+      updatedAt: Date.now()
+    };
+    d++;
+    t++;
+    assigned++;
+  }
+
+  persist();
+  return { assigned };
+}
+
 /* =========================================================
    SNIPPET 5 — Dispatch Engine (Assignments + Integrity)
    Pure logic. No UI. No persistence side effects.
@@ -543,6 +670,116 @@ function getDispatchStatus(dateInput) {
     truckConflicts: conflicts.truckConflicts.length
   };
 }
+
+/* ============================================================
+   SNIPPET 6 — JOB MODAL + CRUD (STABLE)
+   Depends on:
+   - state
+   - normalizeJob
+   - persist()
+   - renderAll()
+   - helpers: $, ymd, makeId
+   ============================================================ */
+
+// ---------------------------
+// Job Modal helpers
+// ---------------------------
+function openJobModal(jobId = null) {
+  state.editingJobId = jobId;
+
+  const job = jobId
+    ? state.jobs.find(j => j.id === jobId)
+    : null;
+
+  $("#jobModalTitle").textContent = job ? "Edit Job" : "Add Job";
+  $("#jobDelete").hidden = !job;
+
+  $("#jobDate").value = job ? job.date : ymd(state.currentDate);
+  $("#jobCustomer").value = job?.customer || "";
+  $("#jobPickup").value = job?.pickup || "";
+  $("#jobDropoff").value = job?.dropoff || "";
+  $("#jobAmount").value = job?.amount ?? 0;
+  $("#jobStatus").value = job?.status || "scheduled";
+  $("#jobNotes").value = job?.notes || "";
+
+  $("#modalOverlay").hidden = false;
+  $("#jobModal").hidden = false;
+}
+
+function closeJobModal() {
+  $("#modalOverlay").hidden = true;
+  $("#jobModal").hidden = true;
+  state.editingJobId = null;
+}
+
+// ---------------------------
+// Save Job
+// ---------------------------
+function saveJobFromModal() {
+  const data = {
+    id: state.editingJobId || makeId("job"),
+    date: $("#jobDate").value,
+    customer: $("#jobCustomer").value,
+    pickup: $("#jobPickup").value,
+    dropoff: $("#jobDropoff").value,
+    amount: $("#jobAmount").value,
+    status: $("#jobStatus").value,
+    notes: $("#jobNotes").value
+  };
+
+  try {
+    const job = normalizeJob(data);
+
+    if (state.editingJobId) {
+      const idx = state.jobs.findIndex(j => j.id === state.editingJobId);
+      if (idx !== -1) state.jobs[idx] = job;
+    } else {
+      state.jobs.push(job);
+    }
+
+    persist();
+    closeJobModal();
+    renderAll();
+  } catch (e) {
+    alert("Job validation failed.");
+    console.error(e);
+  }
+}
+
+// ---------------------------
+// Delete Job
+// ---------------------------
+function deleteJobFromModal() {
+  if (!state.editingJobId) return;
+  if (!confirm("Delete this job?")) return;
+
+  const id = state.editingJobId;
+
+  state.jobs = state.jobs.filter(j => j.id !== id);
+
+  // Remove from dispatch if present
+  Object.keys(state.dispatch).forEach(date => {
+    delete state.dispatch[date]?.[id];
+  });
+
+  persist();
+  closeJobModal();
+  renderAll();
+}
+
+// ---------------------------
+// Wire modal buttons ONCE
+// ---------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  $("#jobModalClose")?.addEventListener("click", closeJobModal);
+  $("#jobCancel")?.addEventListener("click", closeJobModal);
+  $("#jobSave")?.addEventListener("click", saveJobFromModal);
+  $("#jobDelete")?.addEventListener("click", deleteJobFromModal);
+
+  $("#modalOverlay")?.addEventListener("click", () => {
+    closeJobModal();
+  });
+});
 
 /* ============================================================
    SNIPPET 6 — DISPATCH CORE + DASHBOARD SYNC
