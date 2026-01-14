@@ -18,19 +18,15 @@
     console.log("[FirebaseGate]", msg);
   }
 
-  function waitForCore() {
-    if (window.MM_CORE_READY === true) {
-      log("Core detected. Safe to proceed.");
-
-      if (FIREBASE_ENABLED) {
-        initFirebase();
-      } else {
-        log("Firebase disabled by feature flag.");
-      }
-      return;
-    }
-    setTimeout(waitForCore, 50);
+  function waitForFirebaseSDK() {
+  if (!window.firebase || !firebase.initializeApp) {
+    setTimeout(waitForFirebaseSDK, 50);
+    return;
   }
+  initFirebase();
+}
+
+waitForFirebaseSDK();
 
   function initFirebase() {
     if (!window.firebase || !firebase.initializeApp) {
