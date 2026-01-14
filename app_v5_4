@@ -877,3 +877,19 @@ job.signatures = {
     name: string
   }
 };
+
+/* ============================================================
+   SNIPPET 6 — JS BOOT CONFIRMATION
+   Flips the "JS: loading…" pill when execution succeeds
+   ============================================================ */
+
+(function markJSReady() {
+  const pill = document.getElementById("jsPill");
+  if (!pill) return;
+
+  pill.textContent = "JS: ready";
+  pill.classList.remove("bad");
+  pill.classList.add("good");
+
+  console.log("[Move-Master.OS] JS boot confirmed");
+})();
