@@ -1,23 +1,12 @@
-(function () {
+((function () {
   "use strict";
-
-  /**
-   * Auth Gate
-   * =========
-   * - Decides IF a user is signed in
-   * - Does NOT block the app
-   * - Does NOT touch app logic
-   * - Reflects auth state in the sidebar button only
-   */
 
   function log(msg) {
     console.log("[AuthGate]", msg);
   }
 
-  // Default: not signed in
   window.MM_AUTH_READY = false;
 
-  // Ensure Sign In button exists (idempotent, safe)
   function ensureAuthButton() {
     const mount = document.getElementById("authMount");
     if (!mount) return null;
@@ -29,20 +18,14 @@
       btn.className = "nav-item";
       btn.textContent = "Sign In";
 
-      btn.onclick = async () => {
+      btn.onclick = () => {
         if (!window.firebase || !firebase.auth) {
           alert("Firebase not ready yet");
           return;
         }
 
         const provider = new firebase.auth.GoogleAuthProvider();
-
-        try {
-          await firebase.auth().signInWithPopup(provider);
-        } catch (err) {
-          console.error("[AuthGate] Sign-in failed:", err);
-          alert("Sign-in failed");
-        }
+        firebase.auth().signInWithRedirect(provider);
       };
 
       mount.appendChild(btn);
@@ -76,6 +59,5 @@
     });
   }
 
-  // Start watching
   waitForFirebase();
 })();
