@@ -331,16 +331,26 @@ body {
 .panel-spacer { height: 10px; }
 
 /* ---------- Modals ---------- */
-.modal-overlay {
+#modalOverlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.55);
   backdrop-filter: blur(2px);
-  z-index: 100;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+#modalOverlay[hidden] {
+  display: none !important;
+}
+
+.modal[hidden] {
+  display: none !important;
 }
 
 .modal {
-  position: fixed;
+  display: flex;
+}
   top: 50%;
   left: 50%;
   width: min(520px, calc(100vw - 24px));
