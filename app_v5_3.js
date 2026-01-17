@@ -2061,136 +2061,145 @@ function deleteJobFromModal() {
   closeModal("#jobModal");
   renderAll();
 }
+// ---------------------------
+// Modals (HARD-CORRECT)
+// ---------------------------
 
-/* =========================
-   RECEIPT MODAL
-   ========================= */
+function openModal(modalId) {
+  const overlay = $("#modalOverlay");
+  const modal = $(modalId);
+  if (!overlay || !modal) return;
 
-function populateReceiptDriverDropdown() {
-  const sel = $("#receiptDriverId");
-  if (!sel) return;
+  overlay.hidden = false;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
 
-  const drivers = (state.drivers || [])
-    .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-
-  const keep = sel.value || "";
-
-  sel.innerHTML =
-    `<option value="">(no driver)</option>` +
-    drivers.map(d =>
-      `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name || "Driver")}</option>`
-    ).join("");
-
-  sel.value = keep;
+  document.body.classList.add("modal-open");
 }
+
+function closeModal(modalId) {
+  const overlay = $("#modalOverlay");
+  const modal = $(modalId);
+  if (!overlay || !modal) return;
+
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+
+  // if no other modals are open, hide overlay
+  const anyOpen = ["#jobModal", "#receiptModal"].some(
+    id => $(id) && !$(id).hidden
+  );
+
+  if (!anyOpen) {
+    overlay.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+}
+
+// ---------- JOB MODAL ----------
+
+function openJobModal(jobId = null) {
+  state.editingJobId = jobId;
+
+  const job = jobId ? state.jobs.find(j => j.id === jobId) : null;
+
+  $("#jobModalTitle").textContent = job ? "Edit Job" : "Add Job";
+  $("#jobDelete").hidden = !job;
+
+  $("#jobDate").value = job ? job.date : ymd(state.currentDate);
+  $("#jobCustomer").value = job ? job.customer : "";
+  $("#jobPickup").value = job ? job.pickup : "";
+  $("#jobDropoff").value = job ? job.dropoff : "";
+  $("#jobAmount").value = job ? job.amount : 0;
+  $("#jobStatus").value = job ? job.status : STATUS.scheduled;
+  $("#jobNotes").value = job ? job.notes : "";
+
+  openModal("#jobModal");
+}
+
+function saveJobFromModal() {
+  const id = state.editingJobId;
+
+  const jobData = {
+    date: $("#jobDate").value,
+    customer: $("#jobCustomer").value.trim(),
+    pickup: $("#jobPickup").value.trim(),
+    dropoff: $("#jobDropoff").value.trim(),
+    amount: clampMoney($("#jobAmount").value),
+    status: $("#jobStatus").value,
+    notes: $("#jobNotes").value.trim(),
+    updatedAt: Date.now()
+  };
+
+  if (id) {
+    Object.assign(state.jobs.find(j => j.id === id), jobData);
+  } else {
+    state.jobs.push(normalizeJob({ ...jobData, createdAt: Date.now() }));
+  }
+
+  persist();
+  closeModal("#jobModal");
+  renderAll();
+}
+
+function deleteJobFromModal() {
+  const id = state.editingJobId;
+  if (!id || !confirm("Delete this job?")) return;
+
+  state.jobs = state.jobs.filter(j => j.id !== id);
+  persist();
+
+  closeModal("#jobModal");
+  renderAll();
+}
+
+// ---------- RECEIPT MODAL ----------
 
 function openReceiptModal(receiptId = null) {
   state.editingReceiptId = receiptId;
 
-  const title = $("#receiptModalTitle");
-  const delBtn = $("#receiptDelete");
-  const err = $("#receiptError");
-
-  if (err) {
-    err.hidden = true;
-    err.textContent = "";
-  }
-
   const r = receiptId ? state.receipts.find(x => x.id === receiptId) : null;
 
-  if (title) title.textContent = r ? "Edit Receipt" : "Add Receipt";
-  if (delBtn) delBtn.hidden = !r;
+  $("#receiptModalTitle").textContent = r ? "Edit Receipt" : "Add Receipt";
+  $("#receiptDelete").hidden = !r;
 
   populateReceiptDriverDropdown();
 
   $("#receiptDate").value = r ? r.date : ymd(state.currentDate);
   $("#receiptVendor").value = r ? r.vendor : "";
   $("#receiptCategory").value = r ? r.category : "";
-  $("#receiptAmount").value = String(r ? r.amount : 0);
+  $("#receiptAmount").value = r ? r.amount : 0;
   $("#receiptDriverId").value = r ? r.driverId : "";
   $("#receiptLinkedJobId").value = r ? r.linkedJobId : "";
+  $("#receiptNotes").value = r ? r.notes : "";
 
-  const tempScan = localStorage.getItem("mm_temp_scan_text") || "";
-  $("#receiptNotes").value = r ? r.notes : tempScan;
-
-  const hint = $("#receiptPhotoHint");
-  if (hint) hint.textContent = r?.photo ? "Photo attached ✅" : "No photo";
-
-  const fileEl = $("#receiptPhoto");
-  if (fileEl) fileEl.value = "";
+  $("#receiptPhoto").value = "";
 
   openModal("#receiptModal");
 }
 
-async function saveReceiptFromModal() {
-  const err = $("#receiptError");
-  const fail = (msg) => {
-    if (err) {
-      err.textContent = msg;
-      err.hidden = false;
-    } else {
-      alert(msg);
-    }
+function saveReceiptFromModal() {
+  const id = state.editingReceiptId;
+
+  const receiptData = {
+    date: $("#receiptDate").value,
+    vendor: $("#receiptVendor").value.trim(),
+    category: $("#receiptCategory").value.trim(),
+    amount: clampMoney($("#receiptAmount").value),
+    driverId: $("#receiptDriverId").value,
+    linkedJobId: $("#receiptLinkedJobId").value,
+    notes: $("#receiptNotes").value.trim(),
+    updatedAt: Date.now()
   };
 
-  const date = ($("#receiptDate").value || "").trim();
-  const vendor = ($("#receiptVendor").value || "").trim();
-  const category = ($("#receiptCategory").value || "").trim();
-  const amount = clampMoney($("#receiptAmount").value ?? 0);
-  const driverId = ($("#receiptDriverId").value || "").trim();
-  const linkedJobId = ($("#receiptLinkedJobId").value || "").trim();
-  const notes = ($("#receiptNotes").value || "").trim();
-
-  if (!date) return fail("Date is required.");
-  if (!vendor) return fail("Vendor is required.");
-  if (amount <= 0) return fail("Amount must be greater than 0.");
-
-  if (err) {
-    err.hidden = true;
-    err.textContent = "";
-  }
-
-  let photo = "";
-  const fileEl = $("#receiptPhoto");
-  const file = fileEl?.files?.[0];
-  if (file) {
-    try {
-      photo = await readFileAsDataURL(file);
-    } catch {}
-  }
-
-  if (state.editingReceiptId) {
-    const r = state.receipts.find(x => x.id === state.editingReceiptId);
-    if (!r) return fail("Receipt not found.");
-
-    Object.assign(r, {
-      date,
-      vendor,
-      category,
-      amount,
-      driverId,
-      linkedJobId,
-      notes,
-      photo: photo || r.photo,
-      updatedAt: Date.now(),
-    });
+  if (id) {
+    Object.assign(state.receipts.find(r => r.id === id), receiptData);
   } else {
     state.receipts.push(normalizeReceipt({
-      date,
-      vendor,
-      category,
-      amount,
-      driverId,
-      linkedJobId,
-      notes,
-      photo,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      ...receiptData,
+      createdAt: Date.now()
     }));
   }
-
-  localStorage.removeItem("mm_temp_scan_text");
 
   persist();
   closeModal("#receiptModal");
@@ -2199,11 +2208,11 @@ async function saveReceiptFromModal() {
 
 function deleteReceiptFromModal() {
   const id = state.editingReceiptId;
-  if (!id) return;
-  if (!confirm("Delete this receipt?")) return;
+  if (!id || !confirm("Delete this receipt?")) return;
 
   state.receipts = state.receipts.filter(r => r.id !== id);
   persist();
+
   closeModal("#receiptModal");
   renderAll();
 }
