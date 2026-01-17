@@ -2071,8 +2071,7 @@ async function postToEndpoint(payload) {
     if (fileEl) fileEl.value = "";
 
     openModal("#receiptModal");
-     document.body.classList.add("modal-open");
-  }
+     
 
   async function saveReceiptFromModal() {
     const err = $("#receiptError");
@@ -2147,7 +2146,7 @@ async function postToEndpoint(payload) {
 
     closeModal("#receiptModal");
     renderAll();
-     document.body.classList.remove("modal-open");
+     
   }
 
   // ---------------------------
