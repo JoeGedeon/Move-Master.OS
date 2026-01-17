@@ -388,11 +388,16 @@ body {
   flex-direction: column;
 }
 
+
 .modal-body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
   margin-bottom: 12px;
+
+  /* 🔑 ADD THESE */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
