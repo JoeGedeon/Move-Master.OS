@@ -375,7 +375,9 @@ body {
   margin-bottom: 10px;
   font-size: 13px;
 }
-
+body.modal-open {
+  overflow: hidden !important;
+}
 
 
 .modal-body {
