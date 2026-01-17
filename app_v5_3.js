@@ -2071,6 +2071,7 @@ async function postToEndpoint(payload) {
     if (fileEl) fileEl.value = "";
 
     openModal("#receiptModal");
+     document.body.classList.add("modal-open");
   }
 
   async function saveReceiptFromModal() {
