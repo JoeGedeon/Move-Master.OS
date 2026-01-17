@@ -2147,6 +2147,7 @@ async function postToEndpoint(payload) {
 
     closeModal("#receiptModal");
     renderAll();
+     document.body.classList.remove("modal-open");
   }
 
   // ---------------------------
