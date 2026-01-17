@@ -331,6 +331,11 @@ body {
 .panel-spacer { height: 10px; }
 
 /* ---------- Modals ---------- */
+/* IMPORTANT:
+   Modal overlay MUST be #modalOverlay
+   JS relies on ID selector. Do not replace with .modal-overlay
+*/
+
 #modalOverlay {
   position: fixed;
   inset: 0;
