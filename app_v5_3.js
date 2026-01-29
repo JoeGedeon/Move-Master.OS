@@ -2359,5 +2359,45 @@ function deleteReceiptFromModal() {
   } else {
     safe(init);
     setPill("JS: LOADED NEW FILE 🔥🔥 v5.3.100", true);
+
+       // ---------------------------
+  // Load data from Firebase via bridge
+  // ---------------------------
+  async function loadDataFromFirebase() {
+    if (!window.MMAdapter) {
+      console.warn('Bridge not loaded yet, using localStorage fallback');
+      return;
+    }
+    
+    try {
+      const dateStr = ymd(state.currentDate);
+      
+      // Load jobs for current date
+      state.jobs = await window.MMAdapter.loadJobsForDate(dateStr);
+      
+      // Load drivers and trucks
+      state.drivers = await window.MMAdapter.loadDrivers();
+      state.trucks = await window.MMAdapter.loadTrucks();
+      
+      // Load dispatch for current date
+      const dispatchData = await window.MMAdapter.loadDispatch(dateStr);
+      state.dispatch[dateStr] = dispatchData;
+      
+      console.log('✅ Data loaded from Firebase');
+      renderAll();
+      
+    } catch (error) {
+      console.error('Failed to load from Firebase:', error);
+      setPill("Firebase load failed ⚠️", false);
+    }
+  }
+  
+  // Call after init
+  setTimeout(() => {
+    if (window.MMAdapter) {
+      loadDataFromFirebase();
+    }
+  }, 1000);
+
   }
 })();
