@@ -2365,41 +2365,81 @@ function deleteReceiptFromModal() {
        // ---------------------------
   // Load data from Firebase via bridge
   // ---------------------------
-  async function loadDataFromFirebase() {
-    if (!window.MMAdapter) {
-      console.warn('Bridge not loaded yet, using localStorage fallback');
-      return;
+async function saveJobFromModal() {
+  const err = $("#jobError");
+  const fail = (msg) => {
+    if (err) {
+      err.textContent = msg;
+      err.hidden = false;
+    } else {
+      alert(msg);
     }
-    
-    try {
-      const dateStr = ymd(state.currentDate);
-      
-      // Load jobs for current date
-      state.jobs = await window.MMAdapter.loadJobsForDate(dateStr);
-      
-      // Load drivers and trucks
-      state.drivers = await window.MMAdapter.loadDrivers();
-      state.trucks = await window.MMAdapter.loadTrucks();
-      
-      // Load dispatch for current date
-      const dispatchData = await window.MMAdapter.loadDispatch(dateStr);
-      state.dispatch[dateStr] = dispatchData;
-      
-      console.log('✅ Data loaded from Firebase');
-      renderAll();
-      
-    } catch (error) {
-      console.error('Failed to load from Firebase:', error);
-      setPill("Firebase load failed ⚠️", false);
-    }
+  };
+
+  const date = ($("#jobDate").value || "").trim();
+  const customer = ($("#jobCustomer").value || "").trim();
+  const pickup = ($("#jobPickup").value || "").trim();
+  const dropoff = ($("#jobDropoff").value || "").trim();
+  const amount = clampMoney($("#jobAmount").value ?? 0);
+  const status = ($("#jobStatus").value || STATUS.scheduled).trim();
+  const notes = ($("#jobNotes").value || "").trim();
+
+  if (!date) return fail("Date is required.");
+  if (!customer) return fail("Customer is required.");
+  if (!STATUS[status]) return fail("Invalid status.");
+
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
   }
-  
-  // Call after init
-  setTimeout(() => {
-    if (window.MMAdapter) {
-      loadDataFromFirebase();
+
+  const jobData = {
+    date,
+    customer,
+    pickup,
+    dropoff,
+    amount,
+    status,
+    notes,
+    updatedAt: Date.now()
+  };
+
+  try {
+    if (state.editingJobId) {
+      // Update existing job
+      const job = state.jobs.find(j => j.id === state.editingJobId);
+      if (!job) return fail("Job not found.");
+      
+      Object.assign(job, jobData);
+      
+      // Save to Firebase
+      if (window.MMAdapter) {
+        await window.MMAdapter.saveJob(job);
+      }
+    } else {
+      // Create new job
+      const newJob = normalizeJob({
+        ...jobData,
+        createdAt: Date.now()
+      });
+      
+      state.jobs.push(newJob);
+      
+      // Save to Firebase
+      if (window.MMAdapter) {
+        await window.MMAdapter.saveJob(newJob);
+      }
     }
-  }, 1000);
+
+    persist();
+    closeModal("#jobModal");
+    renderAll();
+    
+  } catch (error) {
+    console.error('Failed to save job:', error);
+    fail('Failed to save job to Firebase: ' + error.message);
+  }
+}
 
   }
 })();
