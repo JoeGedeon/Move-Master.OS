@@ -246,16 +246,18 @@
   // ---------------------------
   // State
   // ---------------------------
-  const state = {
-    view: "dashboard",
-    currentDate: startOfDay(new Date()),
-    monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+const state = {
+  view: "dashboard",
+  currentDate: startOfDay(new Date()),
+  monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
 
-    jobs: loadArray(LS.jobs).map(normalizeJob),
-    receipts: loadArray(LS.receipts).map(normalizeReceipt),
+  jobs: [], // Will be loaded from Firebase via bridge
+  receipts: loadArray(LS.receipts).map(normalizeReceipt),
 
-    drivers: loadArray(LS.drivers).map(normalizeDriver),
-    trucks: loadArray(LS.trucks).map((x) => normalizeNamedRow(x, "trk")),
+  drivers: [], // Will be loaded from Firebase via bridge
+  trucks: [], // Will be loaded from Firebase via bridge
+
+   
 
     dispatch: normalizeDispatchState(loadObj(LS.dispatch, {})),
     finance: loadArray(LS.finance),
