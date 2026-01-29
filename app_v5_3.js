@@ -246,18 +246,16 @@
   // ---------------------------
   // State
   // ---------------------------
-const state = {
-  view: "dashboard",
-  currentDate: startOfDay(new Date()),
-  monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  const state = {
+    view: "dashboard",
+    currentDate: startOfDay(new Date()),
+    monthCursor: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
 
-  jobs: [], // Will be loaded from Firebase via bridge
-  receipts: loadArray(LS.receipts).map(normalizeReceipt),
+    jobs: loadArray(LS.jobs).map(normalizeJob),
+    receipts: loadArray(LS.receipts).map(normalizeReceipt),
 
-  drivers: [], // Will be loaded from Firebase via bridge
-  trucks: [], // Will be loaded from Firebase via bridge
-
-   
+    drivers: loadArray(LS.drivers).map(normalizeDriver),
+    trucks: loadArray(LS.trucks).map((x) => normalizeNamedRow(x, "trk")),
 
     dispatch: normalizeDispatchState(loadObj(LS.dispatch, {})),
     finance: loadArray(LS.finance),
@@ -275,20 +273,18 @@ const state = {
     camLastImage: "",
   };
 
-  async function persist() {
-  // Save to localStorage as backup
-  saveArray(LS.jobs, state.jobs);
-  saveArray(LS.receipts, state.receipts);
-  saveArray(LS.drivers, state.drivers);
-  saveArray(LS.trucks, state.trucks);
-  saveObj(LS.dispatch, state.dispatch);
-  saveArray(LS.finance, state.finance);
-  saveArray(LS.inventory, state.inventory);
-  saveArray(LS.scans, state.scans);
-  saveObj(LS.sheets, state.sheets);
-  saveObj(LS.dispatchRef, state.dispatchRef);
-}
-
+  function persist() {
+    saveArray(LS.jobs, state.jobs);
+    saveArray(LS.receipts, state.receipts);
+    saveArray(LS.drivers, state.drivers);
+    saveArray(LS.trucks, state.trucks);
+    saveObj(LS.dispatch, state.dispatch);
+    saveArray(LS.finance, state.finance);
+    saveArray(LS.inventory, state.inventory);
+    saveArray(LS.scans, state.scans);
+    saveObj(LS.sheets, state.sheets);
+    saveObj(LS.dispatchRef, state.dispatchRef);
+  }
 
   // ---------------------------
   // Router
@@ -2361,85 +2357,5 @@ function deleteReceiptFromModal() {
   } else {
     safe(init);
     setPill("JS: LOADED NEW FILE 🔥🔥 v5.3.100", true);
-
-       // ---------------------------
-  // Load data from Firebase via bridge
-  // ---------------------------
-async function saveJobFromModal() {
-  const err = $("#jobError");
-  const fail = (msg) => {
-    if (err) {
-      err.textContent = msg;
-      err.hidden = false;
-    } else {
-      alert(msg);
-    }
-  };
-
-  const date = ($("#jobDate").value || "").trim();
-  const customer = ($("#jobCustomer").value || "").trim();
-  const pickup = ($("#jobPickup").value || "").trim();
-  const dropoff = ($("#jobDropoff").value || "").trim();
-  const amount = clampMoney($("#jobAmount").value ?? 0);
-  const status = ($("#jobStatus").value || STATUS.scheduled).trim();
-  const notes = ($("#jobNotes").value || "").trim();
-
-  if (!date) return fail("Date is required.");
-  if (!customer) return fail("Customer is required.");
-  if (!STATUS[status]) return fail("Invalid status.");
-
-  if (err) {
-    err.hidden = true;
-    err.textContent = "";
-  }
-
-  const jobData = {
-    date,
-    customer,
-    pickup,
-    dropoff,
-    amount,
-    status,
-    notes,
-    updatedAt: Date.now()
-  };
-
-  try {
-    if (state.editingJobId) {
-      // Update existing job
-      const job = state.jobs.find(j => j.id === state.editingJobId);
-      if (!job) return fail("Job not found.");
-      
-      Object.assign(job, jobData);
-      
-      // Save to Firebase
-      if (window.MMAdapter) {
-        await window.MMAdapter.saveJob(job);
-      }
-    } else {
-      // Create new job
-      const newJob = normalizeJob({
-        ...jobData,
-        createdAt: Date.now()
-      });
-      
-      state.jobs.push(newJob);
-      
-      // Save to Firebase
-      if (window.MMAdapter) {
-        await window.MMAdapter.saveJob(newJob);
-      }
-    }
-
-    persist();
-    closeModal("#jobModal");
-    renderAll();
-    
-  } catch (error) {
-    console.error('Failed to save job:', error);
-    fail('Failed to save job to Firebase: ' + error.message);
-  }
-}
-
   }
 })();
