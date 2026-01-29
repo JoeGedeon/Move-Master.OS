@@ -16,7 +16,6 @@
       <div class="brand">
         <div class="brand-title">Move-Master.OS</div>
         <div class="brand-sub">Fleet + Moving CRM</div>
-        
       </div>
 
       <nav class="side-nav">
@@ -225,22 +224,38 @@
     </div>
   </div>
 
- 
-  <!-- App JS -->
-<!-- External libs -->
-<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- External libs -->
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <!-- Firebase SDKs (REQUIRED) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<!-- Firebase bootstrap (NO UI, NO state) -->
-<script src="firebase_gate.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  
+  <!-- Firebase bootstrap (NO UI, NO state) -->
+  <script src="firebase_gate.js"></script>
 
-<!-- Auth listener (NO UI, NO state) -->
-<script src="auth_gate.js"></script>
+  <!-- Auth listener (NO UI, NO state) -->
+  <script src="auth_gate.js"></script>
 
-<!-- Core app (unchanged, working logic) -->
-<script src="app_v5_3.js"></script>
+  <!-- 🆕 NEW: Fleet Flow API + Unified Bridge -->
+  <script type="module">
+    // Load Fleet Flow API
+    import { MoveMastersAPI } from './fleet-flow-api.js';
+    window.MoveMastersAPI = MoveMastersAPI;
+    
+    // Load Unified Bridge
+    import UnifiedBridge from './unified-bridge.js';
+    window.UnifiedBridge = UnifiedBridge;
+    window.MMAdapter = UnifiedBridge.MMAdapter;
+    window.FFAdapter = UnifiedBridge.FFAdapter;
+    
+    console.log('✅ Fleet Flow API + Unified Bridge loaded');
+  </script>
+
+  <!-- Core app (unchanged, working logic) -->
+  <script src="app_v5_3.js"></script>
   
 </body>
 </html>
+
