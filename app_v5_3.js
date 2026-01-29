@@ -275,18 +275,20 @@ const state = {
     camLastImage: "",
   };
 
-  function persist() {
-    saveArray(LS.jobs, state.jobs);
-    saveArray(LS.receipts, state.receipts);
-    saveArray(LS.drivers, state.drivers);
-    saveArray(LS.trucks, state.trucks);
-    saveObj(LS.dispatch, state.dispatch);
-    saveArray(LS.finance, state.finance);
-    saveArray(LS.inventory, state.inventory);
-    saveArray(LS.scans, state.scans);
-    saveObj(LS.sheets, state.sheets);
-    saveObj(LS.dispatchRef, state.dispatchRef);
-  }
+  async function persist() {
+  // Save to localStorage as backup
+  saveArray(LS.jobs, state.jobs);
+  saveArray(LS.receipts, state.receipts);
+  saveArray(LS.drivers, state.drivers);
+  saveArray(LS.trucks, state.trucks);
+  saveObj(LS.dispatch, state.dispatch);
+  saveArray(LS.finance, state.finance);
+  saveArray(LS.inventory, state.inventory);
+  saveArray(LS.scans, state.scans);
+  saveObj(LS.sheets, state.sheets);
+  saveObj(LS.dispatchRef, state.dispatchRef);
+}
+
 
   // ---------------------------
   // Router
