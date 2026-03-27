@@ -354,8 +354,7 @@ body {
 }
 
 .modal {
-  display: flex;
-}
+  position: fixed;
   top: 50%;
   left: 50%;
   width: min(520px, calc(100vw - 24px));
@@ -364,12 +363,11 @@ body {
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(10, 14, 28, 0.92);
   padding: 14px;
-  z-index: 101;
-
-  /* 🔑 ADD THESE */
+  z-index: 1001;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 
