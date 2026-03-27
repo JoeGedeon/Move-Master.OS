@@ -2153,6 +2153,16 @@ function deleteJobFromModal() {
   renderAll();
 }
 
+function populateReceiptDriverDropdown() {
+  const sel = $("#receiptDriverId");
+  if (!sel) return;
+  const current = sel.value;
+  const drivers = (state.drivers || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  sel.innerHTML = '<option value="">(no driver)</option>' +
+    drivers.map(d => `<option value="${d.id}">${d.name || d.id}</option>`).join('');
+  sel.value = current;
+}
+
 // ---------- RECEIPT MODAL ----------
 
 function openReceiptModal(receiptId = null) {
