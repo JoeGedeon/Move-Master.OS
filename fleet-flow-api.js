@@ -1,4 +1,4 @@
-import { createJob, JobStatus } from '../shared/jobSchema';
+import { createJob, JobStatus } from './shared/jobSchema.js';
 
 let JOB_DB = {
   'FLEETFLOW-001': createJob('FLEETFLOW-001')

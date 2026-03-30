@@ -238,19 +238,11 @@
   <!-- Auth listener (NO UI, NO state) -->
   <script src="auth_gate.js"></script>
 
-  <!-- 🆕 NEW: Fleet Flow API + Unified Bridge -->
+  <!-- Fleet Flow API — linked to Move Masters -->
   <script type="module">
-    // Load Fleet Flow API
     import { MoveMastersAPI } from './fleet-flow-api.js';
     window.MoveMastersAPI = MoveMastersAPI;
-    
-    // Load Unified Bridge
-    import UnifiedBridge from './unified-bridge.js';
-    window.UnifiedBridge = UnifiedBridge;
-    window.MMAdapter = UnifiedBridge.MMAdapter;
-    window.FFAdapter = UnifiedBridge.FFAdapter;
-    
-    console.log('✅ Fleet Flow API + Unified Bridge loaded');
+    console.log('✅ Fleet Flow API linked to Move Masters');
   </script>
 
   <!-- Core app (unchanged, working logic) -->
